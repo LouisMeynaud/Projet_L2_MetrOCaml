@@ -1,0 +1,30 @@
+# Dune
+_build/
+*.opam
+
+# OCaml
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+*.cmti
+*.cmt
+*.mli.d
+*.ml.d
+
+# Editors
+.vscode/
+.idea/
+.local/
+*.swp
+*~
+.merlin
+
+# OS
+.DS_Store
+Thumbs.db
