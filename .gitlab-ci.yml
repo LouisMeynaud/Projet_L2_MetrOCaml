@@ -25,7 +25,9 @@ before_script:
 build:
   stage: build
   script:
-    - opam switch create . --deps-only --with-test -y || opam install . ./routing --deps-only --with-test -y
+    - opam repo add ocaml-beta https://opam.ocaml.org/ocaml-beta || true
+    - opam update
+    - opam switch create . --deps-only --with-test -y || opam install . --deps-only --with-test -y
     - eval $(opam env)
     - dune build @all
   cache:
