@@ -1,0 +1,50 @@
+image: ocaml/opam:debian-ocaml-5.4
+
+stages:
+  - build
+  - test
+
+variables:
+  OPAMYES: "1"
+  OPAMJOBS: "2"
+  OPAM_ROOT: "${CI_PROJECT_DIR}/_opam"
+
+before_script:
+  - |
+    if [[ "$RUNNER_PROFILE" == "personal" ]]; then
+      echo "Proxy disabled"
+      unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
+    else
+      echo "Proxy enabled"
+      export HTTP_PROXY="http://194.254.199.96:3128"
+      export HTTPS_PROXY="http://194.254.199.96:3128"
+      export http_proxy="$HTTP_PROXY"
+      export https_proxy="$HTTPS_PROXY"
+    fi
+
+build:
+  stage: build
+  script:
+    - opam switch create . --deps-only --with-test -y || opam install . ./routing --deps-only --with-test -y
+    - eval $(opam env)
+    - dune build @all
+  cache:
+    key: "${CI_PROJECT_ID}-${CI_COMMIT_REF_SLUG}-opam"
+    paths:
+      - _opam/
+  artifacts:
+    paths:
+      - _build/
+    expire_in: 1 day
+
+test:
+  stage: test
+  needs: ["build"]
+  script:
+    - eval $(opam env)
+    - dune runtest
+  cache:
+    key: "${CI_PROJECT_ID}-${CI_COMMIT_REF_SLUG}-opam"
+    policy: pull
+    paths:
+      - _opam/
