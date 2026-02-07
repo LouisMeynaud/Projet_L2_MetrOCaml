@@ -20,6 +20,6 @@ type station = {
 type connection = {
   line : string;
   duration : int;
-  distance : float option;
+  distance : float;
   mode : transport_mode;
 }
