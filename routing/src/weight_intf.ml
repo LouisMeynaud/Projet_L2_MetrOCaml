@@ -1,4 +1,4 @@
-module type weight = sig
+module type WEIGHT = sig
   type t
   (** The weight type (example, int for seconds, float for meters). *)
 
