@@ -1,3 +1,8 @@
+(** Abstract weight interface for routing algorithms.
+  Weight modules are responsible for interpreting edge data and producing
+  routing costs. The routing algorithms operate on these abstract weights.
+*)
+
 module type WEIGHT = sig
   type t
   (** The weight type (example, int for seconds, float for meters). *)

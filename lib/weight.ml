@@ -1,7 +1,7 @@
 open Network
 
 (** Distance-based weight for routing. *)
-module DistanceWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
+module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   type t = float
   type edge = connection
 
