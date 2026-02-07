@@ -1,4 +1,4 @@
-module type weight_intf = sig
+module type weight = sig
   type t
   (** The weight type (example, int for seconds, float for meters). *)
 
@@ -7,6 +7,7 @@ module type weight_intf = sig
 
   val zero : t
   (** The identity element for addition (exemple 0 for time/distance). *)
+
   val infinity : t
   (** Value representing unreachable/infinite cost. *)
 
@@ -15,6 +16,7 @@ module type weight_intf = sig
 
   val add : t -> t -> t
   (** Combine two weights (must handle infinity correctly). *)
+
   val compare : t -> t -> int
   (** Total ordering for priority queue operations.
       Returns negative if first < second, 0 if equal, positive if first > second. *)
