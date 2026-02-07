@@ -1,4 +1,4 @@
 (library
  (name routing)
  (public_name routing)
- (modules graph_intf weight_intf))
+ (modules graph_intf graph weight_intf))
