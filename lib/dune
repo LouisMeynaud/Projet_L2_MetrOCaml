@@ -1,3 +1,5 @@
 (library
  (name metrocaml)
+ (public_name metrocaml)
+ (modules network weight)
  (libraries routing))
