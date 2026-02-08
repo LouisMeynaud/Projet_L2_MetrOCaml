@@ -94,3 +94,39 @@ module HopWeight : Routing.Weight_intf.WEIGHT with type edge = connection = stru
     else if w = 1 then "1 hop"
     else Printf.sprintf "%d hops" w
 end
+
+module TransferWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
+  type t = int * int 
+  type edge = connection
+
+  let zero = (0, 0)
+  let infinity = (max_int, max_int)
+
+  let of_edge (conn : connection) = (1, conn.duration)
+
+  let add (c1, d1) (c2, d2) =
+    if (c1, d1) = infinity || (c2, d2) = infinity then infinity
+    else (c1 + c2, d1 + d2)
+
+  let compare (c1, d1) (c2, d2) =
+    match Int.compare c1 c2 with
+    | 0 -> Int.compare d1 d2
+    | c -> c
+
+  let ( < ) a b = compare a b < 0
+  let ( > ) a b = compare a b > 0
+  let ( = ) a b = compare a b = 0
+
+  let to_string (cost, time) =
+    if Stdlib.(=) (compare (cost, time) infinity) 0 then "∞"
+    else
+      let hours = time / 3600 in
+      let minutes = (time mod 3600) / 60 in
+      let seconds = time mod 60 in
+      let time_str =
+        if Stdlib.(>) hours 0 then Printf.sprintf "%dh%02dm%02ds" hours minutes seconds
+        else if Stdlib.(>) minutes 0 then Printf.sprintf "%dm%02ds" minutes seconds
+        else Printf.sprintf "%ds" seconds
+      in
+      Printf.sprintf "%d stops, %s" cost time_str
+end
