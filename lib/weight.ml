@@ -1,6 +1,8 @@
 open Network
 
-
+(** Time-based weight for transport networks.
+    Extracts duration from connection data and uses it as the routing cost.
+    Optimizes for fastest routes. *)
 module TimeWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
   type t = int
   type edge = connection
@@ -8,6 +10,7 @@ module TimeWeight : Routing.Weight_intf.WEIGHT with type edge = connection = str
   let zero = 0
   let infinity = max_int
 
+  (** Extract duration from connection metadata. *)
   let of_edge (conn : connection) = conn.duration
 
   let add = ( + )
