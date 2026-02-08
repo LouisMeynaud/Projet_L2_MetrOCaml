@@ -62,3 +62,28 @@ module DistanceWeight : Routing.Weight_intf.WEIGHT with type edge = connection =
     else if d >= 1000.0 then Printf.sprintf "%.1f km" (d /. 1000.0)
     else Printf.sprintf "%.0f m" d
 end
+
+module HopWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
+  type t = int
+  type edge = connection
+
+  let zero = 0
+  let infinity = max_int
+
+  let of_edge (_conn : connection) = 1
+
+  let add w1 w2 =
+    if w1 = infinity || w2 = infinity then infinity
+    else w1 + w2
+
+  let compare = Int.compare
+
+  let ( < ) a b = compare a b < 0
+  let ( > ) a b = compare a b > 0
+  let ( = ) a b = compare a b = 0
+
+  let to_string w =
+    if w = infinity then "∞"
+    else if w = 1 then "1 hop"
+    else Printf.sprintf "%d hops" w
+end
