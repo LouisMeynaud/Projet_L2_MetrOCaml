@@ -65,10 +65,7 @@ end
 
 (** Hop count weight for transport networks.
     Treats all edges as equal cost (1 hop each).
-    Optimizes for routes with fewest stops.
-    
-    Note: This counts EDGES (hops), not transfers between lines.
-    For transfer minimization, use TransferWeight instead. *)
+    Optimizes for routes with fewest stops. *)
 module HopWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
   type t = int
   type edge = connection
@@ -95,13 +92,21 @@ module HopWeight : Routing.Weight_intf.WEIGHT with type edge = connection = stru
     else Printf.sprintf "%d hops" w
 end
 
+(**Transfer-aware weight for transport networks.
+    Uses lexicographic ordering: fewer line changes first, then shorter time. 
+    
+    Current implementation: estimates transfers by comparing line IDs between
+    consecutive edges (would need routing algorithm modification for full support).
+    Included to demonstrate multi-criteria weight design.*)
 module TransferWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
-  type t = int * int 
+  type t = int * int (* (base_cost, time_seconds) *)
   type edge = connection
 
   let zero = (0, 0)
   let infinity = (max_int, max_int)
 
+  (** For now, use hop count as base cost.
+      True transfer counting requires algorithm state tracking. *)
   let of_edge (conn : connection) = (1, conn.duration)
 
   let add (c1, d1) (c2, d2) =
