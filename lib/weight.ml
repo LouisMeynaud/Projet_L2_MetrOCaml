@@ -63,6 +63,12 @@ module DistanceWeight : Routing.Weight_intf.WEIGHT with type edge = connection =
     else Printf.sprintf "%.0f m" d
 end
 
+(** Hop count weight for transport networks.
+    Treats all edges as equal cost (1 hop each).
+    Optimizes for routes with fewest stops.
+    
+    Note: This counts EDGES (hops), not transfers between lines.
+    For transfer minimization, use TransferWeight instead. *)
 module HopWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
   type t = int
   type edge = connection
@@ -70,6 +76,7 @@ module HopWeight : Routing.Weight_intf.WEIGHT with type edge = connection = stru
   let zero = 0
   let infinity = max_int
 
+  (** All edges have unit cost—ignore edge data entirely. *)
   let of_edge (_conn : connection) = 1
 
   let add w1 w2 =
