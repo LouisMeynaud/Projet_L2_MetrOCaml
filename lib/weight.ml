@@ -1,5 +1,35 @@
 open Network
 
+
+module TimeWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
+  type t = int
+  type edge = connection
+
+  let zero = 0
+  let infinity = max_int
+
+  let of_edge (conn : connection) = conn.duration
+
+  let add = ( + )
+
+  let compare = Int.compare
+
+  let ( < ) a b = compare a b < 0
+  let ( > ) a b = compare a b > 0
+  let ( = ) a b = compare a b = 0
+
+  let to_string w =
+    if w = infinity then "∞"
+    else
+      let hours = w / 3600 in
+      let minutes = (w mod 3600) / 60 in
+      let seconds = w mod 60 in
+      if hours > 0 then Printf.sprintf "%dh%02dm%02ds" hours minutes seconds
+      else if minutes > 0 then Printf.sprintf "%dm%02ds" minutes seconds
+      else Printf.sprintf "%ds" seconds
+end
+
+
 (** Distance-based weight for routing. *)
 module DistanceWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
   type t = float
