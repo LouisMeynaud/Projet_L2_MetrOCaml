@@ -1,42 +1,17 @@
 image: ocaml/opam:debian-12-opam
 
 stages:
-  - setup
   - build
   - test
 
-setup:
-  stage: setup
+build:
+  stage: build
 
   script:
     - if [ -d _opam ]; then echo "Reusing previous _opam directory, nothing to do."; fi
     - >
       if [ ! -d _opam ]; then
         echo "No _opam directory found, creating opam switch"
-        opam switch create --yes --no-install . 5.3.0
-
-        eval $(opam env)
-        opam update
-        opam install . --deps-only --with-test --with-doc --yes
-      fi
-    
-  cache:
-    key:
-      files:
-        - metrocaml.opam
-    paths:
-      - _opam
-
-build:
-  stage: build
-  dependencies:
-    - setup
-
-  script:
-    - |
-      # Recreate the local switch (safe and idempotent) so this job
-      # can run even when the _opam artifact/cache isn't available.
-      if [ ! -d _opam ]; then
         opam switch create --yes --no-install . 5.3.0
       fi
       eval $(opam env)
