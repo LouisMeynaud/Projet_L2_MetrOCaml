@@ -10,6 +10,9 @@ build:
 
   script:
     - |
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -y
+      apt-get install -y --no-install-recommends pkg-config build-essential m4
       if [ -d _opam ]; then
         echo "Reusing previous _opam directory, nothing to do."
       fi
