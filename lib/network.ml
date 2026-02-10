@@ -2,6 +2,12 @@
     These types are used to build TransportGraph.
     It can be used for any graph-based routing. *)
 
+(** Line information. *)
+type line = {
+  name : string;
+  color : string;
+}
+
 (** Transport mode enumerated type. *)
 type transport_mode =
   | Metro
