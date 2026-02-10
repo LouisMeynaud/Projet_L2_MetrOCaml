@@ -28,7 +28,7 @@ type station = {
 
 (** Connection (edge) information. *)
 type connection = {
-  line : string;
+  line : line;
   duration : int;
   distance : float;
   mode : transport_mode;
