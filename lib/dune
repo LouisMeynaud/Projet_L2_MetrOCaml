@@ -1,5 +1,5 @@
 (library
  (name metrocaml)
  (public_name metrocaml)
- (modules network weight)
- (libraries routing csv yojson))
+ (modules network weight gtfs_adapter)
+ (libraries routing csv yojson unix))
