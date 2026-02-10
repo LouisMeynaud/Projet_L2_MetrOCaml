@@ -17,6 +17,14 @@ type transport_mode =
   | Walk
   | Custom of string
 
+let string_of_mode = function
+  | Metro -> "Metro"
+  | RER -> "RER"
+  | Bus -> "Bus"
+  | Tram -> "Tram"
+  | Walk -> "Walk"
+  | Custom s -> s
+
 (** Station (node) information. *)
 type station = {
   id : string;
@@ -28,7 +36,7 @@ type station = {
 
 (** Connection (edge) information. *)
 type connection = {
-  line : string;
+  line : line;
   duration : int;
   distance : float;
   mode : transport_mode;
