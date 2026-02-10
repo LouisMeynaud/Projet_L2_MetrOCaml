@@ -9,11 +9,16 @@ setup:
   stage: setup
 
   script:
+    - pwd
+    - echo $CI_PROJECT_DIR
+    - ls -la
+    - cat dune-project || true
+    - cat metrocaml.opam || true
     - if [ -d _opam ]; then echo "Reusing previous _opam directory, nothing to do."; fi
     - >
       if [ ! -d _opam ]; then
         echo "No _opam directory found, creating opam switch"
-        opam switch create --yes --no-install . 5.4.0
+        opam switch create --yes --no-install . 5.3.0
 
         eval $(opam env)
         opam update
