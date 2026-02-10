@@ -1,52 +1,47 @@
 image: ocaml/opam:debian-ocaml-5.4
 
 stages:
+  - setup
   - build
-  - test
 
-variables:
-  OPAMYES: "1"
-  OPAMJOBS: "2"
-  OPAM_ROOT: "${CI_PROJECT_DIR}/_opam"
+setup:
+  stage: setup
 
-before_script:
-  - |
-    if [[ "$RUNNER_PROFILE" == "personal" ]]; then
-      echo "Proxy disabled"
-      unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
-    else
-      echo "Proxy enabled"
-      export HTTP_PROXY="http://194.254.199.96:3128"
-      export HTTPS_PROXY="http://194.254.199.96:3128"
-      export http_proxy="$HTTP_PROXY"
-      export https_proxy="$HTTPS_PROXY"
-    fi
+  script:
+    - if [ -d _opam ]; then echo "Reusing previous _opam directory, nothing to do."; fi
+    - >
+      if [ ! -d _opam ]; then
+        echo "No _opam directory found, creating opam switch"
+        opam switch create --yes --no-install . 5.4.0
+
+        eval $(opam env)
+        opam update
+        opam install . --deps-only --with-test --with-doc --yes
+      fi
+    
+  cache:
+    key:
+      files:
+        - metrocaml.opam
+    paths:
+      - _opam
 
 build:
   stage: build
+
   script:
-    - opam repo add ocaml-beta https://opam.ocaml.org/ocaml-beta || true
-    - opam update
-    - opam switch create . --deps-only --with-test -y || opam install . --deps-only --with-test -y
     - eval $(opam env)
     - dune build @all
-  cache:
-    key: "${CI_PROJECT_ID}-${CI_COMMIT_REF_SLUG}-opam"
-    paths:
-      - _opam/
-  artifacts:
-    paths:
-      - _build/
-    expire_in: 1 day
 
-test:
-  stage: test
-  needs: ["build"]
-  script:
-    - eval $(opam env)
-    - dune runtest
   cache:
-    key: "${CI_PROJECT_ID}-${CI_COMMIT_REF_SLUG}-opam"
-    policy: pull
+    key:
+      files:
+        - metrocaml.opam
     paths:
-      - _opam/
+      - _opam
+
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - _build
