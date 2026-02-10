@@ -3,6 +3,7 @@ image: ocaml/opam:debian-12-opam
 stages:
   - build
   - test
+  - release
 
 build:
   stage: build
@@ -63,3 +64,15 @@ test:
         coverage_format: cobertura
         path: _coverage/cobertura-coverage.xml
 
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - VERSION="${CI_COMMIT_TAG#v}"
+    - |
+      release-cli create \
+        --name "Release v${VERSION}" \
+        --tag-name "$CI_COMMIT_TAG" \
+        --description "$(cat CHANGELOG.md)"
