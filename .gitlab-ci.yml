@@ -32,7 +32,7 @@ build:
 
   script:
     - eval $(opam env)
-    - opam exec --dune build @all
+    - opam exec -- dune build @all
 
   cache:
     key:
@@ -55,9 +55,9 @@ test:
   
   script:
     - eval $(opam env)
-    - opam exec --dune test --instrument-with bisect_ppx -f
-    - opam exec --bisect-ppx-report summary
-    - opam exec --bisect-ppx-report cobertura _coverage/cobertura-coverage.xml
+    - opam exec -- dune test --instrument-with bisect_ppx -f
+    - opam exec -- bisect-ppx-report summary
+    - opam exec -- bisect-ppx-report cobertura _coverage/cobertura-coverage.xml
 
   coverage: '/Coverage: \d+\/\d+ \((\d+\.\d+%)\)/'
 
