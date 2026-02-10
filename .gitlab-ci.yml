@@ -26,9 +26,17 @@ setup:
         - metrocaml.opam
     paths:
       - _opam
+  artifacts:
+    name: "$CI_JOB_NAME"
+    when: on_success
+    paths:
+      - _opam
+    expire_in: 1h
 
 build:
   stage: build
+  dependencies:
+    - setup
 
   script:
     - eval $(opam env)
