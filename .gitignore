@@ -28,3 +28,6 @@ _build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Coverage reports
+_coverage/
