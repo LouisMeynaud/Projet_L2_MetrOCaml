@@ -190,4 +190,4 @@ let get_index_opt header field =
       ) (List.tl tr_csv)
     end;
     
-    (graph, stations)
+    graph
