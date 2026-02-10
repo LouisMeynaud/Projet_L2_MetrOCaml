@@ -6,7 +6,7 @@ open Path_intf
 open Graph_intf
 
 
-module Make (Graph : GRAPH) (Weight : Weight_intf.WEIGHT with type edge = GRAPH.Edge.t) : PATH  
+module Make (Graph : GRAPH) (Weight : Weight_intf.WEIGHT with type edge = Graph.Edge.t) : PATH  
   with type node = Graph.Node.t
   and type edge = Graph.Edge.t
   and type weight = Weight.t = struct
