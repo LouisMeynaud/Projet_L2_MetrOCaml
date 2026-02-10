@@ -3,6 +3,7 @@ image: ocaml/opam:debian-ocaml-5.4
 stages:
   - setup
   - build
+  - test
 
 setup:
   stage: setup
@@ -45,3 +46,31 @@ build:
     when: on_success
     paths:
       - _build
+
+test:
+  stage: test
+  
+  dependencies:
+    - build
+  
+  script:
+    - eval $(opam env)
+    - dune test --instrument-with bisect_ppx -f
+    - bisect-ppx-report summary
+    - bisect-ppx-report cobertura _coverage/cobertura-coverage.xml
+
+  coverage: '/Coverage: \d+\/\d+ \((\d+\.\d+%)\)/'
+
+  cache:
+    key:
+      files:
+        - metrocaml.opam
+    paths:
+      - _opam
+
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: _coverage/cobertura-coverage.xml
+
