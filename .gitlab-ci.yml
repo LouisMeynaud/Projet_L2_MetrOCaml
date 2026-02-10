@@ -1,4 +1,4 @@
-image: ocaml/opam:debian-ocaml-5.4
+image: ocaml/opam:debian-12-opam
 
 stages:
   - setup
