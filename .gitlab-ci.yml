@@ -26,12 +26,6 @@ setup:
         - metrocaml.opam
     paths:
       - _opam
-  artifacts:
-    name: "$CI_JOB_NAME"
-    when: on_success
-    paths:
-      - _opam
-    expire_in: 1h
 
 build:
   stage: build
@@ -39,8 +33,16 @@ build:
     - setup
 
   script:
-    - eval $(opam env)
-    - opam exec -- dune build @all
+    - |
+      # Recreate the local switch (safe and idempotent) so this job
+      # can run even when the _opam artifact/cache isn't available.
+      if [ ! -d _opam ]; then
+        opam switch create --yes --no-install . 5.3.0
+      fi
+      eval $(opam env)
+      opam update
+      opam install . --deps-only --with-test --with-doc --yes
+      opam exec -- dune build @all
 
   cache:
     key:
