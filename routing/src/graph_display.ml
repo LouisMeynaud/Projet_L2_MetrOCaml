@@ -50,3 +50,35 @@ let to_screen bornes x y =
 
 let calcule_positions bornes noeuds =
   List.map (fun n -> (n.id, to_screen bornes n.x n.y)) noeuds
+
+
+
+let draw_arete positions arete =
+  let (x1, y1) = cherche arete.source positions (0, 0) in
+  let (x2, y2) = cherche arete.destination positions (0, 0) in
+  Graphics.set_color arete.couleur;
+  Graphics.set_line_width 3;
+  Graphics.moveto x1 y1;
+  Graphics.lineto x2 y2
+
+
+let draw_noeud positions noeud =
+  let (x, y) = cherche noeud.id positions (0, 0) in
+  Graphics.set_color Graphics.black;
+  Graphics.fill_circle x y 10;
+  Graphics.set_color Graphics.white;
+  Graphics.fill_circle x y 7;
+  Graphics.set_color Graphics.black;
+  Graphics.moveto (x + 12) (y - 4);
+  Graphics.draw_string noeud.nom
+
+let run noeuds aretes =
+  let bornes = calcule_bornes noeuds in
+  let positions = calcule_positions bornes noeuds in
+  
+  Graphics.open_graph (" " ^ string_of_int largeur ^ "x" ^ string_of_int hauteur);
+  
+
+  List.iter (draw_arete positions) aretes;
+  List.iter (draw_noeud positions) noeuds;
+  ignore (Graphics.read_key ())
