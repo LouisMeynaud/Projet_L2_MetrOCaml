@@ -1,4 +1,4 @@
-open Routing.Graph_display
+open Graph_display
 open Metrocaml.Network
 
 let color_of_string s =

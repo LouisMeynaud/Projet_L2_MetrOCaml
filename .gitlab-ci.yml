@@ -22,7 +22,7 @@ build:
       eval $(opam env)
       opam update
       opam install . --deps-only --with-test --with-doc --yes
-      opam exec -- dune build @all
+      opam exec -- dune build @runtest
 
   cache:
     key:

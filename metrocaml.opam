@@ -27,7 +27,6 @@ depends: [
   "dune" {>= "3.21"}
   "alcotest" {with-test}
   "bisect_ppx"
-  "graphic"
   "odoc" {with-doc}
 ]
 build: [

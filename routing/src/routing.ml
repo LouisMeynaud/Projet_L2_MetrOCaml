@@ -9,5 +9,3 @@ module type GRAPH = Graph_intf.GRAPH
 module Graph = Graph
 
 module type WEIGHT = Weight_intf.WEIGHT
-
-module Graph_display = Graph_display
