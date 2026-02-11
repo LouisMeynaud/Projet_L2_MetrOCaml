@@ -3,7 +3,7 @@ open Network
 (** Time-based weight for transport networks.
     Extracts duration from connection data and uses it as the routing cost.
     Optimizes for fastest routes. *)
-module TimeWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
+module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   type t = int
   type edge = connection
 
@@ -62,7 +62,7 @@ end
 (** Hop count weight for transport networks.
     Treats all edges as equal cost (1 hop each).
     Optimizes for routes with fewest stops. *)
-module HopWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
+module HopWeight : Routing.WEIGHT with type edge = connection = struct
   type t = int
   type edge = connection
 
@@ -94,7 +94,7 @@ end
     Current implementation: estimates transfers by comparing line IDs between
     consecutive edges (would need routing algorithm modification for full support).
     Included to demonstrate multi-criteria weight design.*)
-module TransferWeight : Routing.Weight_intf.WEIGHT with type edge = connection = struct
+module TransferWeight : Routing.WEIGHT with type edge = connection = struct
   type t = int * int (* (base_cost, time_seconds) *)
   type edge = connection
 
