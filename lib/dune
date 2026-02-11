@@ -1,3 +1,6 @@
 (library
  (name metrocaml)
- (libraries routing))
+ (public_name metrocaml)
+ (libraries routing)
+ (modules network weight)
+ (instrumentation (backend bisect_ppx)))

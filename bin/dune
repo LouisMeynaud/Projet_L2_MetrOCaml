@@ -1,4 +1,4 @@
 (executable
  (public_name metrocaml)
  (name main)
- (libraries metrocaml))
+ (libraries metrocaml gui))
