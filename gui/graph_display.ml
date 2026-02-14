@@ -1,4 +1,3 @@
-
 (* ------------------TYPE ET CONSTANTE------------------- *)
 
 type noeud = { id : string;nom : string;x : float;y :float}
