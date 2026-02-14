@@ -11,6 +11,8 @@ let hauteur = 800
 let marge = 50
 let btn_w = 80
 let btn_h = 30
+let zoom_in_factor = 1.15
+let zoom_out_factor = 1.0 /. 1.15
 
 (*---------------FONCTION UTILITAIRE---------------*)
 
@@ -61,6 +63,19 @@ let calcule_positions bornes noeuds =
   return une liste associative (id,(x_pixel,y_pixel)) *)
 let move positions dx dy =
   List.map (fun (id, (x, y)) -> (id, (x + dx, y + dy))) positions
+
+(* applique un zoom
+   @param positions la liste associative (id,(x_pixel,y_pixel))
+   @param cx centre x du zoom (position souris)
+   @param cy centre y du zoom
+   @param facteur facteur de zoom (>1 = zoom in, <1 = zoom out)
+   return nouvelle liste de positions *)
+let zoom_positions positions cx cy facteur =
+  List.map (fun (id, (x, y)) ->
+    let nx = cx + int_of_float (float (x - cx) *. facteur) in
+    let ny = cy + int_of_float (float (y - cy) *. facteur) in
+    (id, (nx, ny))
+  ) positions
 
 (*---------------FONCTION DE DESSIN----------------*)
 
@@ -165,19 +180,36 @@ let rec drag positions noeuds aretes categories ancien_x ancien_y =
       drag nouvelles_pos noeuds aretes categories mx my
 
 (* boucle principale 
-  attend un clique et decide de quoi faire (clique sur bouton/clique camera)*)
+  attend un clique ou une touche et decide de quoi faire
+  - clic sur bouton -> toggle categorie
+  - clic ailleurs -> drag camera
+  - touche + -> zoom in
+  - touche - -> zoom out *)
 let rec boucle positions noeuds aretes categories =
-  let ev = Graphics.wait_next_event [Graphics.Button_down] in
-  match clic_bouton ev.Graphics.mouse_x ev.Graphics.mouse_y (List.length categories) with
-  | Some i -> 
-      (* Cas 1 : Clic sur un bouton -> on toggle la categorie et on redraw *)
-      let categories = toggle categories i in
-      redraw positions noeuds aretes categories; 
-      boucle positions noeuds aretes categories
-  | None -> 
-      (* Cas 2 : Clic dans le vide -> On lance la fonction drag *)
-      let positions_bis = drag positions noeuds aretes categories ev.Graphics.mouse_x ev.Graphics.mouse_y in
-      boucle positions_bis noeuds aretes categories
+  let ev = Graphics.wait_next_event [Graphics.Button_down; Graphics.Key_pressed] in
+  
+  (* Gestion du zoom clavier *)
+  if ev.Graphics.keypressed then begin
+    let (mx, my) = Graphics.mouse_pos () in
+    let key = ev.Graphics.key in
+    let zoom = if key = '+' ||key = '=' then zoom_in_factor else zoom_out_factor in
+      let positions' = zoom_positions positions mx my zoom in
+      redraw positions' noeuds aretes categories;
+      boucle positions' noeuds aretes categories
+  end
+  else begin
+    (* Gestion des clics *)
+    match clic_bouton ev.Graphics.mouse_x ev.Graphics.mouse_y (List.length categories) with
+    | Some i -> 
+        (* Cas 1 : Clic sur un bouton -> on toggle la categorie et on redraw *)
+        let categories = toggle categories i in
+        redraw positions noeuds aretes categories; 
+        boucle positions noeuds aretes categories
+    | None -> 
+        (* Cas 2 : Clic dans le vide -> On lance la fonction drag *)
+        let positions_bis = drag positions noeuds aretes categories ev.Graphics.mouse_x ev.Graphics.mouse_y in
+        boucle positions_bis noeuds aretes categories
+  end
 (*----------------FONCTIONS PRINCIPALE------------------*)
 
 (*main*)
