@@ -119,7 +119,7 @@ let draw_bouton i (nom, actif) =
 (* fonction de rafraichissement de l'ecran
   1. efface l'ecran
   2. filtre et dessine les aretes visibles
-  3. dessine les noeuds par dessus
+  3. filtre et dessine les noeuds par dessus
   4. dessine les boutons 
   
   @param positions la liste associative (id,(x_pixel,y_pixel));..
@@ -129,9 +129,13 @@ let draw_bouton i (nom, actif) =
 let redraw positions noeuds aretes categories =
   Graphics.set_color Graphics.white;
   Graphics.fill_rect 0 0 largeur hauteur;
-  let visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
-  List.iter (draw_arete positions) visibles;
-  List.iter (draw_noeud positions) noeuds;
+
+  let arrete_visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
+  let noeuds_visibles = List.filter (fun n ->
+    List.exists (fun a -> a.source = n.id || a.destination = n.id) arrete_visibles
+  ) noeuds in
+  List.iter (draw_arete positions) arrete_visibles;
+  List.iter (draw_noeud positions) noeuds_visibles;
   List.iteri draw_bouton categories;
   Graphics.synchronize ()
 
