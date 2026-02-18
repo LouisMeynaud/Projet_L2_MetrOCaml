@@ -29,7 +29,6 @@ let get_index_opt header field =
 let load_network_gtfs directory target_date target_time_seconds =
   Printf.printf "Chargement GTFS (Multi-lignes) depuis %s...\n" directory;
   flush stdout;
-  
   let graph = Network.TransportGraph.create () in
   let valid_services = Hashtbl.create 1000 in
   let load_services name =
@@ -53,8 +52,17 @@ let load_network_gtfs directory target_date target_time_seconds =
 
   List.iter (fun row ->
     let mode = match List.nth row i_rtype with
-      | "0" -> Network.Tram | "1" -> Network.Metro | "2" -> Network.RER 
-      | "3" -> Network.Bus | other -> Network.Custom other in
+      | "0" -> Network.Tram 
+      | "1" -> Network.Metro 
+      | "2" -> Network.RER 
+      | "3" -> Network.Bus 
+      | "4" -> Network.Custom "Ferry"
+      | "5" -> Network.Custom "Tram à câble"
+      | "6" -> Network.Custom "Téléphérique"
+      | "7" -> Network.Custom "Funiculaire"
+      | "11" -> Network.Custom "TrolleyBus"
+      | "12" -> Network.Custom "Monorail"
+      | other -> Network.Custom other in
     let color_str = match i_rcolor_opt with
       | Some i -> (try List.nth row i with _ -> "000000")
       | None -> "000000" in

@@ -1,6 +1,8 @@
 # Dune
 _build/
 *.opam
+_opam/
+_opam/*
 
 # OCaml
 *.annot
@@ -28,3 +30,6 @@ _build/
 # OS
 .DS_Store
 Thumbs.db
+
+#Data
+data/[a-s ]*
