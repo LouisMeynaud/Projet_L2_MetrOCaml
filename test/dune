@@ -1,3 +1,4 @@
 (test
  (name test_metrocaml)
- (libraries metrocaml))
+ (libraries metrocaml alcotest)
+ (instrumentation (backend bisect_ppx)))

@@ -1,3 +1,4 @@
 (library
  (name gui)
- (libraries routing metrocaml))
+ (libraries routing metrocaml graphics)
+ (modules transport_view graph_display))

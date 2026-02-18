@@ -1,8 +1,5 @@
 # Dune
 _build/
-*.opam
-_opam/
-_opam/*
 
 # OCaml
 *.annot
@@ -31,5 +28,11 @@ _opam/*
 .DS_Store
 Thumbs.db
 
+# Local OPAM switch
+_opam/
+
+# Coverage reports
+_coverage/
+
 #Data
-data/[a-s ]*
+data/[a-s]*
