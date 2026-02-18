@@ -1,27 +1,21 @@
-open Metrocaml.Network
+(* bin/main.ml *)
 
-
-let chatelet = { id = "chatelet"; name = "Chatelet"; longitude = 2.347; latitude = 48.858; pmr = true }
-let bastille = { id = "bastille"; name = "Bastille"; longitude = 2.369; latitude = 48.853; pmr = true }
-let gare_lyon = { id = "gare_lyon"; name = "Gare de Lyon"; longitude = 2.373; latitude = 48.844; pmr = true }
-let nation = { id = "nation"; name = "Nation"; longitude = 2.396; latitude = 48.848; pmr = true }
-
-let ligne1 = { name = "1"; color = "FFCD00" }
-let ligne14 = { name = "14"; color = "6ECA97" }
-let rer_a = { name = "A"; color = "E3051C" }
+open Metrocaml
 
 let () =
-  let graph = TransportGraph.create () in
-  
+  let dossier_data = "data/IDFM-gtfs" in
+  let date_cible = "20260419" in 
+  let heure_min = 8 * 3600 in  
 
-  let conn1 = { line = ligne1; duration = 2; distance = 0.5; mode = Metro } in
-  TransportGraph.add_edge graph chatelet bastille conn1;
-  TransportGraph.add_edge graph bastille gare_lyon conn1;
+  print_endline "=== Lancement de MetroCaml ===";
 
-  let conn14 = { line = ligne14; duration = 3; distance = 0.8; mode = Metro } in
-  TransportGraph.add_edge graph chatelet gare_lyon conn14;
-  let conn_rer = { line = rer_a; duration = 4; distance = 1.2; mode = RER } in
-  TransportGraph.add_edge graph chatelet nation conn_rer;
-  TransportGraph.add_edge graph nation gare_lyon conn_rer;
-  
-  Gui.Transport_view.affiche graph
+  try
+    let graphe = Gtfs_adapter.load_network_gtfs dossier_data date_cible heure_min in
+    
+    Printf.printf "Graphe chargé ! Lancement de l'interface graphique...\n";
+    flush stdout;
+    Gui.Transport_view.affiche graphe;
+  with
+  | Failure msg -> Printf.eprintf "ERREUR : %s\n" msg
+  | Sys_error msg -> Printf.eprintf "ERREUR FICHIER : %s\n" msg
+  | e -> Printf.eprintf "ERREUR INCONNUE : %s\n" (Printexc.to_string e)

@@ -33,3 +33,6 @@ _opam/
 
 # Coverage reports
 _coverage/
+
+#Data
+data/[a-s]*
