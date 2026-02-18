@@ -3,7 +3,7 @@
 open Metrocaml
 
 let () =
-  let dossier_data = "data/Toulouse" in
+  let dossier_data = "data/IDFM-gtfs" in
   let date_cible = "20260419" in 
   let heure_min = 8 * 3600 in  
 
