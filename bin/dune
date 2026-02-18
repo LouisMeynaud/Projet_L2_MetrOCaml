@@ -1,5 +1,4 @@
 (executable
  (public_name metrocaml)
  (name main)
- (libraries metrocaml csv unix)
- (modules main gtfs_adapter))
+ (libraries metrocaml gui))
