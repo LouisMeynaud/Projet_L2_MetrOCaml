@@ -174,6 +174,122 @@ module BFS_Tests = struct
 end
 
 (* ========================================================== *)
+(* TESTS: Dijkstra                                            *)
+(* ========================================================== *)
+
+module Dijkstra_Tests = struct
+  module TestNode = struct
+    type t = string
+    let equal = String.equal
+    let hash = Hashtbl.hash
+    let compare = String.compare
+  end
+
+  module TestEdge = struct
+    type t = Metrocaml.Network.connection
+    let compare = compare
+    let default = {
+      Metrocaml.Network.line = { name = ""; color = "" };
+      duration = 0; distance = 0.; mode = Walk
+    }
+  end
+
+  module TestGraph = Routing.Graph.Make(TestNode)(TestEdge)
+
+  module TW = Metrocaml.Weight.TimeWeight
+  module Dijkstra = Routing.Dijkstra.Make(TestGraph)(TW)
+
+  let time_weight_t =
+    Alcotest.testable (fun ppf w -> Fmt.string ppf (TW.to_string w)) TW.(=)
+
+  let conn dur : Metrocaml.Network.connection =
+    { line = { name = "Test"; color = "#000000" };
+      duration = dur; distance = 0.; mode = Metro }
+
+  (* --- Tests --- *)
+
+  let test_simple_path () =
+    let g = TestGraph.create () in
+    TestGraph.add_edge g "A" "B" (conn 60);
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    | Some path ->
+        Alcotest.(check int) "Chemin direct (1 étape)" 1 (List.length path.steps)
+    | None -> Alcotest.fail "Un chemin direct A->B devrait exister"
+
+  let test_no_path () =
+    let g = TestGraph.create () in
+    TestGraph.add_node g "A";
+    TestGraph.add_node g "B";
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    | Some _ -> Alcotest.fail "Aucun chemin ne devrait être trouvé"
+    | None -> ()
+
+  let test_same_node () =
+    let g = TestGraph.create () in
+    TestGraph.add_node g "A";
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"A" with
+    | Some path -> Alcotest.(check int) "Source = destination (0 étape)" 0 (List.length path.steps)
+    | None -> Alcotest.fail "Le chemin A->A devrait exister"
+
+  let test_missing_source () =
+    let g = TestGraph.create () in
+    TestGraph.add_node g "B";
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    | Some _ -> Alcotest.fail "Devrait échouer car A n'existe pas"
+    | None -> ()
+
+  let test_missing_destination () =
+    let g = TestGraph.create () in
+    TestGraph.add_node g "A";
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    | Some _ -> Alcotest.fail "Devrait échouer car B n'existe pas"
+    | None -> ()
+
+  let test_chain () =
+    let g = TestGraph.create () in
+    List.iter (TestGraph.add_node g) ["A"; "B"; "C"; "D"];
+    TestGraph.add_edge g "A" "B" (conn 10);
+    TestGraph.add_edge g "B" "C" (conn 10);
+    TestGraph.add_edge g "C" "D" (conn 10);
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"D" with
+    | Some path -> Alcotest.(check int) "Chaîne A->B->C->D (3 étapes)" 3 (List.length path.steps)
+    | None -> Alcotest.fail "Chemin chaîné non trouvé"
+
+  let test_cycle () =
+    let g = TestGraph.create () in
+    TestGraph.add_edge g "A" "B" (conn 10);
+    TestGraph.add_edge g "B" "A" (conn 10);
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    | Some path -> Alcotest.(check int) "Gère les cycles (1 étape)" 1 (List.length path.steps)
+    | None -> Alcotest.fail "Devrait trouver B même en présence d'un cycle"
+
+  let test_weighted_optimal () =
+    let g = TestGraph.create () in
+    TestGraph.add_edge g "A" "C" (conn 100); (* chemin direct, coûteux *)
+    TestGraph.add_edge g "A" "B" (conn 10);
+    TestGraph.add_edge g "B" "C" (conn 10);  (* chemin indirect, moins coûteux *)
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"C" with
+    | None -> Alcotest.fail "Chemin A->C introuvable"
+    | Some path ->
+        Alcotest.(check int) "Chemin optimal: 2 étapes (via B)" 2 (List.length path.steps);
+        Alcotest.(check time_weight_t) "Poids optimal: 20s"
+          (TW.add (TW.of_edge (conn 10)) (TW.of_edge (conn 10)))
+          path.total_weight
+
+  let test_total_weight () =
+    let g = TestGraph.create () in
+    TestGraph.add_edge g "A" "B" (conn 30);
+    TestGraph.add_edge g "B" "C" (conn 45);
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"C" with
+    | None -> Alcotest.fail "Chemin non trouvé"
+    | Some path ->
+        Alcotest.(check time_weight_t) "Poids total A->B->C = 75s"
+          (TW.add (TW.of_edge (conn 30)) (TW.of_edge (conn 45)))
+          path.total_weight
+
+end
+
+(* ========================================================== *)
 (* MAIN RUNNER                                                *)
 (* ========================================================== *)
 
@@ -198,5 +314,16 @@ let () =
       test_case "Source manquante" `Quick BFS_Tests.test_bfs_missing_source;
       test_case "Chemin long" `Quick BFS_Tests.test_bfs_longer_path;
       test_case "Cycle" `Quick BFS_Tests.test_bfs_cycle;
+    ];
+    "Dijkstra", [
+      test_case "Chemin simple" `Quick Dijkstra_Tests.test_simple_path;
+      test_case "Pas de chemin" `Quick Dijkstra_Tests.test_no_path;
+      test_case "Même nœud" `Quick Dijkstra_Tests.test_same_node;
+      test_case "Source manquante" `Quick Dijkstra_Tests.test_missing_source;
+      test_case "Destination manquante" `Quick Dijkstra_Tests.test_missing_destination;
+      test_case "Chaîne" `Quick Dijkstra_Tests.test_chain;
+      test_case "Cycle" `Quick Dijkstra_Tests.test_cycle;
+      test_case "Chemin optimal pondéré" `Quick Dijkstra_Tests.test_weighted_optimal;
+      test_case "Poids total" `Quick Dijkstra_Tests.test_total_weight;
     ];
   ]
