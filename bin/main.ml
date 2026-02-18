@@ -14,8 +14,6 @@ let () =
     
     Printf.printf "Graphe chargé ! Lancement de l'interface graphique...\n";
     flush stdout;
-    Graphics.open_graph " 20000x10000";
-    Graphics.set_window_title "MetroCaml - Réseau";
     Gui.Transport_view.affiche graphe;
   with
   | Failure msg -> Printf.eprintf "ERREUR : %s\n" msg
