@@ -1,0 +1,26 @@
+(lang dune 3.21)
+
+(name routing)
+(version 0.1.0)
+
+(generate_opam_files true)
+
+(source (uri "https://moule.informatique.u-paris.fr/3lmtb/metrocaml"))
+
+(authors "Baptiste Loriot" "Lorenzo Moscardi" "Léo Denquin" "Louis Meynaud" "Matthys Mona" "Thomas Bruno")
+(maintainers "Baptiste Loriot" "Lorenzo Moscardi" "Léo Denquin" "Louis Meynaud" "Matthys Mona" "Thomas Bruno")
+
+(license MIT)
+
+(documentation https://moule.informatique.u-paris.fr/3lmtb/metrocaml)
+
+(package
+ (name routing)
+ (synopsis "Bibliothèque de routage de graphe.")
+ (description "Flexible et basée sur des foncteurs, supportant des types de graphes, de nœuds et de métriques de routage arbitraires. Inclut les algorithmes de Dijkstra et BFS.")
+ (depends ocaml dune)
+)
+
+; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
+
+
