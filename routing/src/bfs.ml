@@ -17,8 +17,8 @@
         else if G.Node.equal source destination then
           Some { P.steps = []; total_weight = W.zero }
         else
-          let visited = Hashtbl.create 100 in
-          let prev = Hashtbl.create 100 in
+          let visited = Hashtbl.create (List.length (G.nodes graph)) in
+          let prev = Hashtbl.create (List.length (G.nodes graph)) in
           let queue = Queue.create () in
     
           Hashtbl.add visited source ();
