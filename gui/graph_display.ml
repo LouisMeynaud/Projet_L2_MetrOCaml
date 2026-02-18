@@ -79,6 +79,10 @@ let zoom_positions positions cx cy facteur =
 
 (*---------------FONCTION DE DESSIN----------------*)
 
+(* Cache du graphe rendu sous forme d'image.
+   Permet d'éviter de redessiner tous les primitifs lors du déplacement. *)
+let graph_cache : Graphics.image option ref = ref None
+
 (* dessine une arrete (ligne) entre deux position donée
   @param positions la liste associative (id,(x_pixel,y_pixel));..
   @param arete l'arrete à dessiner *)
@@ -116,11 +120,30 @@ let draw_bouton i (nom, actif) =
   Graphics.moveto (x + 10) (y + 8);
   Graphics.draw_string nom
 
-(* fonction de rafraichissement de l'ecran
+(* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
+   Utilisé en interne par redraw.
+  @param positions la liste associative (id,(x_pixel,y_pixel));..
+  @param noeuds la liste des noeuds
+  @param aretes la liste des aretes
+  @param categories la liste des categories (pour filtrer) *)
+let draw_graph positions noeuds aretes categories =
+  let arrete_visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
+  let noeuds_visibles = List.filter (fun n ->
+    List.exists (fun a -> a.source = n.id || a.destination = n.id) arrete_visibles
+  ) noeuds in
+  List.iter (draw_arete positions) arrete_visibles;
+  List.iter (draw_noeud positions) noeuds_visibles
+
+(* Capture l'écran actuel (graphe sans boutons) dans le cache image *)
+let cache_graph () =
+  graph_cache := Some (Graphics.get_image 0 0 largeur hauteur)
+
+(* fonction de rafraichissement complet de l'ecran
   1. efface l'ecran
-  2. filtre et dessine les aretes visibles
-  3. filtre et dessine les noeuds par dessus
-  4. dessine les boutons 
+  2. dessine le graphe (aretes + noeuds)
+  3. met en cache l'image du graphe
+  4. dessine les boutons par dessus
+  5. synchronise l'affichage
   
   @param positions la liste associative (id,(x_pixel,y_pixel));..
   @param noeuds la liste des noeuds
@@ -129,13 +152,24 @@ let draw_bouton i (nom, actif) =
 let redraw positions noeuds aretes categories =
   Graphics.set_color Graphics.white;
   Graphics.fill_rect 0 0 largeur hauteur;
+  draw_graph positions noeuds aretes categories;
+  cache_graph ();
+  List.iteri draw_bouton categories;
+  Graphics.synchronize ()
 
-  let arrete_visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
-  let noeuds_visibles = List.filter (fun n ->
-    List.exists (fun a -> a.source = n.id || a.destination = n.id) arrete_visibles
-  ) noeuds in
-  List.iter (draw_arete positions) arrete_visibles;
-  List.iter (draw_noeud positions) noeuds_visibles;
+(* rafraichissement rapide utilisant l'image en cache.
+   Au lieu de redessiner tous les primitifs, on blit l'image
+   du graphe décalée de (dx, dy) puis on redessine les boutons.
+   Utilisé pendant le déplacement (drag) pour de meilleures performances.
+  @param dx décalage horizontal depuis le début du drag
+  @param dy décalage vertical depuis le début du drag
+  @param categories la liste des categories (pour les boutons) *)
+let redraw_cached dx dy categories =
+  Graphics.set_color Graphics.white;
+  Graphics.fill_rect 0 0 largeur hauteur;
+  (match !graph_cache with
+   | Some img -> Graphics.draw_image img dx dy
+   | None -> ());
   List.iteri draw_bouton categories;
   Graphics.synchronize ()
 
@@ -159,29 +193,37 @@ let toggle categories i =
 
 (* boucle pour gerer le mouvement de la camera
   fonction recusive (tourne tant que l'on ne relace pas le bouton de la sourie)
-  met a jour les positions des noeuds 
+  Utilise l'image en cache pour afficher le graphe décalé (rapide).
+  Les positions ne sont mises à jour qu'une seule fois, à la fin du drag.
   
-  @param positions la liste associative (id,(x_pixel,y_pixel));..
+  @param positions les positions de départ (au début du drag)
   @param noeuds la liste des noeuds
   @param aretes la liste des aretes
   @param categories la liste des categories (pour filtrer)
-  @param ancien_x l'ancienne coordonnée x de la sourie
-  @param ancien_y l'ancienne coordonnée y de la sourie *)
-let rec drag positions noeuds aretes categories ancien_x ancien_y =
-  if not (Graphics.button_down ()) then
-    positions
+  @param debut_x la coordonnée x du début du drag
+  @param debut_y la coordonnée y du début du drag *)
+let rec drag positions noeuds aretes categories debut_x debut_y =
+  if not (Graphics.button_down ()) then begin
+    (* Drag terminé : on calcule le décalage final, on met à jour
+       les positions et on fait un redraw complet pour recacher. *)
+    let (mx, my) = Graphics.mouse_pos () in
+    let dx = mx - debut_x in
+    let dy = my - debut_y in
+    let nouvelles_pos = move positions dx dy in
+    redraw nouvelles_pos noeuds aretes categories;
+    nouvelles_pos
+  end
   else
     let (mx, my) = Graphics.mouse_pos () in
-    let dx = mx - ancien_x in
-    let dy = my - ancien_y in
-    
+    let dx = mx - debut_x in
+    let dy = my - debut_y in
     if dx = 0 && dy = 0 then
-      drag positions noeuds aretes categories ancien_x ancien_y
-    else
-      let nouvelles_pos = move positions dx dy in
-      
-      redraw nouvelles_pos noeuds aretes categories;
-      drag nouvelles_pos noeuds aretes categories mx my
+      drag positions noeuds aretes categories debut_x debut_y
+    else begin
+      (* Pendant le drag : on blit l'image en cache décalée (rapide) *)
+      redraw_cached dx dy categories;
+      drag positions noeuds aretes categories debut_x debut_y
+    end
 
 (* boucle principale 
   attend un clique ou une touche et decide de quoi faire
