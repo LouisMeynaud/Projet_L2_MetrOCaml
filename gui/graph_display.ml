@@ -115,11 +115,15 @@ let distance_carre px py mx my =
   let dy = py -. float my in
   dx *. dx +. dy *. dy
 
-let get_noeud_clique mx my positions =
+let get_noeud_clique mx my positions aretes categories =
+  let arrete_visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
   let (best_id, _) =
     List.fold_left (fun (best, min_d) (id, (px, py)) ->
       let d = distance_carre px py mx my in
-      if d <= 400.0 && d < min_d then (Some id, d) else (best, min_d)
+      if d <= 400.0 && d < min_d && List.exists (fun a -> a.source = id || a.destination = id) arrete_visibles then 
+        (Some id, d) 
+      else 
+        (best, min_d)
     ) (None, max_float) positions
   in
   best_id
@@ -354,7 +358,7 @@ let rec boucle positions noeuds aretes categories source dest show_names on_sear
         redraw positions noeuds aretes categories source dest show_names; 
         boucle positions noeuds aretes categories source dest show_names on_search
     | None -> 
-        match get_noeud_clique mx my positions with
+        match get_noeud_clique mx my positions aretes categories with
         | Some id ->
             let (new_s, new_d) =
               if Some id = source then (None, None)          (*  Re-clic sur Source = On efface tout *)
