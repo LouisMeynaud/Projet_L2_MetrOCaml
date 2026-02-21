@@ -109,6 +109,21 @@ let zoom_positions positions cx cy facteur =
   in
   loop 0
 
+
+let distance_carre px py mx my =
+  let dx = px -. float mx in
+  let dy = py -. float my in
+  dx *. dx +. dy *. dy
+
+let get_noeud_clique mx my positions =
+  let (best_id, _) =
+    List.fold_left (fun (best, min_d) (id, (px, py)) ->
+      let d = distance_carre px py mx my in
+      if d <= 400.0 && d < min_d then (Some id, d) else (best, min_d)
+    ) (None, max_float) positions
+  in
+  best_id
+
 (*---------------FONCTION DE DESSIN----------------*)
 
 (* Cache du graphe rendu sous forme d'image.
@@ -129,11 +144,14 @@ let draw_arete positions arete =
 (* dessine une noeud et son nom à la position donnée
   @param positions la liste associative (id,(x_pixel,y_pixel));..
   @param noeud le noeud à dessiner *)
-let draw_noeud positions noeud =
+let draw_noeud positions source dest noeud =
   let (x, y) = cherche noeud.id positions (0., 0.) in
   let r_ext = 10 in
   let r_int = 7 in
-  Graphics.set_color Graphics.black;
+  
+  if Some noeud.id = source then Graphics.set_color Graphics.green
+  else if Some noeud.id = dest then Graphics.set_color Graphics.red
+  else Graphics.set_color Graphics.black;
   Graphics.fill_circle (int_of_float x) (int_of_float y) r_ext;
   Graphics.set_color Graphics.white;
   Graphics.fill_circle (int_of_float x) (int_of_float y) r_int;
@@ -154,19 +172,28 @@ let draw_bouton i (nom, actif) =
   Graphics.moveto (x + 10) (y + 8);
   Graphics.draw_string (clean_accents nom)
 
+let draw_search_btn () =
+  let x = largeur - 120 and y = hauteur - 45 in
+  Graphics.set_color Graphics.blue; Graphics.fill_rect x y 100 35;
+  Graphics.set_color Graphics.white; Graphics.moveto (x + 15) (y + 12);
+  Graphics.draw_string "CHERCHER"
+
+let is_search_clicked mx my =
+  mx >= largeur - 120 && mx <= largeur - 20 && my >= hauteur - 45 && my <= hauteur - 10
+
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
    Utilisé en interne par redraw.
   @param positions la liste associative (id,(x_pixel,y_pixel));..
   @param noeuds la liste des noeuds
   @param aretes la liste des aretes
   @param categories la liste des categories (pour filtrer) *)
-let draw_graph positions noeuds aretes categories =
+let draw_graph positions noeuds aretes categories source dest =
   let arrete_visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
   let noeuds_visibles = List.filter (fun n ->
     List.exists (fun a -> a.source = n.id || a.destination = n.id) arrete_visibles
   ) noeuds in
   List.iter (draw_arete positions) arrete_visibles;
-  List.iter (draw_noeud positions) noeuds_visibles
+  List.iter (draw_noeud positions source dest) noeuds_visibles
 
 (* Capture l'écran actuel (graphe sans boutons) dans le cache image *)
 let cache_graph () =
@@ -183,12 +210,13 @@ let cache_graph () =
   @param noeuds la liste des noeuds
   @param aretes la liste des aretes
   @param categories la liste des categories (pour filtrer)*)
-let redraw positions noeuds aretes categories =
+let redraw positions noeuds aretes categories source dest =
   Graphics.set_color Graphics.white;
   Graphics.fill_rect 0 0 largeur hauteur;
-  draw_graph positions noeuds aretes categories;
+  draw_graph positions noeuds aretes categories source dest;
   cache_graph ();
   List.iteri draw_bouton categories;
+  draw_search_btn ();
   Graphics.synchronize ()
 
 (* rafraichissement rapide utilisant l'image en cache.
@@ -205,6 +233,7 @@ let redraw_cached dx dy categories =
    | Some img -> Graphics.draw_image img dx dy
    | None -> ());
   List.iteri draw_bouton categories;
+  draw_search_btn ();
   Graphics.synchronize ()
 
 (*---------------FOCNTION INTERACTION----------------*)
@@ -236,7 +265,7 @@ let toggle categories i =
   @param categories la liste des categories (pour filtrer)
   @param debut_x la coordonnée x du début du drag
   @param debut_y la coordonnée y du début du drag *)
-let rec drag positions noeuds aretes categories debut_x debut_y =
+let rec drag positions noeuds aretes categories source dest debut_x debut_y =
   if not (Graphics.button_down ()) then begin
     (* Drag terminé : on calcule le décalage final, on met à jour
        les positions et on fait un redraw complet pour recacher. *)
@@ -244,7 +273,7 @@ let rec drag positions noeuds aretes categories debut_x debut_y =
     let dx = mx - debut_x in
     let dy = my - debut_y in
     let nouvelles_pos = move positions dx dy in
-    redraw nouvelles_pos noeuds aretes categories;
+    redraw nouvelles_pos noeuds aretes categories source dest;
     nouvelles_pos
   end
   else
@@ -252,11 +281,11 @@ let rec drag positions noeuds aretes categories debut_x debut_y =
     let dx = mx - debut_x in
     let dy = my - debut_y in
     if dx = 0 && dy = 0 then
-      drag positions noeuds aretes categories debut_x debut_y
+      drag positions noeuds aretes categories source dest debut_x debut_y
     else begin
       (* Pendant le drag : on blit l'image en cache décalée (rapide) *)
       redraw_cached dx dy categories;
-      drag positions noeuds aretes categories debut_x debut_y
+      drag positions noeuds aretes categories source dest debut_x debut_y
     end
 
 (* boucle principale 
@@ -265,7 +294,7 @@ let rec drag positions noeuds aretes categories debut_x debut_y =
   - clic ailleurs -> drag camera
   - touche + -> zoom in
   - touche - -> zoom out *)
-let rec boucle positions noeuds aretes categories =
+let rec boucle positions noeuds aretes categories source dest on_search =
   let ev = Graphics.wait_next_event [Graphics.Button_down; Graphics.Key_pressed] in
   
   (* Gestion du zoom clavier *)
@@ -274,31 +303,53 @@ let rec boucle positions noeuds aretes categories =
     let key = ev.Graphics.key in
     let zoom = if key = '+' ||key = '=' then zoom_in_factor else zoom_out_factor in
       let positions' = zoom_positions positions mx my zoom in
-      redraw positions' noeuds aretes categories;
-      boucle positions' noeuds aretes categories
+      redraw positions' noeuds aretes categories source dest;
+      boucle positions' noeuds aretes categories source dest on_search
   end
   else begin
     (* Gestion des clics *)
-    match clic_bouton ev.Graphics.mouse_x ev.Graphics.mouse_y (List.length categories) with
+    let mx = ev.Graphics.mouse_x in
+    let my = ev.Graphics.mouse_y in
+    
+    if is_search_clicked mx my then begin
+      (match source, dest with
+       | Some s, Some d -> on_search s d
+       | _ -> print_endline "Sélectionnez d'abord une source et une destination !");
+      boucle positions noeuds aretes categories source dest on_search
+    end else
+    
+    match clic_bouton mx my (List.length categories) with
     | Some i -> 
-        (* Cas 1 : Clic sur un bouton -> on toggle la categorie et on redraw *)
         let categories = toggle categories i in
-        redraw positions noeuds aretes categories; 
-        boucle positions noeuds aretes categories
+        redraw positions noeuds aretes categories source dest; 
+        boucle positions noeuds aretes categories source dest on_search
     | None -> 
-        (* Cas 2 : Clic dans le vide -> On lance la fonction drag *)
-        let positions_bis = drag positions noeuds aretes categories ev.Graphics.mouse_x ev.Graphics.mouse_y in
-        boucle positions_bis noeuds aretes categories
+        match get_noeud_clique mx my positions with
+        | Some id ->
+            (* MODIFICATION : Logique de sélection propre et sans bug *)
+            let (new_s, new_d) =
+              if Some id = source then (None, None)          (*  Re-clic sur Source = On efface tout *)
+              else if Some id = dest then (source, None)     (*  Re-clic sur Dest = On efface juste la Dest *)
+              else if source = None then (Some id, None)     (*  Rien n'est coché = Devient la Source (Vert) *)
+              else if dest = None then (source, Some id)     (*  Source déjà là = Devient la Dest (Rouge) *)
+              else (Some id, None)                           (*  Les deux sont là = On recommence avec une nouvelle Source *)
+            in
+            redraw positions noeuds aretes categories new_s new_d;
+            boucle positions noeuds aretes categories new_s new_d on_search
+        | None ->
+            (* Cas 2 : Clic dans le vide -> On lance la fonction drag *)
+            let positions_bis = drag positions noeuds aretes categories source dest mx my in
+            boucle positions_bis noeuds aretes categories source dest on_search
   end
 (*----------------FONCTIONS PRINCIPALE------------------*)
 
 (*main*)
-let run noeuds aretes =
+let run noeuds aretes on_search =
   let bornes = calcule_bornes noeuds in
   let positions = calcule_positions bornes noeuds in
   let cats = List.map (fun a -> a.categorie) aretes in
   let categories = List.map (fun c -> (c, true)) (List.sort_uniq String.compare cats) in
   Graphics.open_graph (" " ^ string_of_int largeur ^ "x" ^ string_of_int hauteur);
   Graphics.auto_synchronize false;
-  redraw positions noeuds aretes categories;
-  boucle positions noeuds aretes categories
+  redraw positions noeuds aretes categories None None;
+  boucle positions noeuds aretes categories None None on_search
