@@ -5,7 +5,7 @@ type noeud = { id : string;nom : string;x : float;y :float}
 
 type arete = { source : string;destination : string;couleur : int;categorie : string;groupe : string}
 
-type donnees_affichage = {noeuds : noeud list;aretes : arete list;positions : (string * (int * int)) list;categories : (string * bool) list;bornes : float * float * float * float;}
+type donnees_affichage = {noeuds : noeud list;aretes : arete list;positions : (string * (float * float)) list;categories : (string * bool) list;bornes : float * float * float * float;}
 let largeur = 1200
 let hauteur = 800
 let marge = 50
@@ -46,8 +46,8 @@ let to_screen bornes x y =
   let echelle = min 
     (float (largeur - 2*marge) /. (max_x -. min_x)) 
     (float (hauteur - 2*marge) /. (max_y -. min_y)) in
-  (marge + int_of_float ((x -. min_x) *. echelle),
-   marge + int_of_float ((y -. min_y) *. echelle))
+  (float marge +. (x -. min_x) *. echelle,
+   float marge +. (y -. min_y) *. echelle)
 
 (*calcule les position initiales pour tout les noeud
   return une linste associative (id,(x_pixel,y_pixel));..
@@ -62,7 +62,7 @@ let calcule_positions bornes noeuds =
   @param dy le deplacement en
   return une liste associative (id,(x_pixel,y_pixel)) *)
 let move positions dx dy =
-  List.map (fun (id, (x, y)) -> (id, (x + dx, y + dy))) positions
+  List.map (fun (id, (x, y)) -> (id, (x +. float dx, y +. float dy))) positions
 
 (* applique un zoom
    @param positions la liste associative (id,(x_pixel,y_pixel))
@@ -72,12 +72,13 @@ let move positions dx dy =
    return nouvelle liste de positions *)
 let zoom_positions positions cx cy facteur =
   List.map (fun (id, (x, y)) ->
-    let nx = cx + int_of_float (float (x - cx) *. facteur) in
-    let ny = cy + int_of_float (float (y - cy) *. facteur) in
+    let nx = (float cx) +. (x -. (float cx)) *. facteur in
+    let ny = (float cy) +. (y -. (float cy)) *. facteur in
     (id, (nx, ny))
   ) positions
 
 
+  (*corrige les strings afin de retirer les accents non reconnue par Graphics*)
   let clean_accents s =
   let b = Buffer.create (String.length s) in
   let rec loop i =
@@ -118,24 +119,26 @@ let graph_cache : Graphics.image option ref = ref None
   @param positions la liste associative (id,(x_pixel,y_pixel));..
   @param arete l'arrete à dessiner *)
 let draw_arete positions arete =
-  let (x1, y1) = cherche arete.source positions (0, 0) in
-  let (x2, y2) = cherche arete.destination positions (0, 0) in
+  let (x1, y1) = cherche arete.source positions (0., 0.) in
+  let (x2, y2) = cherche arete.destination positions (0., 0.) in
   Graphics.set_color arete.couleur;
   Graphics.set_line_width 3;
-  Graphics.moveto x1 y1;
-  Graphics.lineto x2 y2
+  Graphics.moveto (int_of_float x1) (int_of_float y1);
+  Graphics.lineto (int_of_float x2) (int_of_float y2)
 
 (* dessine une noeud et son nom à la position donnée
   @param positions la liste associative (id,(x_pixel,y_pixel));..
   @param noeud le noeud à dessiner *)
 let draw_noeud positions noeud =
-  let (x, y) = cherche noeud.id positions (0, 0) in
+  let (x, y) = cherche noeud.id positions (0., 0.) in
+  let r_ext = 10 in
+  let r_int = 7 in
   Graphics.set_color Graphics.black;
-  Graphics.fill_circle x y 10;
+  Graphics.fill_circle (int_of_float x) (int_of_float y) r_ext;
   Graphics.set_color Graphics.white;
-  Graphics.fill_circle x y 7;
+  Graphics.fill_circle (int_of_float x) (int_of_float y) r_int;
   Graphics.set_color Graphics.black;
-  Graphics.moveto (x + 12) (y - 4);
+  Graphics.moveto (int_of_float x + 12) (int_of_float y - 4);
   Graphics.draw_string (clean_accents noeud.nom)
 
 (* dessine un bouton pour une categorie(vert si actif gris sinon)
