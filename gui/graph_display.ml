@@ -117,12 +117,18 @@ let distance_carre px py mx my =
 
 let get_noeud_clique mx my positions aretes categories =
   let arrete_visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
+  let noeuds_actifs = Hashtbl.create 5000 in
+  List.iter (fun a -> 
+    Hashtbl.replace noeuds_actifs a.source true;
+    Hashtbl.replace noeuds_actifs a.destination true
+  ) arrete_visibles;
+  
   let (best_id, _) =
     List.fold_left (fun (best, min_d) (id, (px, py)) ->
       let d = distance_carre px py mx my in
-      if d <= 400.0 && d < min_d && List.exists (fun a -> a.source = id || a.destination = id) arrete_visibles then 
+      if d <= 400.0 && d < min_d && Hashtbl.mem noeuds_actifs id then 
         (Some id, d) 
-      else 
+      else
         (best, min_d)
     ) (None, max_float) positions
   in
@@ -217,9 +223,15 @@ let is_names_clicked mx my =
   @param categories la liste des categories (pour filtrer) *)
 let draw_graph positions noeuds aretes categories source dest show_names =
   let arrete_visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
-  let noeuds_visibles = List.filter (fun n ->
-    List.exists (fun a -> a.source = n.id || a.destination = n.id) arrete_visibles
-  ) noeuds in
+  
+  let noeuds_actifs = Hashtbl.create 15000 in
+  List.iter (fun a -> 
+    Hashtbl.replace noeuds_actifs a.source true;
+    Hashtbl.replace noeuds_actifs a.destination true
+  ) arrete_visibles;
+
+  let noeuds_visibles = List.filter (fun n -> Hashtbl.mem noeuds_actifs n.id) noeuds in
+
   List.iter (draw_arete positions) arrete_visibles;
   List.iter (draw_noeud positions source dest show_names) noeuds_visibles
 
