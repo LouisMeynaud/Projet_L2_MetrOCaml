@@ -77,6 +77,37 @@ let zoom_positions positions cx cy facteur =
     (id, (nx, ny))
   ) positions
 
+
+  let clean_accents s =
+  let b = Buffer.create (String.length s) in
+  let rec loop i =
+    if i >= String.length s then Buffer.contents b
+    else match s.[i] with
+      | '\xC3' when i + 1 < String.length s ->
+          let next = s.[i+1] in
+          let c = match next with
+            | '\xA0' | '\xA2' | '\xA4' -> 'a' (* à, â, ä *)
+            | '\x80' | '\x82' | '\x84' -> 'A' (* À, Â, Ä *)
+            | '\xA7' -> 'c' (* ç *)
+            | '\x87' -> 'C' (* Ç *)
+            | '\xA8' | '\xA9' | '\xAA' | '\xAB' -> 'e' (* è, é, ê, ë *)
+            | '\x88' | '\x89' | '\x8A' | '\x8B' -> 'E' (* È, É, Ê, Ë *)
+            | '\xAE' | '\xAF' -> 'i' (* î, ï *)
+            | '\x8E' | '\x8F' -> 'I' (* Î, Ï *)
+            | '\xB4' | '\xB6' -> 'o' (* ô, ö *)
+            | '\x94' | '\x96' -> 'O' (* Ô, Ö *)
+            | '\xB9' | '\xBB' | '\xBC' -> 'u' (* ù, û, ü *)
+            | '\x99' | '\x9B' | '\x9C' -> 'U' (* Ù, Û, Ü *)
+            | _ -> '?'
+          in
+          Buffer.add_char b c;
+          loop (i + 2)
+      | c -> 
+          Buffer.add_char b c;
+          loop (i + 1)
+  in
+  loop 0
+
 (*---------------FONCTION DE DESSIN----------------*)
 
 (* Cache du graphe rendu sous forme d'image.
@@ -105,7 +136,7 @@ let draw_noeud positions noeud =
   Graphics.fill_circle x y 7;
   Graphics.set_color Graphics.black;
   Graphics.moveto (x + 12) (y - 4);
-  Graphics.draw_string noeud.nom
+  Graphics.draw_string (clean_accents noeud.nom)
 
 (* dessine un bouton pour une categorie(vert si actif gris sinon)
   @param i l'index du bouton
@@ -118,7 +149,7 @@ let draw_bouton i (nom, actif) =
   Graphics.set_color Graphics.black;
   Graphics.draw_rect x y btn_w btn_h;
   Graphics.moveto (x + 10) (y + 8);
-  Graphics.draw_string nom
+  Graphics.draw_string (clean_accents nom)
 
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
    Utilisé en interne par redraw.
