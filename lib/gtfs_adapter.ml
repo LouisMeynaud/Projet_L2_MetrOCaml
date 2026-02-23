@@ -27,7 +27,7 @@ let get_index_opt header field =
 (* --- 2. Chargement --- *)
 
 let load_network_gtfs directory target_date target_time_seconds =
-  Printf.printf "Chargement GTFS (Multi-lignes) depuis %s...\n" directory;
+  Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
   let valid_services = Hashtbl.create 1000 in
@@ -86,28 +86,54 @@ let load_network_gtfs directory target_date target_time_seconds =
       Hashtbl.add valid_trips (List.nth row i_tid) info 
   ) (List.tl t_csv);
 
-  (* D. Stops *)
-  let stations = Hashtbl.create 5000 in
+  (* D. Stops (FUSION DES AREAS) *)
+  let stop_to_area = Hashtbl.create 5000 in (* Pour rediriger les sous-stations vers leur Area *)
+  let area_nodes = Hashtbl.create 1000 in   (* Pour stocker uniquement les grosses stations *)
+  
   let s_csv = Csv.load (Filename.concat directory "stops.txt") in
   let s_header = List.hd s_csv in
   let i_sid = get_index s_header "stop_id" in
   let i_sname = get_index s_header "stop_name" in
   let i_lat = get_index s_header "stop_lat" in
   let i_lon = get_index s_header "stop_lon" in
+  let i_parent_opt = get_index_opt s_header "parent_station" in
   
   List.iter (fun row ->
-    let id = List.nth row i_sid in
+    let raw_id = List.nth row i_sid in
+    
+    (* On cherche si cet arrêt a une Area parent *)
+    let parent_id = match i_parent_opt with
+      | Some idx -> 
+          let p = try String.trim (List.nth row idx) with _ -> "" in
+          if p = "" then raw_id else p (* Si pas de parent, il est son propre parent *)
+      | None -> raw_id
+    in
+    
+    (* On dit à l'algo : "Si tu vois raw_id, remplace-le par parent_id" *)
+    Hashtbl.replace stop_to_area raw_id parent_id;
+
+    (* On crée la station avec l'ID de l'Area *)
     let station = {
-      Network.id = id; name = List.nth row i_sname; 
+      Network.id = parent_id; 
+      name = List.nth row i_sname; 
       latitude = float_of_string (List.nth row i_lat);
       longitude = float_of_string (List.nth row i_lon);
       pmr = false 
     } in
-    Hashtbl.replace stations id station;
-    Network.TransportGraph.add_node graph station
+
+    (* On ne l'ajoute à nos Area que si elle n'y est pas déjà.
+       Si c'est le "vrai" parent (raw_id = parent_id), on écrase pour avoir ses vraies coordonnées *)
+    if raw_id = parent_id then
+      Hashtbl.replace area_nodes parent_id station
+    else if not (Hashtbl.mem area_nodes parent_id) then
+      Hashtbl.add area_nodes parent_id station
+
   ) (List.tl s_csv);
 
-  (* E. Stop Times*)
+  (* On ajoute uniquement les "Areas" (les stations fusionnées) au graphe final *)
+  Hashtbl.iter (fun _ st -> Network.TransportGraph.add_node graph st) area_nodes;
+
+  (* E. Stop Times *)
   let st_ic = open_in (Filename.concat directory "stop_times.txt") in
   let st_csv = Csv.of_channel st_ic in
   let st_header = Csv.next st_csv in
@@ -118,32 +144,40 @@ let load_network_gtfs directory target_date target_time_seconds =
   
   let last_trip_state = ref None in 
   let existing_edges = Hashtbl.create 10000 in
+  
   Csv.iter ~f:(fun row ->
     let tid = List.nth row i_st_trip in
     if Hashtbl.mem valid_trips tid then begin
-      let stop_id = List.nth row i_st_id in
+      let raw_stop_id = List.nth row i_st_id in
+      
+      (* ---> MAGIE ICI : On remplace le quai par sa grosse Area <--- *)
+      let area_id = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
+
       let arr_time = time_to_seconds (List.nth row i_st_arr) in
       let dep_time = time_to_seconds (List.nth row i_st_dep) in
       let (line_obj, m) = Hashtbl.find valid_trips tid in
 
       match !last_trip_state with
-      | Some (prev_tid, prev_stop, prev_dep) when prev_tid = tid ->
-          (match (Hashtbl.find_opt stations prev_stop, Hashtbl.find_opt stations stop_id) with
-          | (Some f, Some t) when f.id <> t.id ->
-              let key = (f.id, t.id, line_obj.name) in
-              if not (Hashtbl.mem existing_edges key) then begin
-                Network.TransportGraph.add_edge graph f t { 
-                  Network.line = line_obj;
-                  Network.duration = max (arr_time - prev_dep) 0; 
-                  Network.distance = 0.; 
-                  Network.mode = m 
-                };
-                Hashtbl.add existing_edges key true
-              end
-          | _ -> ());
-          last_trip_state := Some (tid, stop_id, dep_time)
+      | Some (prev_tid, prev_area, prev_dep) when prev_tid = tid ->
+          (* On ne crée le trait QUE si le bus se déplace d'une Area à une autre Area différente *)
+          if prev_area <> area_id then begin
+            match (Hashtbl.find_opt area_nodes prev_area, Hashtbl.find_opt area_nodes area_id) with
+            | (Some f, Some t) ->
+                let key = (f.id, t.id, line_obj.name) in
+                if not (Hashtbl.mem existing_edges key) then begin
+                  Network.TransportGraph.add_edge graph f t { 
+                    Network.line = line_obj;
+                    Network.duration = max (arr_time - prev_dep) 0; 
+                    Network.distance = 0.; 
+                    Network.mode = m 
+                  };
+                  Hashtbl.add existing_edges key true
+                end
+            | _ -> ()
+          end;
+          last_trip_state := Some (tid, area_id, dep_time)
       | _ ->
-          last_trip_state := Some (tid, stop_id, dep_time)
+          last_trip_state := Some (tid, area_id, dep_time)
     end
   ) st_csv;
   
