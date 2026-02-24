@@ -1,9 +1,24 @@
 image: ocaml/opam:debian-12-opam
 
 stages:
+  - lint 
   - build
   - test
   - release
+
+lint:
+  stage: lint
+  script:
+    - |
+      if [ ! -d _opam ]; then
+        opam switch create --yes --no-install . 5.3.0
+      fi
+
+      eval $(opam env)
+      opam update
+      opam install ocamlformat --yes
+
+      opam exec -- dune build @fmt
 
 build:
   stage: build
