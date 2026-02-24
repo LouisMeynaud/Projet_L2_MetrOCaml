@@ -1,11 +1,23 @@
 (* ------------------TYPE ET CONSTANTE------------------- *)
 
-type noeud = { id : string;nom : string;x : float;y :float}
+type noeud = { id : string; nom : string; x : float; y : float }
 
+type arete = {
+  source : string;
+  destination : string;
+  couleur : int;
+  categorie : string;
+  groupe : string;
+}
 
-type arete = { source : string;destination : string;couleur : int;categorie : string;groupe : string}
+type donnees_affichage = {
+  noeuds : noeud list;
+  aretes : arete list;
+  positions : (string * (int * int)) list;
+  categories : (string * bool) list;
+  bornes : float * float * float * float;
+}
 
-type donnees_affichage = {noeuds : noeud list;aretes : arete list;positions : (string * (int * int)) list;categories : (string * bool) list;bornes : float * float * float * float;}
 let largeur = 1200
 let hauteur = 800
 let marge = 50
@@ -21,9 +33,7 @@ let zoom_out_factor = 1.0 /. 1.15
   @param liste la liste associative
   @param defaut la valeur par défaut si la clé n'est pas trouvée *)
 let cherche cle liste defaut =
-  match List.assoc_opt cle liste with
-  | Some valeur -> valeur
-  | None -> defaut
+  match List.assoc_opt cle liste with Some valeur -> valeur | None -> defaut
 
 (* Calcule les borne min/max de l'ensemble des noeuds 
   @param noeuds la liste des noeuds 
@@ -31,10 +41,10 @@ let cherche cle liste defaut =
 let calcule_bornes noeuds =
   let xs = List.map (fun n -> n.x) noeuds in
   let ys = List.map (fun n -> n.y) noeuds in
-  (List.fold_left min max_float xs, 
-   List.fold_left max min_float xs,
-   List.fold_left min max_float ys, 
-   List.fold_left max min_float ys)
+  ( List.fold_left min max_float xs,
+    List.fold_left max min_float xs,
+    List.fold_left min max_float ys,
+    List.fold_left max min_float ys )
 
 (* convertit une coordonnée reel en coordonée écran
 (applique une mise a l'echele pour que tout rentre dans l'ecran)
@@ -42,12 +52,14 @@ let calcule_bornes noeuds =
 @param x la coordonnée x réelle
 @param y la coordonnée y réelle *)
 let to_screen bornes x y =
-  let (min_x, max_x, min_y, max_y) = bornes in
-  let echelle = min 
-    (float (largeur - 2*marge) /. (max_x -. min_x)) 
-    (float (hauteur - 2*marge) /. (max_y -. min_y)) in
-  (marge + int_of_float ((x -. min_x) *. echelle),
-   marge + int_of_float ((y -. min_y) *. echelle))
+  let min_x, max_x, min_y, max_y = bornes in
+  let echelle =
+    min
+      (float (largeur - (2 * marge)) /. (max_x -. min_x))
+      (float (hauteur - (2 * marge)) /. (max_y -. min_y))
+  in
+  ( marge + int_of_float ((x -. min_x) *. echelle),
+    marge + int_of_float ((y -. min_y) *. echelle) )
 
 (*calcule les position initiales pour tout les noeud
   return une linste associative (id,(x_pixel,y_pixel));..
@@ -71,11 +83,12 @@ let move positions dx dy =
    @param facteur facteur de zoom (>1 = zoom in, <1 = zoom out)
    return nouvelle liste de positions *)
 let zoom_positions positions cx cy facteur =
-  List.map (fun (id, (x, y)) ->
-    let nx = cx + int_of_float (float (x - cx) *. facteur) in
-    let ny = cy + int_of_float (float (y - cy) *. facteur) in
-    (id, (nx, ny))
-  ) positions
+  List.map
+    (fun (id, (x, y)) ->
+      let nx = cx + int_of_float (float (x - cx) *. facteur) in
+      let ny = cy + int_of_float (float (y - cy) *. facteur) in
+      (id, (nx, ny)))
+    positions
 
 (*---------------FONCTION DE DESSIN----------------*)
 
@@ -87,8 +100,8 @@ let graph_cache : Graphics.image option ref = ref None
   @param positions la liste associative (id,(x_pixel,y_pixel));..
   @param arete l'arrete à dessiner *)
 let draw_arete positions arete =
-  let (x1, y1) = cherche arete.source positions (0, 0) in
-  let (x2, y2) = cherche arete.destination positions (0, 0) in
+  let x1, y1 = cherche arete.source positions (0, 0) in
+  let x2, y2 = cherche arete.destination positions (0, 0) in
   Graphics.set_color arete.couleur;
   Graphics.set_line_width 3;
   Graphics.moveto x1 y1;
@@ -98,7 +111,7 @@ let draw_arete positions arete =
   @param positions la liste associative (id,(x_pixel,y_pixel));..
   @param noeud le noeud à dessiner *)
 let draw_noeud positions noeud =
-  let (x, y) = cherche noeud.id positions (0, 0) in
+  let x, y = cherche noeud.id positions (0, 0) in
   Graphics.set_color Graphics.black;
   Graphics.fill_circle x y 10;
   Graphics.set_color Graphics.white;
@@ -111,7 +124,7 @@ let draw_noeud positions noeud =
   @param i l'index du bouton
   @param (nom, actif) le nom et l'état du bouton *)
 let draw_bouton i (nom, actif) =
-  let x = 10 + i * (btn_w + 10) in
+  let x = 10 + (i * (btn_w + 10)) in
   let y = hauteur - btn_h - 10 in
   Graphics.set_color (if actif then 0x4CAF50 else 0xCCCCCC);
   Graphics.fill_rect x y btn_w btn_h;
@@ -127,10 +140,17 @@ let draw_bouton i (nom, actif) =
   @param aretes la liste des aretes
   @param categories la liste des categories (pour filtrer) *)
 let draw_graph positions noeuds aretes categories =
-  let arrete_visibles = List.filter (fun a -> cherche a.categorie categories true) aretes in
-  let noeuds_visibles = List.filter (fun n ->
-    List.exists (fun a -> a.source = n.id || a.destination = n.id) arrete_visibles
-  ) noeuds in
+  let arrete_visibles =
+    List.filter (fun a -> cherche a.categorie categories true) aretes
+  in
+  let noeuds_visibles =
+    List.filter
+      (fun n ->
+        List.exists
+          (fun a -> a.source = n.id || a.destination = n.id)
+          arrete_visibles)
+      noeuds
+  in
   List.iter (draw_arete positions) arrete_visibles;
   List.iter (draw_noeud positions) noeuds_visibles
 
@@ -168,8 +188,8 @@ let redraw_cached dx dy categories =
   Graphics.set_color Graphics.white;
   Graphics.fill_rect 0 0 largeur hauteur;
   (match !graph_cache with
-   | Some img -> Graphics.draw_image img dx dy
-   | None -> ());
+  | Some img -> Graphics.draw_image img dx dy
+  | None -> ());
   List.iteri draw_bouton categories;
   Graphics.synchronize ()
 
@@ -206,7 +226,7 @@ let rec drag positions noeuds aretes categories debut_x debut_y =
   if not (Graphics.button_down ()) then begin
     (* Drag terminé : on calcule le décalage final, on met à jour
        les positions et on fait un redraw complet pour recacher. *)
-    let (mx, my) = Graphics.mouse_pos () in
+    let mx, my = Graphics.mouse_pos () in
     let dx = mx - debut_x in
     let dy = my - debut_y in
     let nouvelles_pos = move positions dx dy in
@@ -214,7 +234,7 @@ let rec drag positions noeuds aretes categories debut_x debut_y =
     nouvelles_pos
   end
   else
-    let (mx, my) = Graphics.mouse_pos () in
+    let mx, my = Graphics.mouse_pos () in
     let dx = mx - debut_x in
     let dy = my - debut_y in
     if dx = 0 && dy = 0 then
@@ -232,28 +252,38 @@ let rec drag positions noeuds aretes categories debut_x debut_y =
   - touche + -> zoom in
   - touche - -> zoom out *)
 let rec boucle positions noeuds aretes categories =
-  let ev = Graphics.wait_next_event [Graphics.Button_down; Graphics.Key_pressed] in
-  
+  let ev =
+    Graphics.wait_next_event [ Graphics.Button_down; Graphics.Key_pressed ]
+  in
+
   (* Gestion du zoom clavier *)
   if ev.Graphics.keypressed then begin
-    let (mx, my) = Graphics.mouse_pos () in
+    let mx, my = Graphics.mouse_pos () in
     let key = ev.Graphics.key in
-    let zoom = if key = '+' ||key = '=' then zoom_in_factor else zoom_out_factor in
-      let positions' = zoom_positions positions mx my zoom in
-      redraw positions' noeuds aretes categories;
-      boucle positions' noeuds aretes categories
+    let zoom =
+      if key = '+' || key = '=' then zoom_in_factor else zoom_out_factor
+    in
+    let positions' = zoom_positions positions mx my zoom in
+    redraw positions' noeuds aretes categories;
+    boucle positions' noeuds aretes categories
   end
   else begin
     (* Gestion des clics *)
-    match clic_bouton ev.Graphics.mouse_x ev.Graphics.mouse_y (List.length categories) with
-    | Some i -> 
+    match
+      clic_bouton ev.Graphics.mouse_x ev.Graphics.mouse_y
+        (List.length categories)
+    with
+    | Some i ->
         (* Cas 1 : Clic sur un bouton -> on toggle la categorie et on redraw *)
         let categories = toggle categories i in
-        redraw positions noeuds aretes categories; 
+        redraw positions noeuds aretes categories;
         boucle positions noeuds aretes categories
-    | None -> 
+    | None ->
         (* Cas 2 : Clic dans le vide -> On lance la fonction drag *)
-        let positions_bis = drag positions noeuds aretes categories ev.Graphics.mouse_x ev.Graphics.mouse_y in
+        let positions_bis =
+          drag positions noeuds aretes categories ev.Graphics.mouse_x
+            ev.Graphics.mouse_y
+        in
         boucle positions_bis noeuds aretes categories
   end
 (*----------------FONCTIONS PRINCIPALE------------------*)
@@ -263,7 +293,9 @@ let run noeuds aretes =
   let bornes = calcule_bornes noeuds in
   let positions = calcule_positions bornes noeuds in
   let cats = List.map (fun a -> a.categorie) aretes in
-  let categories = List.map (fun c -> (c, true)) (List.sort_uniq String.compare cats) in
+  let categories =
+    List.map (fun c -> (c, true)) (List.sort_uniq String.compare cats)
+  in
   Graphics.open_graph (" " ^ string_of_int largeur ^ "x" ^ string_of_int hauteur);
   Graphics.auto_synchronize false;
   redraw positions noeuds aretes categories;

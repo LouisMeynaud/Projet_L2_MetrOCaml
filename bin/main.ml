@@ -2,22 +2,25 @@
 
 open Metrocaml
 open Routing
-
-module DIJKSTRA = Dijkstra.Make(Network.TransportGraph)(Weight.TransferWeight)
+module DIJKSTRA = Dijkstra.Make (Network.TransportGraph) (Weight.TransferWeight)
 
 let find_station graphe id =
-  List.find_opt (fun (s : Network.station) -> s.id = id) (Network.TransportGraph.nodes graphe)
+  List.find_opt
+    (fun (s : Network.station) -> s.id = id)
+    (Network.TransportGraph.nodes graphe)
 
 let () =
   let dossier_data = "data/Toulouse" in
-  let date_cible = "20260419" in 
-  let heure_min = 8 * 3600 in  
+  let date_cible = "20260419" in
+  let heure_min = 8 * 3600 in
 
   print_endline "=== Lancement de MetroCaml ===";
 
   try
-    let graphe = Gtfs_adapter.load_network_gtfs dossier_data date_cible heure_min in
-    
+    let graphe =
+      Gtfs_adapter.load_network_gtfs dossier_data date_cible heure_min
+    in
+
     Printf.printf "Graphe chargé ! Lancement de l'interface graphique...\n";
     flush stdout;
     (* let source_id = "stop_point:SP_93" in
@@ -34,7 +37,7 @@ let () =
         ) p.steps
       | None -> Printf.printf "Aucun chemin trouvé.\n"));*)
     Graphics.set_window_title "MetroCaml - Réseau";
-    Gui.Transport_view.affiche graphe;
+    Gui.Transport_view.affiche graphe
   with
   | Failure msg -> Printf.eprintf "ERREUR : %s\n" msg
   | Sys_error msg -> Printf.eprintf "ERREUR FICHIER : %s\n" msg

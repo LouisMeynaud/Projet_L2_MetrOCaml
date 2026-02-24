@@ -3,6 +3,9 @@
 (name metrocaml)
 (version 0.1.0)
 
+(formatting
+ (enabled_for ocaml reason))
+
 (generate_opam_files true)
 
 (source (uri "https://moule.informatique.u-paris.fr/3lmtb/metrocaml"))
