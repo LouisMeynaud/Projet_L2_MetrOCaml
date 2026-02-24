@@ -24,4 +24,7 @@ module type PATH = sig
     steps : step list;
     total_weight : weight;
   }
+
+  (** Print a path using a function to print nodes and weights.*)
+  val print_path : (node -> string) -> (weight -> string) -> t -> unit
 end 

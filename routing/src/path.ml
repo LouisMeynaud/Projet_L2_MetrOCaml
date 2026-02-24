@@ -27,4 +27,13 @@ module Make (Graph : GRAPH) (Weight : Weight_intf.WEIGHT with type edge = Graph.
     total_weight : weight;
   }
 
+  let print_path node_to_string weight_to_string path =
+    Printf.printf "Chemin trouvé en %d étapes :\n" (List.length path.steps);
+    List.iter (fun step ->
+      Printf.printf "  %s -> %s\n" 
+        (node_to_string step.from) 
+        (node_to_string step.to_node)
+    ) path.steps;
+    Printf.printf "Poids total : %s\n" (weight_to_string path.total_weight)
+
 end 

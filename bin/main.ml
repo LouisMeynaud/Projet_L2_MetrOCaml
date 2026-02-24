@@ -1,9 +1,10 @@
 (* bin/main.ml *)
 
 open Metrocaml
+open Weight
 open Routing
 
-module DIJKSTRA = Dijkstra.Make(Network.TransportGraph)(Weight.TransferWeight)
+module DIJKSTRA = Dijkstra.Make(Network.TransportGraph)(TimeWeight)
 
 let find_station graphe id =
   List.find_opt (fun (s : Network.station) -> s.id = id) (Network.TransportGraph.nodes graphe)
@@ -20,19 +21,15 @@ let () =
     
     Printf.printf "Graphe chargé ! Lancement de l'interface graphique...\n";
     flush stdout;
-    (* let source_id = "stop_point:SP_93" in
-    let dest_id = "stop_point:SP_1912" in
+    let source_id = "stop_point:SP_100" in
+    let dest_id = "stop_point:SP_1000" in
     (match find_station graphe source_id, find_station graphe dest_id with
     | None, _ -> Printf.printf "Station source introuvable : %s\n" source_id
     | _, None -> Printf.printf "Station destination introuvable : %s\n" dest_id
     | Some source, Some destination ->
       (match DIJKSTRA.find_path ~graph:graphe ~source ~destination with
-      | Some p ->
-        Printf.printf "Chemin trouvé en %d étapes :\n" (List.length p.steps);
-        List.iter (fun (step : DIJKSTRA.P.step) ->
-          Printf.printf "  %s -> %s\n" step.from.name step.to_node.name
-        ) p.steps
-      | None -> Printf.printf "Aucun chemin trouvé.\n"));*)
+      | Some p -> DIJKSTRA.P.print_path (fun s -> s.name) TimeWeight.to_string p
+      | None -> Printf.printf "Aucun chemin trouvé.\n"));
     Graphics.set_window_title "MetroCaml - Réseau";
     Gui.Transport_view.affiche graphe;
   with
