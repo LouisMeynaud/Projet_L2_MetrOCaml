@@ -142,14 +142,34 @@ let graph_cache : Graphics.image option ref = ref None
 
 (* dessine une arrete (ligne) entre deux position donée
   @param positions la liste associative (id,(x_pixel,y_pixel));..
-  @param arete l'arrete à dessiner *)
-let draw_arete positions arete =
+  @param arete l'arrete à dessiner 
+  @param i l'index de la ligne parmi les lignes parallèles
+  @param n le nombre total de lignes parallèles *)
+let draw_arete positions arete i n =
   let (x1, y1) = cherche arete.source positions (0., 0.) in
   let (x2, y2) = cherche arete.destination positions (0., 0.) in
+  
+  let (ox, oy) =
+    if n <= 1 then (0., 0.) (* une station : on decalle pas*)
+    else
+      let (dx, dy) = 
+        if arete.source < arete.destination then (x2 -. x1, y2 -. y1) (* comparaison pour decaller dans le meme sens*)
+        else (x1 -. x2, y1 -. y2)
+      in
+      let len = sqrt (dx *. dx +. dy *. dy) in
+      if len = 0. then (0., 0.)
+      else
+        let nx = -.dy /. len in
+        let ny = dx /. len in
+        let ecart = 4.0 in (* Espacement de 4 pixels entre chaque ligne *)
+        let shift = (float i -. (float (n - 1) /. 2.0)) *. ecart in (* decalle pour centré le paquet*)
+        (nx *. shift, ny *. shift)
+  in
+
   Graphics.set_color arete.couleur;
   Graphics.set_line_width 3;
-  Graphics.moveto (int_of_float x1) (int_of_float y1);
-  Graphics.lineto (int_of_float x2) (int_of_float y2)
+  Graphics.moveto (int_of_float (x1 +. ox)) (int_of_float (y1 +. oy));
+  Graphics.lineto (int_of_float (x2 +. ox)) (int_of_float (y2 +. oy))
 
 (* dessine une noeud et son nom à la position donnée
   @param positions la liste associative (id,(x_pixel,y_pixel));..
@@ -232,7 +252,30 @@ let draw_graph positions noeuds aretes categories source dest show_names =
 
   let noeuds_visibles = List.filter (fun n -> Hashtbl.mem noeuds_actifs n.id) noeuds in
 
-  List.iter (draw_arete positions) arrete_visibles;
+    (* suppresion des doublons*)
+  let aretes_uniques = 
+    let table = Hashtbl.create 15000 in
+    List.filter (fun a ->
+      let cle = if a.source < a.destination then (a.source, a.destination, a.groupe) else (a.destination, a.source, a.groupe) in
+      if Hashtbl.mem table cle then false else begin Hashtbl.add table cle true; true end
+    ) arrete_visibles
+  in
+
+  (* creation de groupe*)
+  let aretes_groupees = Hashtbl.create 15000 in
+  List.iter (fun a ->
+    let cle = if a.source < a.destination then (a.source, a.destination) else (a.destination, a.source) in
+    let existantes = try Hashtbl.find aretes_groupees cle with Not_found -> [] in
+    Hashtbl.replace aretes_groupees cle (a :: existantes)
+  ) aretes_uniques;
+
+  (* appel du dessins sur chaque groupe*)
+  Hashtbl.iter (fun _ groupe ->
+    let n = List.length groupe in
+    let groupe_trie = List.sort (fun a b -> String.compare a.groupe b.groupe) groupe in
+    List.iteri (fun i a -> draw_arete positions a i n) groupe_trie
+  ) aretes_groupees;
+  
   List.iter (draw_noeud positions source dest show_names) noeuds_visibles
 
 (* Capture l'écran actuel (graphe sans boutons) dans le cache image *)
