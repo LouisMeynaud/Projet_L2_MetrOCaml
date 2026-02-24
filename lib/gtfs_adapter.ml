@@ -87,8 +87,8 @@ let load_network_gtfs directory target_date target_time_seconds =
   ) (List.tl t_csv);
 
   (* D. Stops (FUSION DES AREAS) *)
-  let stop_to_area = Hashtbl.create 5000 in (* Pour rediriger les sous-stations vers leur Area *)
-  let area_nodes = Hashtbl.create 1000 in   (* Pour stocker uniquement les grosses stations *)
+  let stop_to_area = Hashtbl.create 5000 in 
+  let area_nodes = Hashtbl.create 1000 in  
   
   let s_csv = Csv.load (Filename.concat directory "stops.txt") in
   let s_header = List.hd s_csv in
@@ -105,14 +105,10 @@ let load_network_gtfs directory target_date target_time_seconds =
     let parent_id = match i_parent_opt with
       | Some idx -> 
           let p = try String.trim (List.nth row idx) with _ -> "" in
-          if p = "" then raw_id else p (* Si pas de parent, il est son propre parent *)
+          if p = "" then raw_id else p 
       | None -> raw_id
     in
-    
-    (* On dit à l'algo : "Si tu vois raw_id, remplace-le par parent_id" *)
     Hashtbl.replace stop_to_area raw_id parent_id;
-
-    (* On crée la station avec l'ID de l'Area *)
     let station = {
       Network.id = parent_id; 
       name = List.nth row i_sname; 
@@ -120,17 +116,12 @@ let load_network_gtfs directory target_date target_time_seconds =
       longitude = float_of_string (List.nth row i_lon);
       pmr = false 
     } in
-
-    (* On ne l'ajoute à nos Area que si elle n'y est pas déjà.
-       Si c'est le "vrai" parent (raw_id = parent_id), on écrase pour avoir ses vraies coordonnées *)
     if raw_id = parent_id then
       Hashtbl.replace area_nodes parent_id station
     else if not (Hashtbl.mem area_nodes parent_id) then
       Hashtbl.add area_nodes parent_id station
 
   ) (List.tl s_csv);
-
-  (* On ajoute uniquement les "Areas" (les stations fusionnées) au graphe final *)
   Hashtbl.iter (fun _ st -> Network.TransportGraph.add_node graph st) area_nodes;
 
   (* E. Stop Times *)
@@ -149,17 +140,13 @@ let load_network_gtfs directory target_date target_time_seconds =
     let tid = List.nth row i_st_trip in
     if Hashtbl.mem valid_trips tid then begin
       let raw_stop_id = List.nth row i_st_id in
-      
-      (* ---> MAGIE ICI : On remplace le quai par sa grosse Area <--- *)
-      let area_id = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
+            let area_id = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
 
       let arr_time = time_to_seconds (List.nth row i_st_arr) in
       let dep_time = time_to_seconds (List.nth row i_st_dep) in
       let (line_obj, m) = Hashtbl.find valid_trips tid in
-
       match !last_trip_state with
       | Some (prev_tid, prev_area, prev_dep) when prev_tid = tid ->
-          (* On ne crée le trait QUE si le bus se déplace d'une Area à une autre Area différente *)
           if prev_area <> area_id then begin
             match (Hashtbl.find_opt area_nodes prev_area, Hashtbl.find_opt area_nodes area_id) with
             | (Some f, Some t) ->
@@ -183,3 +170,61 @@ let load_network_gtfs directory target_date target_time_seconds =
   
   close_in st_ic;
   graph
+
+exception Invalid_GTFS_URL of string
+let download_and_extract_gtfs url dest_dir =
+  Printf.printf "=== Recuperation du GTFS ===\n";
+  Printf.printf "URL : %s\n" url;
+  
+  let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
+  let zip_path = Filename.concat dest_dir "gtfs_data.zip" in
+
+  let cmd_mkdir = 
+    if is_win then Printf.sprintf "if not exist \"%s\" mkdir \"%s\"" dest_dir dest_dir
+    else Printf.sprintf "mkdir -p \"%s\"" dest_dir 
+  in
+  let _ = Sys.command cmd_mkdir in
+  Printf.printf "Telechargement en cours...\n"; flush stdout;
+    let cmd_curl = 
+    if is_win then Printf.sprintf "curl.exe -f -L -s -o \"%s\" \"%s\"" zip_path url
+    else Printf.sprintf "curl -f -L -s -o \"%s\" \"%s\"" zip_path url 
+  in
+  
+  if Sys.command cmd_curl <> 0 then begin
+    let _ = Sys.command (if is_win then Printf.sprintf "rmdir /S /Q \"%s\"" dest_dir else Printf.sprintf "rm -rf \"%s\"" dest_dir) in
+    raise (Invalid_GTFS_URL "Lien introuvable ou erreur de serveur (Code 404/500)")
+  end;
+    
+  Printf.printf "Extraction des fichiers...\n"; flush stdout;
+  let cmd_unzip = 
+    if is_win then 
+      Printf.sprintf "powershell -noprofile -command \"Expand-Archive -Path '%s' -DestinationPath '%s' -Force\"" zip_path dest_dir
+    else 
+      Printf.sprintf "unzip -q -o \"%s\" -d \"%s\"" zip_path dest_dir 
+  in
+  
+  if Sys.command cmd_unzip <> 0 then 
+    failwith "Erreur : Le fichier telecharge n'est pas un ZIP valide.";
+    
+  let cmd_rm = 
+    if is_win then Printf.sprintf "del /Q \"%s\"" zip_path
+    else Printf.sprintf "rm -f \"%s\"" zip_path 
+  in
+  let _ = Sys.command cmd_rm in
+  
+  Printf.printf "Donnees pretes dans le dossier : %s\n\n" dest_dir
+let load_network_from_url url target_date target_time =
+  let temp_base = Filename.get_temp_dir_name () in
+  let temp_dir = Filename.concat temp_base "metrocaml_gtfs" in
+  
+  try
+    download_and_extract_gtfs url temp_dir;
+    load_network_gtfs temp_dir target_date target_time
+  with
+  | Invalid_GTFS_URL msg ->
+      Printf.printf "\n[ERREUR CRITIQUE] Impossible de charger le réseau.\n" ;
+      Printf.printf "Raison : %s\nURL testée : %s\n\n" msg url;
+      raise (Invalid_GTFS_URL url)
+  | e ->
+      Printf.printf "\n[ERREUR] Un problème inattendu est survenu : %s\n" (Printexc.to_string e);
+      raise e
