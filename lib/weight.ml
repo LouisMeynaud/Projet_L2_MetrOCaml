@@ -131,3 +131,63 @@ module TransferWeight : Routing.WEIGHT with type edge = connection = struct
       in
       Printf.sprintf "%d stops, %s" cost time_str
 end
+
+(** Module de calcul de poids basé sur le temps avec pénalité de transfert.
+    
+Ce module implémente l'interface [Routing.WEIGHT]. Il permet d'optimiser les trajets
+non seulement sur la durée, mais aussi sur le confort en minimisant les changements
+de ligne sans modifier la topologie du graphe. *)
+module CorrespondenceWeight : Routing.WEIGHT with type edge = connection = struct
+
+  (** Le type [t] est un poids composite :
+    - [int] : Le temps total accumulé (trajet + pénalités) en secondes.
+    - [string option] : Le nom de la dernière ligne empruntée pour détecter les changements. *)
+  type t = int * string option
+  type edge = connection
+    
+  (** Poids initial : temps nul et aucune ligne enregistrée. *)
+  let zero = (0, None)
+    
+  (** Poids infini utilisé pour les nœuds non atteignables. *)
+  let infinity = (max_int, None)
+    
+  (** Constante de pénalité : 300 secondes (5 minutes) ajoutées à chaque correspondance. *)
+  let transfer_penalty = 300
+    
+  (** Transforme une arête du réseau en poids.
+  Extrait la durée et le nom de la ligne de la structure [connection]. *)
+  let of_edge (conn : connection) = 
+    (conn.duration, Some conn.line.name)
+    
+  (** Calcule la somme de deux poids.
+  Détecte si une correspondance a lieu en comparant la ligne du poids cumulé 
+  avec celle de la nouvelle arête. 
+  @return Un nouveau poids incluant le temps de trajet et l'éventuelle pénalité. *)
+  let add (total_time, last_line) (edge_time, current_line) =
+    if total_time = max_int then infinity
+    else
+      let penalty = match last_line, current_line with
+        | Some l1, Some l2 when l1 <> l2 -> transfer_penalty
+        | _ -> 0 (* Pas de pénalité au départ ou si la ligne est identique *)
+      in
+        (total_time + edge_time + penalty, current_line)
+    
+  (** Compare deux poids en se basant uniquement sur la composante temporelle.
+  Nécessaire pour le fonctionnement de l'algorithme de Dijkstra. *)
+  let compare (t1, _) (t2, _) = Int.compare t1 t2
+    
+  (* Opérateurs de comparaison spécialisés pour le type [t]. *)
+  let ( < ) a b = compare a b < 0
+  let ( > ) a b = compare a b > 0
+  let ( = ) a b = compare a b = 0
+    
+  (** Convertit le poids en une chaîne de caractères lisible.
+  Formatte les secondes en minutes et secondes. Affiche "∞" pour le poids infini. *)
+  let to_string (weight : t) =
+    let (time, _) = weight in
+      if Stdlib.(=) time max_int then "∞"
+      else 
+        let mins = time / 60 in
+          let secs = time mod 60 in
+            Printf.sprintf "%dm%02ds" mins secs
+end
