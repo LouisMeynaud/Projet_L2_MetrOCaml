@@ -16,8 +16,7 @@ lint:
 
       eval $(opam env)
       opam update
-      opam install ocamlformat --yes
-
+      opam install ocamlformat.0.28.1 --yes
       opam exec -- dune build @fmt
 
 build:
