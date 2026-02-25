@@ -27,7 +27,7 @@ let get_index_opt header field =
 (* --- 2. Chargement --- *)
 
 let load_network_gtfs directory target_date target_time_seconds =
-  Printf.printf "Chargement GTFS (Multi-lignes) depuis %s...\n" directory;
+  Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
   let valid_services = Hashtbl.create 1000 in
@@ -86,28 +86,45 @@ let load_network_gtfs directory target_date target_time_seconds =
       Hashtbl.add valid_trips (List.nth row i_tid) info 
   ) (List.tl t_csv);
 
-  (* D. Stops *)
-  let stations = Hashtbl.create 5000 in
+  (* D. Stops (FUSION DES AREAS) *)
+  let stop_to_area = Hashtbl.create 5000 in 
+  let area_nodes = Hashtbl.create 1000 in  
+  
   let s_csv = Csv.load (Filename.concat directory "stops.txt") in
   let s_header = List.hd s_csv in
   let i_sid = get_index s_header "stop_id" in
   let i_sname = get_index s_header "stop_name" in
   let i_lat = get_index s_header "stop_lat" in
   let i_lon = get_index s_header "stop_lon" in
+  let i_parent_opt = get_index_opt s_header "parent_station" in
   
   List.iter (fun row ->
-    let id = List.nth row i_sid in
+    let raw_id = List.nth row i_sid in
+    
+    (* On cherche si cet arrêt a une Area parent *)
+    let parent_id = match i_parent_opt with
+      | Some idx -> 
+          let p = try String.trim (List.nth row idx) with _ -> "" in
+          if p = "" then raw_id else p 
+      | None -> raw_id
+    in
+    Hashtbl.replace stop_to_area raw_id parent_id;
     let station = {
-      Network.id = id; name = List.nth row i_sname; 
+      Network.id = parent_id; 
+      name = List.nth row i_sname; 
       latitude = float_of_string (List.nth row i_lat);
       longitude = float_of_string (List.nth row i_lon);
       pmr = false 
     } in
-    Hashtbl.replace stations id station;
-    Network.TransportGraph.add_node graph station
-  ) (List.tl s_csv);
+    if raw_id = parent_id then
+      Hashtbl.replace area_nodes parent_id station
+    else if not (Hashtbl.mem area_nodes parent_id) then
+      Hashtbl.add area_nodes parent_id station
 
-  (* E. Stop Times*)
+  ) (List.tl s_csv);
+  Hashtbl.iter (fun _ st -> Network.TransportGraph.add_node graph st) area_nodes;
+
+  (* E. Stop Times *)
   let st_ic = open_in (Filename.concat directory "stop_times.txt") in
   let st_csv = Csv.of_channel st_ic in
   let st_header = Csv.next st_csv in
@@ -118,34 +135,102 @@ let load_network_gtfs directory target_date target_time_seconds =
   
   let last_trip_state = ref None in 
   let existing_edges = Hashtbl.create 10000 in
+  
   Csv.iter ~f:(fun row ->
     let tid = List.nth row i_st_trip in
     if Hashtbl.mem valid_trips tid then begin
-      let stop_id = List.nth row i_st_id in
+      let raw_stop_id = List.nth row i_st_id in
+            let area_id = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
+
       let arr_time = time_to_seconds (List.nth row i_st_arr) in
       let dep_time = time_to_seconds (List.nth row i_st_dep) in
       let (line_obj, m) = Hashtbl.find valid_trips tid in
-
       match !last_trip_state with
-      | Some (prev_tid, prev_stop, prev_dep) when prev_tid = tid ->
-          (match (Hashtbl.find_opt stations prev_stop, Hashtbl.find_opt stations stop_id) with
-          | (Some f, Some t) when f.id <> t.id ->
-              let key = (f.id, t.id, line_obj.name) in
-              if not (Hashtbl.mem existing_edges key) then begin
-                Network.TransportGraph.add_edge graph f t { 
-                  Network.line = line_obj;
-                  Network.duration = max (arr_time - prev_dep) 0; 
-                  Network.distance = 0.; 
-                  Network.mode = m 
-                };
-                Hashtbl.add existing_edges key true
-              end
-          | _ -> ());
-          last_trip_state := Some (tid, stop_id, dep_time)
+      | Some (prev_tid, prev_area, prev_dep) when prev_tid = tid ->
+          if prev_area <> area_id then begin
+            match (Hashtbl.find_opt area_nodes prev_area, Hashtbl.find_opt area_nodes area_id) with
+            | (Some f, Some t) ->
+                let key = (f.id, t.id, line_obj.name) in
+                if not (Hashtbl.mem existing_edges key) then begin
+                  Network.TransportGraph.add_edge graph f t { 
+                    Network.line = line_obj;
+                    Network.duration = max (arr_time - prev_dep) 0; 
+                    Network.distance = 0.; 
+                    Network.mode = m 
+                  };
+                  Hashtbl.add existing_edges key true
+                end
+            | _ -> ()
+          end;
+          last_trip_state := Some (tid, area_id, dep_time)
       | _ ->
-          last_trip_state := Some (tid, stop_id, dep_time)
+          last_trip_state := Some (tid, area_id, dep_time)
     end
   ) st_csv;
   
   close_in st_ic;
   graph
+
+exception Invalid_GTFS_URL of string
+let download_and_extract_gtfs url dest_dir =
+  Printf.printf "=== Recuperation du GTFS ===\n";
+  Printf.printf "URL : %s\n" url;
+  
+  let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
+  let zip_path = Filename.concat dest_dir "gtfs_data.zip" in
+
+  let cmd_mkdir = 
+    if is_win then Printf.sprintf "if not exist \"%s\" mkdir \"%s\"" dest_dir dest_dir
+    else Printf.sprintf "mkdir -p \"%s\"" dest_dir 
+  in
+  let _ = Sys.command cmd_mkdir in
+  Printf.printf "Telechargement en cours...\n"; flush stdout;
+    let cmd_curl = 
+    if is_win then Printf.sprintf "curl.exe -f -L -s -o \"%s\" \"%s\"" zip_path url
+    else Printf.sprintf "curl -f -L -s -o \"%s\" \"%s\"" zip_path url 
+  in
+  
+  if Sys.command cmd_curl <> 0 then begin
+    let _ = Sys.command (if is_win then Printf.sprintf "rmdir /S /Q \"%s\"" dest_dir else Printf.sprintf "rm -rf \"%s\"" dest_dir) in
+    raise (Invalid_GTFS_URL "Lien introuvable ou erreur de serveur (Code 404/500)")
+  end;
+    
+  Printf.printf "Extraction des fichiers...\n"; flush stdout;
+  let cmd_unzip = 
+    if is_win then 
+      Printf.sprintf "powershell -noprofile -command \"Expand-Archive -Path '%s' -DestinationPath '%s' -Force\"" zip_path dest_dir
+    else 
+      Printf.sprintf "unzip -q -o \"%s\" -d \"%s\"" zip_path dest_dir 
+  in
+  
+  if Sys.command cmd_unzip <> 0 then 
+    failwith "Erreur : Le fichier telecharge n'est pas un ZIP valide.";
+    
+  let cmd_rm = 
+    if is_win then Printf.sprintf "del /Q \"%s\"" zip_path
+    else Printf.sprintf "rm -f \"%s\"" zip_path 
+  in
+  let _ = Sys.command cmd_rm in
+  
+  Printf.printf "Donnees pretes dans le dossier : %s\n\n" dest_dir
+let load_network_from_url url target_date target_time =
+  let temp_base = Filename.get_temp_dir_name () in
+  let temp_dir = Filename.concat temp_base "metrocaml_gtfs" in
+  try
+    download_and_extract_gtfs url temp_dir;
+    let graph = load_network_gtfs temp_dir target_date target_time in
+    let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
+    let cmd_cleanup = 
+      if is_win then Printf.sprintf "rmdir /S /Q \"%s\"" temp_dir 
+      else Printf.sprintf "rm -rf \"%s\"" temp_dir in
+        let _ = Sys.command cmd_cleanup in
+        Printf.printf "Jeu de Donné supprimmer avec succés, graphe persistant \n" ;
+        graph 
+  with
+  | Invalid_GTFS_URL msg ->
+      Printf.printf "\n[ERREUR CRITIQUE] Impossible de charger le réseau.\n" ;
+      Printf.printf "Raison : %s\nURL testée : %s\n\n" msg url;
+      raise (Invalid_GTFS_URL url)
+  | e ->
+      Printf.printf "\n[ERREUR] Un problème inattendu est survenu : %s\n" (Printexc.to_string e);
+      raise e
