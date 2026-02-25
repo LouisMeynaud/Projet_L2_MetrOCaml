@@ -13,14 +13,6 @@ type arete = {
 type donnees_affichage = {
   noeuds : noeud list;
   aretes : arete list;
-  positions : (string * (int * int)) list;
-  categories : (string * bool) list;
-  bornes : float * float * float * float;
-}
-
-type donnees_affichage = {
-  noeuds : noeud list;
-  aretes : arete list;
   positions : (string * (float * float)) list;
   categories : (string * bool) list;
   bornes : float * float * float * float;

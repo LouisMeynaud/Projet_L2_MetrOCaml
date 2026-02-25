@@ -28,6 +28,7 @@ depends: [
   "alcotest" {with-test}
   "bisect_ppx"
   "csv"
+  "ocamlformat"
   "odoc" {with-doc}
 ]
 build: [
