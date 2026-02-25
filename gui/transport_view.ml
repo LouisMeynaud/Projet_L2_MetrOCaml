@@ -28,8 +28,7 @@ let extraire_aretes graph =
   let aretes_par_station = List.map (aretes_depuis graph) stations in
   List.flatten aretes_par_station
 
-
-let affiche graph on_search=
+let affiche graph on_search =
   let stations = TransportGraph.nodes graph in
   let noeuds = List.map station_to_noeud stations in
   let aretes = extraire_aretes graph in
