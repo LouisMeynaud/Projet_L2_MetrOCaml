@@ -216,10 +216,15 @@ let download_and_extract_gtfs url dest_dir =
 let load_network_from_url url target_date target_time =
   let temp_base = Filename.get_temp_dir_name () in
   let temp_dir = Filename.concat temp_base "metrocaml_gtfs" in
-  
   try
     download_and_extract_gtfs url temp_dir;
-    load_network_gtfs temp_dir target_date target_time
+    let graph = load_network_gtfs temp_dir target_date target_time in
+    let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
+    let cmd_cleanup = 
+      if is_win then Printf.sprintf "rmdir /S /Q \"%s\"" temp_dir 
+      else Printf.sprintf "rm -rf \"%s\"" temp_dir in
+        let _ = Sys.command cmd_cleanup in
+          graph 
   with
   | Invalid_GTFS_URL msg ->
       Printf.printf "\n[ERREUR CRITIQUE] Impossible de charger le réseau.\n" ;
