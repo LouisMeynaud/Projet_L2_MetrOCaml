@@ -224,7 +224,8 @@ let load_network_from_url url target_date target_time =
       if is_win then Printf.sprintf "rmdir /S /Q \"%s\"" temp_dir 
       else Printf.sprintf "rm -rf \"%s\"" temp_dir in
         let _ = Sys.command cmd_cleanup in
-          graph 
+        Printf.printf "Jeu de Donné supprimmer avec succés, graphe persistant \n" ;
+        graph 
   with
   | Invalid_GTFS_URL msg ->
       Printf.printf "\n[ERREUR CRITIQUE] Impossible de charger le réseau.\n" ;
