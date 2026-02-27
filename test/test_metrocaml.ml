@@ -15,21 +15,21 @@ let test_hop_of_edge () =
     line = dummy_line; duration = 120; distance = 500.0; mode = Metro 
   } in 
   let expected = HW.of_edge dummy_conn in 
-  Alcotest.(check hop_weight_t) "Un segment vaut 1" expected (HW.of_edge dummy_conn)
+  Alcotest.(check string) "Un segment vaut 1" "1 hop" (HW.to_string expected)
 
 let test_hop_arithmetic () =
   let open HW in
   let dummy_conn = { Metrocaml.Network.line = {name=""; color=""}; duration=0; distance=0.; mode=Walk } in
   let one = of_edge dummy_conn in
-  let two = add one one in
-  Alcotest.(check hop_weight_t) "1 + 1 = 2" two (add one one);
-  Alcotest.(check hop_weight_t) "Neutre" one (add one zero)
+  let two = HW.add one one in
+  Alcotest.(check string) "1 + 1 = 2" "2 hops" (HW.to_string two);
+  Alcotest.(check hop_weight_t) "Neutre" one (HW.add one zero)
 
 let test_hop_infinity () =
   let open HW in
   let dummy_conn = { Metrocaml.Network.line = {name=""; color=""}; duration=0; distance=0.; mode=Walk } in
   let one = of_edge dummy_conn in
-  Alcotest.(check hop_weight_t) "Infini absorbe" infinity (add infinity one)
+  Alcotest.(check string) "Infini absorbe" "∞" (HW.to_string (HW.add infinity one))
 
 (* ========================================================== *)
 (* TESTS: TransferWeight                                      *)
@@ -47,7 +47,7 @@ let test_transfer_arithmetic () =
   let w1 = TW.of_edge c1 in
   let w2 = TW.of_edge c2 in
   let expected_sum = TW.add w1 w2 in
-  Alcotest.(check transfer_weight_t) "Cumul stops et temps" expected_sum (TW.add w1 w2)
+  Alcotest.(check string) "Cumul stops et temps" "2 stops, 1m40s" (TW.to_string expected_sum)
 
 let test_transfer_compare1 () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
@@ -73,6 +73,15 @@ let test_transfer_to_string () =
   let w = TW.of_edge {line=dummy_line; duration=3661; distance=0.; mode=Walk} in
   Alcotest.(check string) "Formatage h/m/s" "1 stops, 1h01m01s" (TW.to_string w)
 
+
+(* ========================================================== *)
+(* TESTS: CorrespondenceWeight                                *)
+(* ========================================================== *)
+
+module CW = Metrocaml.Weight.CorrespondenceWeight
+
+let correspondence_weight_t = 
+  Alcotest.testable (fun ppf w -> Fmt.string ppf (CW.to_string w)) CW.(=)
 
 (* ========================================================== *)
 (* TESTS: BFS (Parcours en largeur)                           *)
