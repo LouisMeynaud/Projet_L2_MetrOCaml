@@ -235,6 +235,31 @@ let draw_names_btn show_names =
 let is_names_clicked mx my =
   mx >= largeur - 240 && mx <= largeur - 130 && my >= hauteur - 45 && my <= hauteur - 10
 
+(* Dessine une rangee de boutons de selection (algo ou poids).
+   Le bouton actif est en bleu, les autres en gris. *)
+let draw_selection_row y_pos label boutons actif =
+  Graphics.set_color Graphics.black;
+  Graphics.moveto 5 (y_pos + 8);
+  Graphics.draw_string label;
+  List.iteri (fun i nom ->
+    let x = 60 + i * (btn_w + 5) in
+    Graphics.set_color (if nom = actif then 0x2196F3 else 0xCCCCCC);
+    Graphics.fill_rect x y_pos btn_w btn_h;
+    Graphics.set_color Graphics.black;
+    Graphics.draw_rect x y_pos btn_w btn_h;
+    Graphics.moveto (x + 5) (y_pos + 8);
+    Graphics.draw_string (clean_accents nom)
+  ) boutons
+
+(* Retourne Some nom si un bouton de la rangee a ete clique, None sinon *)
+let clic_selection_row mx my y_pos boutons =
+  if my >= y_pos && my <= y_pos + btn_h then
+    let i = (mx - 60) / (btn_w + 5) in
+    if i >= 0 && i < List.length boutons then
+      Some (List.nth boutons i)
+    else None
+  else None
+
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
    Utilisé en interne par redraw.
   @param positions la liste associative (id,(x_pixel,y_pixel));..
@@ -293,7 +318,7 @@ let cache_graph () =
   @param noeuds la liste des noeuds
   @param aretes la liste des aretes
   @param categories la liste des categories (pour filtrer)*)
-let redraw positions noeuds aretes categories source dest show_names =
+let redraw positions noeuds aretes categories source dest show_names algos algo_actif poids_list poids_actif =
   Graphics.set_color Graphics.white;
   Graphics.fill_rect 0 0 largeur hauteur;
   draw_graph positions noeuds aretes categories source dest show_names;
@@ -301,6 +326,8 @@ let redraw positions noeuds aretes categories source dest show_names =
   List.iteri draw_bouton categories;
   draw_search_btn ();
   draw_names_btn show_names;
+  draw_selection_row 10 "Algo :" algos algo_actif;
+  draw_selection_row 50 "Poids:" poids_list poids_actif;
   Graphics.synchronize ()
 
 (* rafraichissement rapide utilisant l'image en cache.
@@ -310,7 +337,7 @@ let redraw positions noeuds aretes categories source dest show_names =
   @param dx décalage horizontal depuis le début du drag
   @param dy décalage vertical depuis le début du drag
   @param categories la liste des categories (pour les boutons) *)
-let redraw_cached dx dy categories show_names =
+let redraw_cached dx dy categories show_names algos algo_actif poids_list poids_actif =
   Graphics.set_color Graphics.white;
   Graphics.fill_rect 0 0 largeur hauteur;
   (match !graph_cache with
@@ -319,6 +346,8 @@ let redraw_cached dx dy categories show_names =
   List.iteri draw_bouton categories;
   draw_search_btn ();
   draw_names_btn show_names;
+  draw_selection_row 10 "Algo :" algos algo_actif;
+  draw_selection_row 50 "Poids:" poids_list poids_actif;
   Graphics.synchronize ()
 
 (*---------------FOCNTION INTERACTION----------------*)
@@ -350,7 +379,7 @@ let toggle categories i =
   @param categories la liste des categories (pour filtrer)
   @param debut_x la coordonnée x du début du drag
   @param debut_y la coordonnée y du début du drag *)
-let rec drag positions noeuds aretes categories source dest show_names debut_x debut_y =
+let rec drag positions noeuds aretes categories source dest show_names debut_x debut_y algos algo_actif poids_list poids_actif =
   if not (Graphics.button_down ()) then begin
     (* Drag terminé : on calcule le décalage final, on met à jour
        les positions et on fait un redraw complet pour recacher. *)
@@ -358,7 +387,7 @@ let rec drag positions noeuds aretes categories source dest show_names debut_x d
     let dx = mx - debut_x in
     let dy = my - debut_y in
     let nouvelles_pos = move positions dx dy in
-    redraw nouvelles_pos noeuds aretes categories source dest show_names;
+    redraw nouvelles_pos noeuds aretes categories source dest show_names algos algo_actif poids_list poids_actif;
     nouvelles_pos
   end
   else
@@ -366,11 +395,10 @@ let rec drag positions noeuds aretes categories source dest show_names debut_x d
     let dx = mx - debut_x in
     let dy = my - debut_y in
     if dx = 0 && dy = 0 then
-      drag positions noeuds aretes categories source dest show_names debut_x debut_y
+      drag positions noeuds aretes categories source dest show_names debut_x debut_y algos algo_actif poids_list poids_actif
     else begin
-      (* Pendant le drag : on blit l'image en cache décalée (rapide) *)
-      redraw_cached dx dy categories show_names;
-      drag positions noeuds aretes categories source dest show_names debut_x debut_y
+      redraw_cached dx dy categories show_names algos algo_actif poids_list poids_actif;
+      drag positions noeuds aretes categories source dest show_names debut_x debut_y algos algo_actif poids_list poids_actif
     end
 
 (* boucle principale 
@@ -379,60 +407,67 @@ let rec drag positions noeuds aretes categories source dest show_names debut_x d
   - clic ailleurs -> drag camera
   - touche + -> zoom in
   - touche - -> zoom out *)
-let rec boucle positions noeuds aretes categories source dest show_names on_search =
+let rec boucle positions noeuds aretes categories source dest show_names on_search algos algo_actif poids_list poids_actif =
   let ev = Graphics.wait_next_event [Graphics.Button_down; Graphics.Key_pressed] in
-  
-  (* Gestion du zoom clavier *)
+
   if ev.Graphics.keypressed then begin
     let (mx, my) = Graphics.mouse_pos () in
     let key = ev.Graphics.key in
     let zoom = if key = '+' ||key = '=' then zoom_in_factor else zoom_out_factor in
-      let positions' = zoom_positions positions mx my zoom in
-      redraw positions' noeuds aretes categories source dest show_names;
-      boucle positions' noeuds aretes categories source dest show_names on_search
+    let positions' = zoom_positions positions mx my zoom in
+    redraw positions' noeuds aretes categories source dest show_names algos algo_actif poids_list poids_actif;
+    boucle positions' noeuds aretes categories source dest show_names on_search algos algo_actif poids_list poids_actif
   end
   else begin
-    (* Gestion des clics *)
     let mx = ev.Graphics.mouse_x in
     let my = ev.Graphics.mouse_y in
-    
+
     if is_search_clicked mx my then begin
       (match source, dest with
-       | Some s, Some d -> on_search s d
+       | Some s, Some d -> on_search s d algo_actif poids_actif
        | _ -> print_endline "Sélectionnez d'abord une source et une destination !");
-      boucle positions noeuds aretes categories source dest show_names on_search
+      boucle positions noeuds aretes categories source dest show_names on_search algos algo_actif poids_list poids_actif
     end else if is_names_clicked mx my then begin
       let new_show_names = not show_names in
-      redraw positions noeuds aretes categories source dest new_show_names;
-      boucle positions noeuds aretes categories source dest new_show_names on_search
+      redraw positions noeuds aretes categories source dest new_show_names algos algo_actif poids_list poids_actif;
+      boucle positions noeuds aretes categories source dest new_show_names on_search algos algo_actif poids_list poids_actif
     end else
-    
+
     match clic_bouton mx my (List.length categories) with
-    | Some i -> 
+    | Some i ->
         let categories = toggle categories i in
-        redraw positions noeuds aretes categories source dest show_names; 
-        boucle positions noeuds aretes categories source dest show_names on_search
-    | None -> 
-        match get_noeud_clique mx my positions aretes categories with
-        | Some id ->
-            let (new_s, new_d) =
+        redraw positions noeuds aretes categories source dest show_names algos algo_actif poids_list poids_actif;
+        boucle positions noeuds aretes categories source dest show_names on_search algos algo_actif poids_list poids_actif
+    | None ->
+    match clic_selection_row mx my 10 algos with
+    | Some a ->
+        redraw positions noeuds aretes categories source dest show_names algos a poids_list poids_actif;
+        boucle positions noeuds aretes categories source dest show_names on_search algos a poids_list poids_actif
+    | None ->
+    match clic_selection_row mx my 50 poids_list with
+    | Some p ->
+        redraw positions noeuds aretes categories source dest show_names algos algo_actif poids_list p;
+        boucle positions noeuds aretes categories source dest show_names on_search algos algo_actif poids_list p
+    | None ->
+    match get_noeud_clique mx my positions aretes categories with
+    | Some id ->
+        let (new_s, new_d) =
               if Some id = source then (None, None)          (*  Re-clic sur Source = On efface tout *)
               else if Some id = dest then (source, None)     (*  Re-clic sur Dest = On efface juste la Dest *)
               else if source = None then (Some id, None)     (*  Rien n'est coché = Devient la Source (Vert) *)
               else if dest = None then (source, Some id)     (*  Source déjà là = Devient la Dest (Rouge) *)
               else (Some id, None)                           (*  Les deux sont là = On recommence avec une nouvelle Source *)
-            in
-            redraw positions noeuds aretes categories new_s new_d show_names;
-            boucle positions noeuds aretes categories new_s new_d show_names on_search
-        | None ->
-            (* Cas 2 : Clic dans le vide -> On lance la fonction drag *)
-            let positions_bis = drag positions noeuds aretes categories source dest show_names mx my in
-            boucle positions_bis noeuds aretes categories source dest show_names on_search
+        in
+        redraw positions noeuds aretes categories new_s new_d show_names algos algo_actif poids_list poids_actif;
+        boucle positions noeuds aretes categories new_s new_d show_names on_search algos algo_actif poids_list poids_actif
+    | None ->
+        let positions_bis = drag positions noeuds aretes categories source dest show_names mx my algos algo_actif poids_list poids_actif in
+        boucle positions_bis noeuds aretes categories source dest show_names on_search algos algo_actif poids_list poids_actif
   end
 (*----------------FONCTIONS PRINCIPALE------------------*)
 
 (*main*)
-let run noeuds aretes on_search =
+let run noeuds aretes algos poids_list on_search =
   let bornes = calcule_bornes noeuds in
   let positions = calcule_positions bornes noeuds in
   let cats = List.map (fun a -> a.categorie) aretes in
@@ -440,5 +475,7 @@ let run noeuds aretes on_search =
   Graphics.open_graph (" " ^ string_of_int largeur ^ "x" ^ string_of_int hauteur);
   Graphics.auto_synchronize false;
   let show_names = false in
-  redraw positions noeuds aretes categories None None show_names;
-  boucle positions noeuds aretes categories None None show_names on_search
+  let algo_actif = List.hd algos in
+  let poids_actif = List.hd poids_list in
+  redraw positions noeuds aretes categories None None show_names algos algo_actif poids_list poids_actif;
+  boucle positions noeuds aretes categories None None show_names on_search algos algo_actif poids_list poids_actif

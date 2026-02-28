@@ -2,11 +2,23 @@
 
 open Metrocaml
 open Routing
-
-module DIJKSTRA = Dijkstra.Make(Network.TransportGraph)(Weight.TransferWeight)
+module DIJKSTRA_TransferWeight = Dijkstra.Make(Network.TransportGraph)(Weight.TransferWeight)
+module DIJKSTRA_DistanceWeight = Dijkstra.Make(Network.TransportGraph)(Weight.DistanceWeight)
+module DIJKSTRA_TimeWeight =     Dijkstra.Make(Network.TransportGraph)(Weight.TimeWeight)
+module Dijkstra_hopWeight =      Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
+module Bfs_hopWeight =           Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
 
 let find_station graphe id =
   List.find_opt (fun (s : Network.station) -> s.id = id) (Network.TransportGraph.nodes graphe)
+
+
+module type ALGO = sig
+  module P : Routing.PATH 
+    with type node = Network.station 
+     and type edge = Network.connection 
+
+  val find_path : graph:Network.TransportGraph.t -> source:Network.station -> destination:Network.station -> P.t option
+end
 
 let () =
   let dossier_data = "data/Toulouse" in
@@ -21,16 +33,27 @@ let () =
     Printf.printf "Graphe chargé ! Lancement de l'interface graphique...\n";
     flush stdout;
     
-    let search_callback source_id dest_id =
+    let search_callback source_id dest_id algo poids =
       match find_station graphe source_id, find_station graphe dest_id with
       | Some source, Some destination ->
-        (match DIJKSTRA.find_path ~graph:graphe ~source ~destination with
-        | Some p ->
-          Printf.printf "Chemin trouvé en %d étapes :\n%!" (List.length p.steps);
-          List.iter (fun (step : DIJKSTRA.P.step) ->
-            Printf.printf "  %s -> %s\n%!" step.from.name step.to_node.name
-          ) p.steps
-        | None -> Printf.printf "Aucun chemin trouvé.\n%!")
+
+          let (module Routeur : ALGO) =
+            if algo = "BFS" then
+              (module Bfs_hopWeight)
+            else
+                match poids with
+                | "Distance"        -> (module DIJKSTRA_DistanceWeight)
+                | "Arrets"          -> (module Dijkstra_hopWeight)
+                | "Correspondances" -> (module DIJKSTRA_TransferWeight)
+                | _                 -> (module DIJKSTRA_TimeWeight)
+              in
+          (match Routeur.find_path ~graph:graphe ~source ~destination with
+          | Some p ->
+              Printf.printf "Chemin trouvé en %d étapes :\n%!" (List.length p.Routeur.P.steps);
+              List.iter (fun (step : Routeur.P.step) -> 
+                Printf.printf "  %s -> %s\n%!" step.from.name step.to_node.name
+              ) p.Routeur.P.steps
+          | None -> Printf.printf "Aucun chemin trouvé.\n%!")
       | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
     in
 
