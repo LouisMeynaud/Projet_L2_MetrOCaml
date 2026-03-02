@@ -186,5 +186,5 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection = struc
     let (correspondance, _) = weight in
       if Stdlib.(=) correspondance max_int then "∞"
       else 
-        Printf.sprintf "%dm" correspondance
+        Printf.sprintf "%d correspondance(s)" correspondance
 end

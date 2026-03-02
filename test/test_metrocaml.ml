@@ -83,6 +83,55 @@ module CW = Metrocaml.Weight.CorrespondenceWeight
 let correspondence_weight_t = 
   Alcotest.testable (fun ppf w -> Fmt.string ppf (CW.to_string w)) CW.(=)
 
+let test_cw_of_edge () =
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let conn = { 
+    Metrocaml.Network.line = line_a; duration = 120; distance = 500.0; mode = Metro 
+  } in 
+  let weight = CW.of_edge conn in
+  (* of_edge doit retourner (0, Some "Ligne A") *)
+  Alcotest.(check string) "Poids initial (0 correspondance)" "0 correspondance(s)" (CW.to_string weight)
+
+let test_cw_arithmetic_same_line () =
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let conn = { Metrocaml.Network.line = line_a; duration = 60; distance = 100.; mode = Metro } in
+  let w1 = CW.of_edge conn in
+  let w2 = CW.of_edge conn in
+  let sum = CW.add w1 w2 in
+  Alcotest.(check string) "Même ligne : pas de pénalité" "0 correspondance(s)" (CW.to_string sum)
+
+let test_cw_transfer_penalty () =
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let line_b = { Metrocaml.Network.name = "Ligne B"; color = "#0000FF" } in
+  let w_a = CW.of_edge { line = line_a; duration = 60; distance = 100.; mode = Metro } in
+  let w_b = CW.of_edge { line = line_b; duration = 60; distance = 100.; mode = Metro } in
+  
+  let total = CW.add w_a w_b in
+  Alcotest.(check string) "Changement de ligne : +1 correspondance" "1 correspondance(s)" (CW.to_string total);
+  
+  let total_3_lines = CW.add total (CW.of_edge { line = {name="Ligne C"; color=""}; duration=0; distance=0.; mode=Metro }) in
+  Alcotest.(check string) "Deux changements : 2m" "2 correspondance(s)" (CW.to_string total_3_lines)
+
+let test_cw_neutral_and_inf () =
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let w_a = CW.of_edge { line = line_a; duration = 60; distance = 100.; mode = Metro } in
+  
+  Alcotest.(check correspondence_weight_t) "Neutre à gauche" w_a (CW.add CW.zero w_a);
+  Alcotest.(check correspondence_weight_t) "Neutre à droite" w_a (CW.add w_a CW.zero);
+  Alcotest.(check string) "Infini est absorbant" "∞" (CW.to_string (CW.add CW.infinity w_a))
+
+let test_cw_compare () =
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "" } in
+  let line_b = { Metrocaml.Network.name = "Ligne B"; color = "" } in
+  
+  let w_no_transfer = CW.add (CW.of_edge {line=line_a; duration=0; distance=0.; mode=Metro}) 
+                             (CW.of_edge {line=line_a; duration=0; distance=0.; mode=Metro}) in
+  let w_one_transfer = CW.add (CW.of_edge {line=line_a; duration=0; distance=0.; mode=Metro}) 
+                              (CW.of_edge {line=line_b; duration=0; distance=0.; mode=Metro}) in
+  
+  Alcotest.(check bool) "0 correspondance < 1 correspondance" true (CW.(w_no_transfer < w_one_transfer));
+  Alcotest.(check bool) "1 correspondance > 0 correspondance" true (CW.(w_one_transfer > w_no_transfer))
+
 (* ========================================================== *)
 (* TESTS: BFS (Parcours en largeur)                           *)
 (* ========================================================== *)
@@ -315,6 +364,13 @@ let () =
       test_case "Priorité lexicographique" `Quick test_transfer_compare1;
       test_case "Priorité lexicographique" `Quick test_transfer_compare2;
       test_case "Formatage temps" `Quick test_transfer_to_string;
+    ];
+    "CorrespondenceWeight", [
+      test_case "Poids initial" `Quick test_cw_of_edge;
+      test_case "Arithmétique et pénalité" `Quick test_cw_arithmetic_same_line;
+      test_case "Pénalité de correspondance" `Quick test_cw_transfer_penalty;
+      test_case "Neutre et infini" `Quick test_cw_neutral_and_inf;
+      test_case "Comparaison" `Quick test_cw_compare;
     ];
     "BFS", [
       test_case "Chemin simple" `Quick BFS_Tests.test_bfs_simple_path;
