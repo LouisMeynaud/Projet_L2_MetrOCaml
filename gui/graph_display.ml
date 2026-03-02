@@ -197,7 +197,8 @@ let draw_ui etat =
   draw_bouton (largeur - 120) (hauteur - 45) 100 35 "CHERCHER" Graphics.white Graphics.blue;
   draw_bouton (largeur - 240) (hauteur - 45) 110 35 (if etat.show_names then "NOMS : ON" else "NOMS : OFF") Graphics.black (if etat.show_names then 0x4CAF50 else 0xCCCCCC);
   draw_selection_row 10 "Algo :" etat.algos etat.algo_actif;
-  draw_selection_row 50 "Poids:" etat.poids_list etat.poids_actif
+  if etat.algo_actif = "Dijkstra" then 
+    draw_selection_row 50 "Poids:" etat.poids_list etat.poids_actif
 
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
 *)
@@ -287,7 +288,7 @@ let traiter_clic mx my etat on_search =
     { etat with algo_actif = List.nth etat.algos (get_idx 60 5) }
 
   (* Ligne des poids) *)
-  else if is_in_rect mx my 60 50 (List.length etat.poids_list * (btn_w + 5)) btn_h then
+  else if etat.algo_actif = "Dijkstra" && is_in_rect mx my 60 50 (List.length etat.poids_list * (btn_w + 5)) btn_h then
     { etat with poids_actif = List.nth etat.poids_list (get_idx 60 5) }
 
   (*clique sur la carte*)
