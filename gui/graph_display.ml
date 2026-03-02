@@ -16,8 +16,8 @@ type etat = {
   poids_list : string list;
   poids_actif : string;
 }
-let largeur = 1200
-let hauteur = 800
+let largeur = ref 1200
+let hauteur = ref 800
 let marge = 50
 let btn_w = 80
 let btn_h = 30
@@ -54,8 +54,8 @@ let calcule_bornes noeuds =
 let to_screen bornes x y =
   let (min_x, max_x, min_y, max_y) = bornes in
   let echelle = min 
-    (float (largeur - 2*marge) /. (max_x -. min_x)) 
-                    (float (hauteur - 2*marge) /. (max_y -. min_y)) in
+    (float (!largeur - 2*marge) /. (max_x -. min_x)) 
+                    (float (!hauteur - 2*marge) /. (max_y -. min_y)) in
   (float marge +. (x -. min_x) *. echelle,
    float marge +. (y -. min_y) *. echelle)
 
@@ -193,9 +193,9 @@ let draw_selection_row y_pos label boutons actif =
   List.iteri (fun i nom -> draw_bouton(60 + i * (btn_w + 5)) y_pos btn_w btn_h nom Graphics.black (if nom = actif then 0x2196F3 else 0xCCCCCC)) boutons
 
 let draw_ui etat =
-  List.iteri (fun i (nom, actif) -> draw_bouton (10 + i * (btn_w + 10)) (hauteur - btn_h - 10) btn_w btn_h nom Graphics.black (if actif then 0x4CAF50 else 0xCCCCCC)) etat.categories;
-  draw_bouton (largeur - 120) (hauteur - 45) 100 35 "CHERCHER" Graphics.white Graphics.blue;
-  draw_bouton (largeur - 240) (hauteur - 45) 110 35 (if etat.show_names then "NOMS : ON" else "NOMS : OFF") Graphics.black (if etat.show_names then 0x4CAF50 else 0xCCCCCC);
+  List.iteri (fun i (nom, actif) -> draw_bouton (10 + i * (btn_w + 10)) (!hauteur - btn_h - 10) btn_w btn_h nom Graphics.black (if actif then 0x4CAF50 else 0xCCCCCC)) etat.categories;
+  draw_bouton (!largeur - 120) (!hauteur - 45) 100 35 "CHERCHER" Graphics.white Graphics.blue;
+  draw_bouton (!largeur - 240) (!hauteur - 45) 110 35 (if etat.show_names then "NOMS : ON" else "NOMS : OFF") Graphics.black (if etat.show_names then 0x4CAF50 else 0xCCCCCC);
   draw_selection_row 10 "Algo :" etat.algos etat.algo_actif;
   if etat.algo_actif = "Dijkstra" then 
     draw_selection_row 50 "Poids:" etat.poids_list etat.poids_actif
@@ -247,15 +247,15 @@ let draw_graph etat =
   List.iter (draw_noeud etat) noeuds_visibles
 
 let redraw etat =
-  Graphics.set_color Graphics.white; Graphics.fill_rect 0 0 largeur hauteur;
-  draw_graph etat; graph_cache := Some (Graphics.get_image 0 0 largeur hauteur);
+  Graphics.set_color Graphics.white; Graphics.fill_rect 0 0 !largeur !hauteur;
+  draw_graph etat; graph_cache := Some (Graphics.get_image 0 0 !largeur !hauteur);
   draw_ui etat; Graphics.synchronize ()
   (* rafraichissement rapide utilisant l'image en cache.
    Au lieu de redessiner tous les primitifs, on blit l'image
    du graphe décalée de (dx, dy) puis on redessine les boutons.
    Utilisé pendant le déplacement (drag) pour de meilleures performances. *)
 let redraw_cached dx dy etat =
-  Graphics.set_color Graphics.white; Graphics.fill_rect 0 0 largeur hauteur;
+  Graphics.set_color Graphics.white; Graphics.fill_rect 0 0 !largeur !hauteur;
   (match !graph_cache with Some img -> Graphics.draw_image img dx dy | None -> ());
   draw_ui etat; Graphics.synchronize ()
 
@@ -271,16 +271,16 @@ let traiter_clic mx my etat on_search =
   let get_idx x_start gap = (mx - x_start) / (btn_w + gap) in
 
   (* on test (Chercher, Noms) *)
-  if is_in_rect mx my (largeur - 120) (hauteur - 45) 100 35 then 
+  if is_in_rect mx my (!largeur - 120) (!hauteur - 45) 100 35 then 
     ((match etat.source, etat.dest with 
       | Some s, Some d -> on_search s d etat.algo_actif etat.poids_actif 
       | _ -> print_endline "Sélectionnez une source et une destination !"); etat)
 
-  else if is_in_rect mx my (largeur - 240) (hauteur - 45) 110 35 then 
+  else if is_in_rect mx my (!largeur - 240) (!hauteur - 45) 110 35 then 
     { etat with show_names = not etat.show_names }
 
   (* Ligne des catégories *)
-  else if is_in_rect mx my 10 (hauteur - btn_h - 10) (List.length etat.categories * (btn_w + 10)) btn_h then
+  else if is_in_rect mx my 10 (!hauteur - btn_h - 10) (List.length etat.categories * (btn_w + 10)) btn_h then
     { etat with categories = toggle etat.categories (get_idx 10 10) }
 
   (* Ligne des algos*)
@@ -339,9 +339,13 @@ let rec boucle etat on_search =
 (*----------------FONCTIONS PRINCIPALE------------------*)
 
 let run noeuds aretes algos poids_list on_search =
+  Graphics.open_graph " 3000x2000";
+  largeur := Graphics.size_x ();
+  hauteur := Graphics.size_y ();
+
   let bornes = calcule_bornes noeuds in
   let cats = List.sort_uniq String.compare (List.map (fun (a : arete) -> a.categorie) aretes) in
-  
+
   let etat_initial = {
     noeuds; aretes;
     positions = calcule_positions bornes noeuds;
@@ -351,7 +355,6 @@ let run noeuds aretes algos poids_list on_search =
     poids_list; poids_actif = List.hd poids_list;
   } in
 
-  Graphics.open_graph (" " ^ string_of_int largeur ^ "x" ^ string_of_int hauteur);
   Graphics.auto_synchronize false;
   redraw etat_initial;
   boucle etat_initial on_search
