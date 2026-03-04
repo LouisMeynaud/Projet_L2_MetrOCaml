@@ -1,7 +1,7 @@
 (** Path module
 
-    Generic path that represent routes through any graph with any weight system
-    **)
+    Generics paths that represent routes through any graph with any weight
+    system **)
 
 open Path_intf
 open Graph_intf
