@@ -2,11 +2,13 @@
 
 open Metrocaml
 open Routing
-module DIJKSTRA_TransferWeight = Dijkstra.Make(Network.TransportGraph)(Weight.TransferWeight)
-module DIJKSTRA_DistanceWeight = Dijkstra.Make(Network.TransportGraph)(Weight.DistanceWeight)
-module DIJKSTRA_TimeWeight =     Dijkstra.Make(Network.TransportGraph)(Weight.TimeWeight)
-module Dijkstra_hopWeight =      Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
-module Bfs_hopWeight =           Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
+
+module DIJKSTRA_CorrespondenceWeight = Dijkstra.Make(Network.TransportGraph)(Weight.CorrespondenceWeight)
+module DIJKSTRA_TransferWeight       = Dijkstra.Make(Network.TransportGraph)(Weight.TransferWeight)
+module DIJKSTRA_DistanceWeight       = Dijkstra.Make(Network.TransportGraph)(Weight.DistanceWeight)
+module DIJKSTRA_TimeWeight           = Dijkstra.Make(Network.TransportGraph)(Weight.TimeWeight)
+module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
+module BFS_HopWeight                 = Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
 
 let find_station graphe id =
   List.find_opt (fun (s : Network.station) -> s.id = id) (Network.TransportGraph.nodes graphe)
@@ -21,13 +23,15 @@ module type ALGO = sig
 end
 
 let () =
+  (*let montpellier = "https://www.data.gouv.fr/api/1/datasets/r/85ef3b33-2289-4d19-b479-276e5b1c5a52" in*)
+  let toulouse = "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77" in
   let date_cible = "20260419" in 
   let heure_min = 8 * 3600 in  
 
   print_endline "=== Lancement de MetroCaml ===";
 
   try
-    let graphe = Gtfs_adapter.load_network_from_url "https://www.data.gouv.fr/api/1/datasets/r/85ef3b33-2289-4d19-b479-276e5b1c5a52" date_cible heure_min in
+    let graphe = Gtfs_adapter.load_network_from_url toulouse date_cible heure_min in
     
     Printf.printf "Graphe chargé ! Lancement de l'interface graphique...\n";
     flush stdout;
@@ -38,13 +42,14 @@ let () =
 
           let (module Routeur : ALGO) =
             if algo = "BFS" then
-              (module Bfs_hopWeight)
+              (module BFS_HopWeight)
             else
                 match poids with
                 | "Distance"        -> (module DIJKSTRA_DistanceWeight)
-                | "Arrets"          -> (module Dijkstra_hopWeight)
-                | "Correspondances" -> (module DIJKSTRA_TransferWeight)
-                | _                 -> (module DIJKSTRA_TimeWeight)
+                | "Arrets"          -> (module DIJKSTRA_HopWeight)
+                | "Temps"           -> (module DIJKSTRA_TimeWeight)
+                | "Correspondances" -> (module DIJKSTRA_CorrespondenceWeight)
+                | _                 -> (module DIJKSTRA_TransferWeight)
               in
           (match Routeur.find_path ~graph:graphe ~source ~destination with
           | Some p ->
