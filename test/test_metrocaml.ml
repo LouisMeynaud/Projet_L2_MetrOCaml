@@ -12,14 +12,14 @@ let hop_weight_t =
 let test_hop_of_edge () =
   let dummy_line : Metrocaml.Network.line = { name = "Ligne 1"; color = "#FFBE00" } in
   let dummy_conn : Metrocaml.Network.connection = { 
-    line = dummy_line; duration = 120; distance = 500.0; mode = Metro 
+    line = dummy_line; duration = 120; distance = 500.0; mode = Metro; schedules = [] 
   } in 
   let expected = HW.of_edge dummy_conn in 
   Alcotest.(check hop_weight_t) "Un segment vaut 1" expected (HW.of_edge dummy_conn)
 
 let test_hop_arithmetic () =
   let open HW in
-  let dummy_conn = { Metrocaml.Network.line = {name=""; color=""}; duration=0; distance=0.; mode=Walk } in
+  let dummy_conn = { Metrocaml.Network.line = {name=""; color=""}; duration=0; distance=0.; mode=Walk; schedules = [] } in
   let one = of_edge dummy_conn in
   let two = add one one in
   Alcotest.(check hop_weight_t) "1 + 1 = 2" two (add one one);
@@ -27,7 +27,7 @@ let test_hop_arithmetic () =
 
 let test_hop_infinity () =
   let open HW in
-  let dummy_conn = { Metrocaml.Network.line = {name=""; color=""}; duration=0; distance=0.; mode=Walk } in
+  let dummy_conn = { Metrocaml.Network.line = {name=""; color=""}; duration=0; distance=0.; mode=Walk; schedules = [] } in
   let one = of_edge dummy_conn in
   Alcotest.(check hop_weight_t) "Infini absorbe" infinity (add infinity one)
 
@@ -42,8 +42,8 @@ let transfer_weight_t =
 
 let test_transfer_arithmetic () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let c1 = { Metrocaml.Network.line = dummy_line; duration = 60; distance = 0.; mode = Walk } in
-  let c2 = { Metrocaml.Network.line = dummy_line; duration = 40; distance = 0.; mode = Walk } in
+  let c1 = { Metrocaml.Network.line = dummy_line; duration = 60; distance = 0.; mode = Walk; schedules = [] } in
+  let c2 = { Metrocaml.Network.line = dummy_line; duration = 40; distance = 0.; mode = Walk; schedules = [] } in
   let w1 = TW.of_edge c1 in
   let w2 = TW.of_edge c2 in
   let expected_sum = TW.add w1 w2 in
@@ -51,26 +51,26 @@ let test_transfer_arithmetic () =
 
 let test_transfer_compare1 () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let path_a = TW.add (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk}) 
-                      (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk}) in
-  let path_b = TW.add (TW.of_edge {line=dummy_line; duration=50; distance=0.; mode=Walk})
-                      (TW.add (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk})
-                              (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk})) in
+  let path_a = TW.add (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk; schedules = []}) 
+                      (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk; schedules = []}) in
+  let path_b = TW.add (TW.of_edge {line=dummy_line; duration=50; distance=0.; mode=Walk; schedules = []})
+                      (TW.add (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk; schedules = []})
+                              (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk; schedules = []})) in
   
   Alcotest.(check bool) "Lexicographique: moins d'arrêts gagne" true (TW.(path_a < path_b))
 
 let test_transfer_compare2 () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let path_a = TW.add (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk}) 
-                      (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk}) in
-  let path_b = TW.add (TW.of_edge {line=dummy_line; duration=50; distance=0.; mode=Walk})
-                      (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk}) in
+  let path_a = TW.add (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk; schedules = []}) 
+                      (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk; schedules = []}) in
+  let path_b = TW.add (TW.of_edge {line=dummy_line; duration=50; distance=0.; mode=Walk; schedules = []})
+                      (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk; schedules = []}) in
     
     Alcotest.(check bool) "Lexicographique: moins de temps gagne" true (TW.(path_b < path_a))
 
 let test_transfer_to_string () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let w = TW.of_edge {line=dummy_line; duration=3661; distance=0.; mode=Walk} in
+  let w = TW.of_edge {line=dummy_line; duration=3661; distance=0.; mode=Walk; schedules = []} in
   Alcotest.(check string) "Formatage h/m/s" "1 stops, 1h01m01s" (TW.to_string w)
 
 
@@ -94,7 +94,8 @@ module BFS_Tests = struct
       Metrocaml.Network.line = { name=""; color="" }; 
       duration = 0; 
       distance = 0.; 
-      mode = Walk 
+      mode = Walk; 
+      schedules = []
     }
   end
 
@@ -109,7 +110,8 @@ module BFS_Tests = struct
     line = { name = "Test"; color = "#000000" }; 
     duration = 60; 
     distance = 1000.0; 
-    mode = Metro
+    mode = Metro;
+    schedules = []
   }
 
   (* Tests *)
@@ -190,7 +192,7 @@ module Dijkstra_Tests = struct
     let compare = compare
     let default = {
       Metrocaml.Network.line = { name = ""; color = "" };
-      duration = 0; distance = 0.; mode = Walk
+      duration = 0; distance = 0.; mode = Walk; schedules = []
     }
   end
 
@@ -204,7 +206,7 @@ module Dijkstra_Tests = struct
 
   let conn dur : Metrocaml.Network.connection =
     { line = { name = "Test"; color = "#000000" };
-      duration = dur; distance = 0.; mode = Metro }
+      duration = dur; distance = 0.; mode = Metro; schedules = [] }
 
   (* --- Tests --- *)
 
