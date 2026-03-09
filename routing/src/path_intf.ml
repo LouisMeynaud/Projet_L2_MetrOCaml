@@ -5,6 +5,11 @@ module type PATH = sig
   type edge
   type weight
 
+  (** For use the function to convert weight to string *)
+  module Weight : sig
+    val to_string : weight -> string
+  end
+
   type step = {
     (** Source node of this step*)
     from : node;
@@ -25,6 +30,6 @@ module type PATH = sig
     total_weight : weight;
   }
 
-  (** Print a path using a function to print nodes and weights.*)
-  val print_path : (node -> string) -> t -> unit
+  (** Print a path with nodes, lines and total weight *)
+  val print_path : (node -> string) -> (edge -> string) -> (weight -> string) -> t -> unit
 end 

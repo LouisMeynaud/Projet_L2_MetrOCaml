@@ -53,7 +53,11 @@ let () =
                 | _                 -> (module DIJKSTRA_TransferWeight)
               in
           (match Routeur.find_path ~graph:graphe ~source ~destination with
-                  | Some p -> Routeur.P.print_path (fun s -> s.name) p;
+                  | Some p -> Routeur.P.print_path 
+                        (fun s -> s.name) 
+                        (fun (c : Network.connection) -> c.line.name)
+                        Routeur.P.Weight.to_string
+                        p;
                     flush stdout;
         | None -> Printf.printf "Aucun chemin trouvé.\n%!")
       | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
