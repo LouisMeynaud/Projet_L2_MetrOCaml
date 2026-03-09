@@ -26,5 +26,5 @@ module type PATH = sig
   }
 
   (** Print a path using a function to print nodes and weights.*)
-  val print_path : (node -> string) -> (weight -> string) -> t -> unit
+  val print_path : (node -> string) -> t -> unit
 end 
