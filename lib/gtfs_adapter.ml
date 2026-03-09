@@ -25,7 +25,6 @@ let get_index_opt header field =
   List.find_index (fun h -> String.trim h = field) header
 
 (* --- 2. Chargement --- *)
-
 let load_network_gtfs directory target_date target_time_seconds =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
   flush stdout;
@@ -134,14 +133,12 @@ let load_network_gtfs directory target_date target_time_seconds =
   let i_st_id = get_index st_header "stop_id" in
   
   let last_trip_state = ref None in 
-  let existing_edges = Hashtbl.create 10000 in
-  
+  let edges_acc = Hashtbl.create 10000 in
   Csv.iter ~f:(fun row ->
     let tid = List.nth row i_st_trip in
     if Hashtbl.mem valid_trips tid then begin
       let raw_stop_id = List.nth row i_st_id in
-            let area_id = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
-
+      let area_id = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
       let arr_time = time_to_seconds (List.nth row i_st_arr) in
       let dep_time = time_to_seconds (List.nth row i_st_dep) in
       let (line_obj, m) = Hashtbl.find valid_trips tid in
@@ -151,16 +148,13 @@ let load_network_gtfs directory target_date target_time_seconds =
             match (Hashtbl.find_opt area_nodes prev_area, Hashtbl.find_opt area_nodes area_id) with
             | (Some f, Some t) ->
                 let key = (f.id, t.id, line_obj.name) in
-                if not (Hashtbl.mem existing_edges key) then begin
-                  Network.TransportGraph.add_edge graph f t { 
-                    Network.line = line_obj;
-                    Network.duration = max (arr_time - prev_dep) 0;
-                    Network.schedules = []; 
-                    Network.distance = 0.; 
-                    Network.mode = m 
-                  };
-                  Hashtbl.add existing_edges key true
-                end
+                let duration = max (arr_time - prev_dep) 0 in
+
+                (match Hashtbl.find_opt edges_acc key with
+                | Some (_, _, _, _, _, schedules_ref) ->
+                    schedules_ref := prev_dep :: !schedules_ref
+                | None ->
+                    Hashtbl.add edges_acc key (f, t, line_obj, duration, m, ref [prev_dep]))
             | _ -> ()
           end;
           last_trip_state := Some (tid, area_id, dep_time)
@@ -170,8 +164,21 @@ let load_network_gtfs directory target_date target_time_seconds =
   ) st_csv;
   
   close_in st_ic;
-  graph
 
+  (* F. Construction finale des arêtes avec listes triées *)
+  Hashtbl.iter (fun _ (f, t, line_obj, duration, m, schedules_ref) ->
+    let sorted_schedules = List.sort compare !schedules_ref in
+    let conn = {
+      Network.line = line_obj;
+      Network.duration = duration;
+      Network.schedules = sorted_schedules;
+      Network.distance = 0.; 
+      Network.mode = m 
+    } in
+    Network.TransportGraph.add_edge graph f t conn
+  ) edges_acc;
+
+  graph
 exception Invalid_GTFS_URL of string
 let download_and_extract_gtfs url dest_dir =
   Printf.printf "=== Recuperation du GTFS ===\n";
