@@ -154,7 +154,8 @@ let load_network_gtfs directory target_date target_time_seconds =
                 if not (Hashtbl.mem existing_edges key) then begin
                   Network.TransportGraph.add_edge graph f t { 
                     Network.line = line_obj;
-                    Network.duration = max (arr_time - prev_dep) 0; 
+                    Network.duration = max (arr_time - prev_dep) 0;
+                    Network.schedules = []; 
                     Network.distance = 0.; 
                     Network.mode = m 
                   };
