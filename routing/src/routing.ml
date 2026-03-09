@@ -8,6 +8,7 @@ module type GRAPH = Graph_intf.GRAPH
 
 module Graph = Graph
 
+module type PATH = Path_intf.PATH
 module type WEIGHT = Weight_intf.WEIGHT
 
 module Bfs = Bfs
