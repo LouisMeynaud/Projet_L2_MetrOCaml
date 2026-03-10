@@ -15,7 +15,7 @@ let () =
   print_endline "=== Lancement de MetroCaml ===";
 
   try
-    let graphe = Gtfs_adapter.load_network_gtfs "data/Toulouse" date_cible heure_min in
+    let graphe = Gtfs_adapter.load_network_from_url "https://www.data.gouv.fr/api/1/datasets/r/95c73b12-d117-4faf-bb6f-abfe3c95eee1" date_cible heure_min in
     
     Printf.printf "Graphe chargé ! Lancement de l'interface graphique...\n";
     flush stdout;
@@ -33,7 +33,7 @@ let () =
       | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
     in
 
-    Graphics.set_window_title "MetroCaml - Réseau";
+    Graphics.set_window_title "MetrOcaml";
     Gui.Transport_view.affiche graphe search_callback;
   with
   | Failure msg -> Printf.eprintf "ERREUR : %s\n" msg

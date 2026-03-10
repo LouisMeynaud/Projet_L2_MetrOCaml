@@ -2,9 +2,15 @@ open Graph_display
 open Metrocaml.Network
 
 let color_of_string s =
-  let s = if s.[0] = '#' then String.sub s 1 (String.length s - 1) else s in
-  int_of_string ("0x" ^ s)
-
+  let s = String.trim s in
+  if String.length s = 0 then 
+    0x000000
+  else
+    let s = if s.[0] = '#' then String.sub s 1 (String.length s - 1) else s in
+    try 
+      int_of_string ("0x" ^ s)
+    with _ -> 
+      0x000000
 
 let station_to_noeud s = { id = s.id; nom = s.name; x = s.longitude; y = s.latitude }
 

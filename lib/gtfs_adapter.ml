@@ -14,15 +14,21 @@ let time_to_seconds time_str =
   | _ -> 0
   with _ -> 0
 
+let clean_header_col s =
+  let s = String.trim s in
+  if String.length s >= 3 && String.sub s 0 3 = "\xEF\xBB\xBF" then
+    String.trim (String.sub s 3 (String.length s - 3))
+  else
+    s
 let get_index header field =
   let field = String.trim field in
-  match List.find_index (fun h -> String.trim h = field) header with
+  match List.find_index (fun h -> String.trim (clean_header_col h) = field) header with
   | Some i -> i
   | None -> failwith ("Colonne OBLIGATOIRE manquante : " ^ field)
 
 let get_index_opt header field =
   let field = String.trim field in
-  List.find_index (fun h -> String.trim h = field) header
+  List.find_index (fun h -> String.trim (clean_header_col h) = field) header
 
 (* --- 2. Chargement --- *)
 let load_network_gtfs directory target_date target_time_seconds =
@@ -51,10 +57,10 @@ let load_network_gtfs directory target_date target_time_seconds =
 
   List.iter (fun row ->
     let mode = match List.nth row i_rtype with
-      | "0" -> Network.Tram 
-      | "1" -> Network.Metro 
-      | "2" -> Network.RER 
-      | "3" -> Network.Bus 
+      | "0"|"900" -> Network.Tram 
+      | "1"|"400" -> Network.Metro 
+      | "2"|"100"-> Network.RER 
+      | "3"| "700" | "701" | "702" | "704" -> Network.Bus 
       | "4" -> Network.Custom "Ferry"
       | "5" -> Network.Custom "Tram à câble"
       | "6" -> Network.Custom "Téléphérique"
