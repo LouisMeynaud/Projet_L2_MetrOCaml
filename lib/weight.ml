@@ -15,11 +15,19 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
 
   let add = ( + )
 
-  let compare = Int.compare
+  (** (a - b) / max(a, b)*)
+  let compare a b =
+    if a = infinity && b = infinity then 0.0
+    else if a = infinity then 1.0
+    else if b = infinity then -1.0
+    else
+      let diff = a - b in
+      let denom = Int.max 1 (Int.max a b) in
+      float_of_int diff /. float_of_int denom
 
-  let ( < ) a b = compare a b < 0
-  let ( > ) a b = compare a b > 0
-  let ( = ) a b = compare a b = 0
+  let ( < ) a b = compare a b < 0.0
+  let ( > ) a b = compare a b > 0.0
+  let ( = ) a b = compare a b = 0.0
 
   let to_string w =
     if w = infinity then "∞"
@@ -47,11 +55,19 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
 
   let add = ( +. )
 
-  let compare = Float.compare
+  (** (a - b) / max(a, b)*)
+  let compare a b =
+    if a = infinity && b = infinity then 0.0
+    else if a = infinity then 1.0
+    else if b = infinity then -1.0
+    else
+      let diff = a -. b in
+      let denom = Float.max 1.0 (Float.max a b) in
+      diff /. denom
 
-  let ( < ) a b = compare a b < 0
-  let ( > ) a b = compare a b > 0
-  let ( = ) a b = compare a b = 0
+  let ( < ) a b = compare a b < 0.0
+  let ( > ) a b = compare a b > 0.0
+  let ( = ) a b = compare a b = 0.0
 
   let to_string d =
     if d = infinity then "∞"
@@ -76,11 +92,19 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
     if w1 = infinity || w2 = infinity then infinity
     else w1 + w2
 
-  let compare = Int.compare
+  (** (a - b) / max(a, b)*)
+  let compare a b =
+    if a = infinity && b = infinity then 0.0
+    else if a = infinity then 1.0
+    else if b = infinity then -1.0
+    else
+      let diff = a - b in
+      let denom = Int.max 1 (Int.max a b) in
+      float_of_int diff /. float_of_int denom
 
-  let ( < ) a b = compare a b < 0
-  let ( > ) a b = compare a b > 0
-  let ( = ) a b = compare a b = 0
+  let ( < ) a b = compare a b < 0.0
+  let ( > ) a b = compare a b > 0.0
+  let ( = ) a b = compare a b = 0.0
 
   let to_string w =
     if w = infinity then "∞"
@@ -88,49 +112,6 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
     else Printf.sprintf "%d hops" w
 end
 
-(**Transfer-aware weight for transport networks.
-    Uses lexicographic ordering: fewer line changes first, then shorter time. 
-    
-    Current implementation: estimates transfers by comparing line IDs between
-    consecutive edges (would need routing algorithm modification for full support).
-    Included to demonstrate multi-criteria weight design.*)
-module TransferWeight : Routing.WEIGHT with type edge = connection = struct
-  type t = int * int (* (base_cost, time_seconds) *)
-  type edge = connection
-
-  let zero = (0, 0)
-  let infinity = (max_int, max_int)
-
-  (** For now, use hop count as base cost.
-      True transfer counting requires algorithm state tracking. *)
-  let of_edge (conn : connection) = (1, conn.duration)
-
-  let add (c1, d1) (c2, d2) =
-    if (c1, d1) = infinity || (c2, d2) = infinity then infinity
-    else (c1 + c2, d1 + d2)
-
-  let compare (c1, d1) (c2, d2) =
-    match Int.compare c1 c2 with
-    | 0 -> Int.compare d1 d2
-    | c -> c
-
-  let ( < ) a b = compare a b < 0
-  let ( > ) a b = compare a b > 0
-  let ( = ) a b = compare a b = 0
-
-  let to_string (cost, time) =
-    if Stdlib.(=) (compare (cost, time) infinity) 0 then "∞"
-    else
-      let hours = time / 3600 in
-      let minutes = (time mod 3600) / 60 in
-      let seconds = time mod 60 in
-      let time_str =
-        if Stdlib.(>) hours 0 then Printf.sprintf "%dh%02dm%02ds" hours minutes seconds
-        else if Stdlib.(>) minutes 0 then Printf.sprintf "%dm%02ds" minutes seconds
-        else Printf.sprintf "%ds" seconds
-      in
-      Printf.sprintf "%d stops, %s" cost time_str
-end
 
 (** Module de calcul de poids basé sur le nombre de correspondances.
     
@@ -173,12 +154,20 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection = struc
     
   (** Compare deux poids en se basant uniquement sur la composante temporelle.
   Nécessaire pour le fonctionnement de l'algorithme de Dijkstra. *)
-  let compare (t1, _) (t2, _) = Int.compare t1 t2
+  (** (a - b) / max(a, b)*)
+  let compare (t1, _) (t2, _) =
+    if t1 = max_int && t2 = max_int then 0.0
+    else if t1 = max_int then 1.0
+    else if t2 = max_int then -1.0
+    else
+      let diff = t1 - t2 in
+      let denom = Int.max 1 (Int.max t1 t2) in
+      float_of_int diff /. float_of_int denom
     
   (* Opérateurs de comparaison spécialisés pour le type [t]. *)
-  let ( < ) a b = compare a b < 0
-  let ( > ) a b = compare a b > 0
-  let ( = ) a b = compare a b = 0
+  let ( < ) a b = compare a b < 0.0
+  let ( > ) a b = compare a b > 0.0
+  let ( = ) a b = compare a b = 0.0
     
   (** Convertit le poids en une chaîne de caractères lisible.
   Affiche "∞" pour le poids infini. *)
