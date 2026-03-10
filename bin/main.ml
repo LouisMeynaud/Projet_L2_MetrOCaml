@@ -52,11 +52,13 @@ let () =
                 | "Correspondances" -> (module DIJKSTRA_CorrespondenceWeight)
                 | _                 -> (module DIJKSTRA_TransferWeight)
               in
+          let module ShowPath = Show.Make(Routeur.P) in
           (match Routeur.find_path ~graph:graphe ~source ~destination with
-                  | Some p -> Routeur.P.print_path 
+                  | Some p -> ShowPath.print_path 
                         (fun s -> s.name) 
                         (fun (c : Network.connection) -> c.line.name)
                         Routeur.P.Weight.to_string
+                        (fun (c : Network.connection) -> c.line.color)
                         p;
                     flush stdout;
         | None -> Printf.printf "Aucun chemin trouvé.\n%!")
