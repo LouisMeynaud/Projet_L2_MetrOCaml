@@ -24,6 +24,15 @@ module type ALGO = sig
   val find_path : graph:Network.TransportGraph.t -> source:Network.station -> destination:Network.station -> P.t option
 end
 
+let rec raw_select prompt options =
+  Printf.printf "%s (%s) : %!" prompt (String.concat " / " options);
+  let choice = read_line () in
+  if List.mem choice options then choice
+  else begin
+    Printf.printf "Choix invalide. Veuillez taper l'une des options exactement.\n%!";
+    raw_select prompt options
+  end
+
 let run_console graphe search_callback =
   Printf.printf "\n=== Mode Ligne de Commande ===\n%!";
   
@@ -42,13 +51,11 @@ let run_console graphe search_callback =
   let source_id = get_station_id source_name in
   let dest_id = get_station_id dest_name in
 
-  Printf.printf "Choisissez l'algorithme (BFS / Dijkstra) : %!";
-  let algo = read_line () in
+  let algo = raw_select "Choisissez l'algorithme : " ["BFS" ; "Dijkstra"] in
   
   let poids = 
     if algo = "Dijkstra" then begin
-      Printf.printf "Choisissez le poids (Distance / Arrets / Temps / Correspondances) : %!";
-      read_line ()
+      raw_select "Choisissez le poids : " ["Distance"; "Arrets"; "Temps"; "Correspondances"];
     end else ""
   in
 
@@ -95,9 +102,9 @@ let () =
     Printf.printf "Choisissez l'interface à lancer :\n%!";
     Printf.printf "  1 - Interface Graphique (GUI)\n%!";
     Printf.printf "  2 - Interface Ligne de Commande (CLI)\n%!";
-    Printf.printf "Votre choix (1 ou 2) : %!";
+
     
-    match read_line () with
+    match raw_select "" ["1"; "2"] with
     | "2" -> 
         run_console graphe search_callback
     | _ -> 
