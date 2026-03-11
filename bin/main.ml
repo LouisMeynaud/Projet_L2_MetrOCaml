@@ -1,6 +1,7 @@
 (* bin/main.ml *)
 
 open Metrocaml
+open Weight
 open Routing
 
 module DIJKSTRA_CorrespondenceWeight = Dijkstra.Make(Network.TransportGraph)(Weight.CorrespondenceWeight)
@@ -25,9 +26,9 @@ let find_station_by_name graphe name =
   List.find_opt (fun (s : Network.station) -> s.name = name) (Network.TransportGraph.nodes graphe)
 
 module type ALGO = sig
-  module P : Routing.PATH 
-    with type node = Network.station 
-     and type edge = Network.connection 
+  module P : Routing.PATH
+    with type Node.t = Network.station
+     and type Edge.t = Network.connection
 
   val find_path : graph:Network.TransportGraph.t -> source:Network.station -> destination:Network.station -> P.t option
 end
@@ -99,13 +100,16 @@ let () =
                 | "Combinaison"     -> (module DIJKSTRA_CombinedWeight)
                 | _                 -> (module DIJKSTRA_TimeWeight)
               in
+          let module ShowPath = Show.Make(Routeur.P) in
           (match Routeur.find_path ~graph:graphe ~source ~destination with
-          | Some p ->
-              Printf.printf "Chemin trouvé en %d étapes :\n%!" (List.length p.Routeur.P.steps);
-              List.iter (fun (step : Routeur.P.step) -> 
-                Printf.printf "  %s -> %s\n%!" step.from.name step.to_node.name
-              ) p.Routeur.P.steps
-          | None -> Printf.printf "Aucun chemin trouvé.\n%!")
+                  | Some p -> ShowPath.print_path 
+                        (fun s -> s.name) 
+                        (fun (c : Network.connection) -> c.line.name)
+                        Routeur.P.Weight.to_string
+                        (fun (c : Network.connection) -> c.line.color)
+                        p;
+                    flush stdout;
+        | None -> Printf.printf "Aucun chemin trouvé.\n%!")
       | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
     in
 
