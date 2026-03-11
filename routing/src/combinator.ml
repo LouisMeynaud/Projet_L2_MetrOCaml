@@ -6,14 +6,14 @@ type ('edge, 'w) criterion_t = {
   label       : string;
 }
 
-let criterion
-    (type e w) (weight : (module WEIGHT with type edge = e and type t = w))
-    ~(coefficient : float)
-    ~(label : string)
-  : (e, w) criterion_t = { weight; coefficient; label }
-
 type 'edge criterion =
   | Criterion : ('edge, 'w) criterion_t -> 'edge criterion
+
+let criterion
+  (type e w) (weight : (module WEIGHT with type edge = e and type t = w))
+  ~(coefficient : float)
+  ~(label : string)
+: e criterion = Criterion { weight; coefficient; label }
 
 type 'edge entry =
   | Entry : ('edge, 'w) criterion_t * 'w -> 'edge entry
