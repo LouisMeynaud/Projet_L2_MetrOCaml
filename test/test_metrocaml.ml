@@ -32,48 +32,6 @@ let test_hop_infinity () =
   Alcotest.(check string) "Infini absorbe" "∞" (HW.to_string (HW.add infinity one))
 
 (* ========================================================== *)
-(* TESTS: TransferWeight                                      *)
-(* ========================================================== *)
-
-module TW = Metrocaml.Weight.TransferWeight
-
-let transfer_weight_t = 
-  Alcotest.testable (fun ppf w -> Fmt.string ppf (TW.to_string w)) TW.(=)
-
-let test_transfer_arithmetic () =
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let c1 = { Metrocaml.Network.line = dummy_line; duration = 60; distance = 0.; mode = Walk } in
-  let c2 = { Metrocaml.Network.line = dummy_line; duration = 40; distance = 0.; mode = Walk } in
-  let w1 = TW.of_edge c1 in
-  let w2 = TW.of_edge c2 in
-  let expected_sum = TW.add w1 w2 in
-  Alcotest.(check string) "Cumul stops et temps" "2 stops, 1m40s" (TW.to_string expected_sum)
-
-let test_transfer_compare1 () =
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let path_a = TW.add (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk}) 
-                      (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk}) in
-  let path_b = TW.add (TW.of_edge {line=dummy_line; duration=50; distance=0.; mode=Walk})
-                      (TW.add (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk})
-                              (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk})) in
-  
-  Alcotest.(check bool) "Lexicographique: moins d'arrêts gagne" true (TW.(path_a < path_b))
-
-let test_transfer_compare2 () =
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let path_a = TW.add (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk}) 
-                      (TW.of_edge {line=dummy_line; duration=250; distance=0.; mode=Walk}) in
-  let path_b = TW.add (TW.of_edge {line=dummy_line; duration=50; distance=0.; mode=Walk})
-                      (TW.of_edge {line=dummy_line; duration=25; distance=0.; mode=Walk}) in
-    
-    Alcotest.(check bool) "Lexicographique: moins de temps gagne" true (TW.(path_b < path_a))
-
-let test_transfer_to_string () =
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let w = TW.of_edge {line=dummy_line; duration=3661; distance=0.; mode=Walk} in
-  Alcotest.(check string) "Formatage h/m/s" "1 stops, 1h01m01s" (TW.to_string w)
-
-(* ========================================================== *)
 (* TESTS: TimeWeight                                          *)
 (* ========================================================== *)
 
@@ -466,12 +424,6 @@ let () =
       test_case "Poids unitaire" `Quick test_hop_of_edge;
       test_case "Arithmétique" `Quick test_hop_arithmetic;
       test_case "Gestion Infini" `Quick test_hop_infinity;
-    ];
-    "TransferWeight", [
-      test_case "Addition composite" `Quick test_transfer_arithmetic;
-      test_case "Priorité lexicographique" `Quick test_transfer_compare1;
-      test_case "Priorité lexicographique" `Quick test_transfer_compare2;
-      test_case "Formatage temps" `Quick test_transfer_to_string;
     ];
     "TimeWeight", [
       test_case "Extraction de la durée" `Quick test_time_of_edge;

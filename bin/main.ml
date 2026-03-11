@@ -4,7 +4,6 @@ open Metrocaml
 open Routing
 
 module DIJKSTRA_CorrespondenceWeight = Dijkstra.Make(Network.TransportGraph)(Weight.CorrespondenceWeight)
-module DIJKSTRA_TransferWeight       = Dijkstra.Make(Network.TransportGraph)(Weight.TransferWeight)
 module DIJKSTRA_DistanceWeight       = Dijkstra.Make(Network.TransportGraph)(Weight.DistanceWeight)
 module DIJKSTRA_TimeWeight           = Dijkstra.Make(Network.TransportGraph)(Weight.TimeWeight)
 module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
@@ -49,7 +48,7 @@ let () =
                 | "Arrets"          -> (module DIJKSTRA_HopWeight)
                 | "Temps"           -> (module DIJKSTRA_TimeWeight)
                 | "Correspondances" -> (module DIJKSTRA_CorrespondenceWeight)
-                | _                 -> (module DIJKSTRA_TransferWeight)
+                | _                 -> (module DIJKSTRA_TimeWeight)
               in
           (match Routeur.find_path ~graph:graphe ~source ~destination with
           | Some p ->
