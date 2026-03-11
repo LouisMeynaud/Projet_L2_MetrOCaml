@@ -13,7 +13,6 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   let of_edge (conn : connection) = conn.duration
 
   let is_inf = ( = ) infinity
-
   let add = ( + )
 
   (** (a - b) / max(a, b)*)
@@ -54,7 +53,6 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   let of_edge (conn : connection) : t = conn.distance
 
   let is_inf = ( = ) infinity
-
   let add = ( +. )
 
   (** (a - b) / max(a, b)*)
@@ -90,10 +88,7 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
   let of_edge (_conn : connection) = 1
 
   let is_inf = ( = ) infinity
-
-  let add w1 w2 =
-    if w1 = infinity || w2 = infinity then infinity
-    else w1 + w2
+  let add w1 w2 = if w1 = infinity || w2 = infinity then infinity else w1 + w2
 
   (** (a - b) / max(a, b)*)
   let compare a b =
@@ -114,7 +109,6 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
     else if w = 1 then "1 hop"
     else Printf.sprintf "%d hops" w
 end
-
 
 (** Module de calcul de poids basé sur le nombre de correspondances.
 
@@ -138,21 +132,22 @@ struct
 
   (** Constante de pénalité : 1 ajouté à chaque correspondance. *)
   let transfer_penalty = 1
-    
-  (** Transforme une arête du réseau en poids.
-  Extrait le nom de la ligne de la structure [connection]. *)
-  let of_edge (conn : connection) = 
-    ( 0 , Some conn.line.name)
-    
-  let is_inf (weight : t) =
-    let (correspondance, _) = weight in
-      correspondance = max_int
 
-  (** Calcule la somme de deux poids.
-  Détecte si une correspondance a lieu en comparant la ligne du poids cumulé 
-  avec celle de la nouvelle arête. 
-  @return Un nouveau poids incluant le nombre de correspondance avec l'éventuelle pénalité. *)
-  let add (total_correspondance, last_line) (edge_correspondance, current_line) =
+  (** Transforme une arête du réseau en poids. Extrait le nom de la ligne de la
+      structure [connection]. *)
+  let of_edge (conn : connection) = (0, Some conn.line.name)
+
+  let is_inf (weight : t) =
+    let correspondance, _ = weight in
+    correspondance = max_int
+
+  (** Calcule la somme de deux poids. Détecte si une correspondance a lieu en
+      comparant la ligne du poids cumulé avec celle de la nouvelle arête.
+      @return
+        Un nouveau poids incluant le nombre de correspondance avec l'éventuelle
+        pénalité. *)
+  let add (total_correspondance, last_line) (edge_correspondance, current_line)
+      =
     if total_correspondance = max_int then infinity
     else
       let penalty =
@@ -163,8 +158,8 @@ struct
       (total_correspondance + edge_correspondance + penalty, current_line)
 
   (** Compare deux poids en se basant uniquement sur la composante temporelle.
-  Nécessaire pour le fonctionnement de l'algorithme de Dijkstra. *)
-  (** (a - b) / max(a, b)*)
+      Nécessaire pour le fonctionnement de l'algorithme de Dijkstra. (a - b) /
+      max(a, b)*)
   let compare (t1, _) (t2, _) =
     if t1 = max_int && t2 = max_int then 0.0
     else if t1 = max_int then 1.0
@@ -173,14 +168,14 @@ struct
       let diff = t1 - t2 in
       let denom = Int.max 1 (Int.max t1 t2) in
       float_of_int diff /. float_of_int denom
-    
+
   (* Opérateurs de comparaison spécialisés pour le type [t]. *)
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-    
-  (** Convertit le poids en une chaîne de caractères lisible.
-  Affiche "∞" pour le poids infini. *)
+
+  (** Convertit le poids en une chaîne de caractères lisible. Affiche "∞" pour
+      le poids infini. *)
   let to_string (weight : t) =
     let correspondance, _ = weight in
     if Stdlib.( = ) correspondance max_int then "∞"

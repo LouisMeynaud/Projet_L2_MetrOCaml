@@ -10,16 +10,32 @@ let hop_weight_t =
   Alcotest.testable (fun ppf w -> Fmt.string ppf (HW.to_string w)) HW.( = )
 
 let test_hop_of_edge () =
-  let dummy_line : Metrocaml.Network.line = { name = "Ligne 1"; color = "#FFBE00" } in
-  let dummy_conn : Metrocaml.Network.connection = { 
-    line = dummy_line; duration = 120; distance = 500.0; mode = Metro; schedules = [] 
-  } in 
-  let expected = HW.of_edge dummy_conn in 
+  let dummy_line : Metrocaml.Network.line =
+    { name = "Ligne 1"; color = "#FFBE00" }
+  in
+  let dummy_conn : Metrocaml.Network.connection =
+    {
+      line = dummy_line;
+      duration = 120;
+      distance = 500.0;
+      mode = Metro;
+      schedules = [];
+    }
+  in
+  let expected = HW.of_edge dummy_conn in
   Alcotest.(check string) "Un segment vaut 1" "1 hop" (HW.to_string expected)
 
 let test_hop_arithmetic () =
   let open HW in
-  let dummy_conn = { Metrocaml.Network.line = {name=""; color=""}; duration=0; distance=0.; mode=Walk; schedules = [] } in
+  let dummy_conn =
+    {
+      Metrocaml.Network.line = { name = ""; color = "" };
+      duration = 0;
+      distance = 0.;
+      mode = Walk;
+      schedules = [];
+    }
+  in
   let one = of_edge dummy_conn in
   let two = HW.add one one in
   Alcotest.(check string) "1 + 1 = 2" "2 hops" (HW.to_string two);
@@ -27,7 +43,15 @@ let test_hop_arithmetic () =
 
 let test_hop_infinity () =
   let open HW in
-  let dummy_conn = { Metrocaml.Network.line = {name=""; color=""}; duration=0; distance=0.; mode=Walk; schedules = [] } in
+  let dummy_conn =
+    {
+      Metrocaml.Network.line = { name = ""; color = "" };
+      duration = 0;
+      distance = 0.;
+      mode = Walk;
+      schedules = [];
+    }
+  in
   let one = of_edge dummy_conn in
   Alcotest.(check string)
     "Infini absorbe" "∞"
@@ -45,10 +69,18 @@ let time_weight_t =
     TimeW.( = )
 
 let test_time_of_edge () =
-  let dummy_line : Metrocaml.Network.line = { name = "Ligne 1"; color = "#FFBE00" } in
-  let dummy_conn : Metrocaml.Network.connection = { 
-    line = dummy_line; duration = 120; distance = 500.0; mode = Metro; schedules = []
-  } in 
+  let dummy_line : Metrocaml.Network.line =
+    { name = "Ligne 1"; color = "#FFBE00" }
+  in
+  let dummy_conn : Metrocaml.Network.connection =
+    {
+      line = dummy_line;
+      duration = 120;
+      distance = 500.0;
+      mode = Metro;
+      schedules = [];
+    }
+  in
   (* On vérifie via le texte pour contourner le type abstrait *)
   Alcotest.(check string)
     "Extraction de la duree" "2m00s"
@@ -57,9 +89,33 @@ let test_time_of_edge () =
 let test_time_arithmetic () =
   let open TimeW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let c1 = { Metrocaml.Network.line = dummy_line; duration = 60; distance = 0.; mode = Walk; schedules = [] } in
-  let c2 = { Metrocaml.Network.line = dummy_line; duration = 40; distance = 0.; mode = Walk;schedules =[] } in
-  let c_100 = { Metrocaml.Network.line = dummy_line; duration = 100; distance = 0.; mode = Walk; schedules = []} in
+  let c1 =
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 60;
+      distance = 0.;
+      mode = Walk;
+      schedules = [];
+    }
+  in
+  let c2 =
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 40;
+      distance = 0.;
+      mode = Walk;
+      schedules = [];
+    }
+  in
+  let c_100 =
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 100;
+      distance = 0.;
+      mode = Walk;
+      schedules = [];
+    }
+  in
   let w1 = of_edge c1 in
   let w2 = of_edge c2 in
   let expected_100 = of_edge c_100 in
@@ -69,8 +125,26 @@ let test_time_arithmetic () =
 let test_time_compare () =
   let open TimeW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let w_60 = of_edge { Metrocaml.Network.line = dummy_line; duration = 60; distance = 0.; mode = Walk; schedules =[] } in
-  let w_120 = of_edge { Metrocaml.Network.line = dummy_line; duration = 120; distance = 0.; mode = Walk; schedules =[] } in
+  let w_60 =
+    of_edge
+      {
+        Metrocaml.Network.line = dummy_line;
+        duration = 60;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+      }
+  in
+  let w_120 =
+    of_edge
+      {
+        Metrocaml.Network.line = dummy_line;
+        duration = 120;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+      }
+  in
   Alcotest.(check bool) "Moins de temps gagne (<)" true (w_60 < w_120);
   Alcotest.(check bool) "Plus de temps perd (>)" true (w_120 > w_60);
   Alcotest.(check bool) "Temps egaux (=)" true (w_60 = w_60)
@@ -78,13 +152,33 @@ let test_time_compare () =
 let test_time_infinity () =
   let open TimeW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let w_3600 = of_edge { Metrocaml.Network.line = dummy_line; duration = 3600; distance = 0.; mode = Walk; schedules =[] } in
-  Alcotest.(check bool) "L'infini est strictement superieur a une duree normale" true (infinity > w_3600);
+  let w_3600 =
+    of_edge
+      {
+        Metrocaml.Network.line = dummy_line;
+        duration = 3600;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+      }
+  in
+  Alcotest.(check bool)
+    "L'infini est strictement superieur a une duree normale" true
+    (infinity > w_3600);
   Alcotest.(check string) "Affichage de l'infini" "∞" (to_string infinity)
 
 let test_time_to_string () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let make_w d = TimeW.of_edge { Metrocaml.Network.line = dummy_line; duration = d; distance = 0.; mode = Walk; schedules =[] } in
+  let make_w d =
+    TimeW.of_edge
+      {
+        Metrocaml.Network.line = dummy_line;
+        duration = d;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+      }
+  in
   Alcotest.(check string) "Formatage 0s" "0s" (TimeW.to_string (make_w 0));
   Alcotest.(check string)
     "Formatage s (uniquement secondes)" "45s"
@@ -109,18 +203,52 @@ let distance_weight_t =
   Alcotest.testable (fun ppf w -> Fmt.string ppf (DW.to_string w)) DW.( = )
 
 let test_distance_of_edge () =
-  let dummy_line : Metrocaml.Network.line = { name = "Ligne 1"; color = "#FFBE00" } in
-  let dummy_conn : Metrocaml.Network.connection = { 
-    line = dummy_line; duration = 120; distance = 1500.0; mode = Metro ; schedules =[]
-  } in 
-  Alcotest.(check string) "Extraction de la distance" "1.5 km" (DW.to_string (DW.of_edge dummy_conn))
+  let dummy_line : Metrocaml.Network.line =
+    { name = "Ligne 1"; color = "#FFBE00" }
+  in
+  let dummy_conn : Metrocaml.Network.connection =
+    {
+      line = dummy_line;
+      duration = 120;
+      distance = 1500.0;
+      mode = Metro;
+      schedules = [];
+    }
+  in
+  Alcotest.(check string)
+    "Extraction de la distance" "1.5 km"
+    (DW.to_string (DW.of_edge dummy_conn))
 
 let test_distance_arithmetic () =
   let open DW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let c1 = { Metrocaml.Network.line = dummy_line; duration = 0; distance = 500.0; mode = Walk; schedules =[] } in
-  let c2 = { Metrocaml.Network.line = dummy_line; duration = 0; distance = 750.0; mode = Walk ; schedules =[]} in
-  let c_1250 = { Metrocaml.Network.line = dummy_line; duration = 0; distance = 1250.0; mode = Walk; schedules =[] } in
+  let c1 =
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 0;
+      distance = 500.0;
+      mode = Walk;
+      schedules = [];
+    }
+  in
+  let c2 =
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 0;
+      distance = 750.0;
+      mode = Walk;
+      schedules = [];
+    }
+  in
+  let c_1250 =
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 0;
+      distance = 1250.0;
+      mode = Walk;
+      schedules = [];
+    }
+  in
   let w1 = of_edge c1 in
   let w2 = of_edge c2 in
   let expected_1250 = of_edge c_1250 in
@@ -132,8 +260,26 @@ let test_distance_arithmetic () =
 let test_distance_compare () =
   let open DW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let w_500 = of_edge { Metrocaml.Network.line = dummy_line; duration = 0; distance = 500.0; mode = Walk; schedules = [] } in
-  let w_750 = of_edge { Metrocaml.Network.line = dummy_line; duration = 0; distance = 750.0; mode = Walk; schedules = [] } in
+  let w_500 =
+    of_edge
+      {
+        Metrocaml.Network.line = dummy_line;
+        duration = 0;
+        distance = 500.0;
+        mode = Walk;
+        schedules = [];
+      }
+  in
+  let w_750 =
+    of_edge
+      {
+        Metrocaml.Network.line = dummy_line;
+        duration = 0;
+        distance = 750.0;
+        mode = Walk;
+        schedules = [];
+      }
+  in
   Alcotest.(check bool) "Moins de distance gagne (<)" true (w_500 < w_750);
   Alcotest.(check bool) "Plus de distance perd (>)" true (w_750 > w_500);
   Alcotest.(check bool) "Distances egales (=)" true (w_500 = w_500)
@@ -141,14 +287,33 @@ let test_distance_compare () =
 let test_distance_infinity () =
   let open DW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let w_500 = of_edge { Metrocaml.Network.line = dummy_line; duration = 0; distance = 500.0; mode = Walk; schedules =[] } in
-  Alcotest.(check distance_weight_t) "L'infini absorbe l'addition (inf + x = inf)" infinity (add infinity w_500);
+  let w_500 =
+    of_edge
+      {
+        Metrocaml.Network.line = dummy_line;
+        duration = 0;
+        distance = 500.0;
+        mode = Walk;
+        schedules = [];
+      }
+  in
+  Alcotest.(check distance_weight_t)
+    "L'infini absorbe l'addition (inf + x = inf)" infinity (add infinity w_500);
   Alcotest.(check bool) "L'infini est superieur a tout" true (infinity > w_500);
   Alcotest.(check string) "Affichage de l'infini" "∞" (to_string infinity)
 
 let test_distance_to_string () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let make_w dist = DW.of_edge { Metrocaml.Network.line = dummy_line; duration = 0; distance = dist; mode = Walk; schedules =[] } in
+  let make_w dist =
+    DW.of_edge
+      {
+        Metrocaml.Network.line = dummy_line;
+        duration = 0;
+        distance = dist;
+        mode = Walk;
+        schedules = [];
+      }
+  in
   Alcotest.(check string) "Formatage 0 m" "0 m" (DW.to_string (make_w 0.0));
   Alcotest.(check string)
     "Formatage m (< 1000)" "850 m"
@@ -174,9 +339,15 @@ let correspondence_weight_t =
 
 let test_cw_of_edge () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
-  let conn = { 
-    Metrocaml.Network.line = line_a; duration = 120; distance = 500.0; mode = Metro; schedules =[] 
-  } in 
+  let conn =
+    {
+      Metrocaml.Network.line = line_a;
+      duration = 120;
+      distance = 500.0;
+      mode = Metro;
+      schedules = [];
+    }
+  in
   let weight = CW.of_edge conn in
   (* of_edge doit retourner (0, Some "Ligne A") *)
   Alcotest.(check string)
@@ -185,7 +356,15 @@ let test_cw_of_edge () =
 
 let test_cw_arithmetic_same_line () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
-  let conn = { Metrocaml.Network.line = line_a; duration = 60; distance = 100.; mode = Metro; schedules =[] } in
+  let conn =
+    {
+      Metrocaml.Network.line = line_a;
+      duration = 60;
+      distance = 100.;
+      mode = Metro;
+      schedules = [];
+    }
+  in
   let w1 = CW.of_edge conn in
   let w2 = CW.of_edge conn in
   let sum = CW.add w1 w2 in
@@ -195,34 +374,117 @@ let test_cw_arithmetic_same_line () =
 let test_cw_transfer_penalty () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
   let line_b = { Metrocaml.Network.name = "Ligne B"; color = "#0000FF" } in
-  let w_a = CW.of_edge { line = line_a; duration = 60; distance = 100.; mode = Metro; schedules =[] } in
-  let w_b = CW.of_edge { line = line_b; duration = 60; distance = 100.; mode = Metro; schedules =[] } in
-  
+  let w_a =
+    CW.of_edge
+      {
+        line = line_a;
+        duration = 60;
+        distance = 100.;
+        mode = Metro;
+        schedules = [];
+      }
+  in
+  let w_b =
+    CW.of_edge
+      {
+        line = line_b;
+        duration = 60;
+        distance = 100.;
+        mode = Metro;
+        schedules = [];
+      }
+  in
+
   let total = CW.add w_a w_b in
-  Alcotest.(check string) "Changement de ligne : +1 correspondance" "1 correspondance(s)" (CW.to_string total);
-  
-  let total_3_lines = CW.add total (CW.of_edge { line = {name="Ligne C"; color=""}; duration=0; distance=0.; mode=Metro; schedules =[] }) in
-  Alcotest.(check string) "Deux changements : 2m" "2 correspondance(s)" (CW.to_string total_3_lines)
+  Alcotest.(check string)
+    "Changement de ligne : +1 correspondance" "1 correspondance(s)"
+    (CW.to_string total);
+
+  let total_3_lines =
+    CW.add total
+      (CW.of_edge
+         {
+           line = { name = "Ligne C"; color = "" };
+           duration = 0;
+           distance = 0.;
+           mode = Metro;
+           schedules = [];
+         })
+  in
+  Alcotest.(check string)
+    "Deux changements : 2m" "2 correspondance(s)"
+    (CW.to_string total_3_lines)
 
 let test_cw_neutral_and_inf () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
-  let w_a = CW.of_edge { line = line_a; duration = 60; distance = 100.; mode = Metro; schedules =[] } in
-  
-  Alcotest.(check correspondence_weight_t) "Neutre à gauche" w_a (CW.add CW.zero w_a);
-  Alcotest.(check correspondence_weight_t) "Neutre à droite" w_a (CW.add w_a CW.zero);
-  Alcotest.(check string) "Infini est absorbant" "∞" (CW.to_string (CW.add CW.infinity w_a))
+  let w_a =
+    CW.of_edge
+      {
+        line = line_a;
+        duration = 60;
+        distance = 100.;
+        mode = Metro;
+        schedules = [];
+      }
+  in
+
+  Alcotest.(check correspondence_weight_t)
+    "Neutre à gauche" w_a (CW.add CW.zero w_a);
+  Alcotest.(check correspondence_weight_t)
+    "Neutre à droite" w_a (CW.add w_a CW.zero);
+  Alcotest.(check string)
+    "Infini est absorbant" "∞"
+    (CW.to_string (CW.add CW.infinity w_a))
 
 let test_cw_compare () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "" } in
   let line_b = { Metrocaml.Network.name = "Ligne B"; color = "" } in
-  
-  let w_no_transfer = CW.add (CW.of_edge {line=line_a; duration=0; distance=0.; mode=Metro; schedules =[]}) 
-                             (CW.of_edge {line=line_a; duration=0; distance=0.; mode=Metro; schedules =[]}) in
-  let w_one_transfer = CW.add (CW.of_edge {line=line_a; duration=0; distance=0.; mode=Metro; schedules =[]}) 
-                              (CW.of_edge {line=line_b; duration=0; distance=0.; mode=Metro; schedules =[]}) in
-  
-  Alcotest.(check bool) "0 correspondance < 1 correspondance" true (CW.(w_no_transfer < w_one_transfer));
-  Alcotest.(check bool) "1 correspondance > 0 correspondance" true (CW.(w_one_transfer > w_no_transfer))
+
+  let w_no_transfer =
+    CW.add
+      (CW.of_edge
+         {
+           line = line_a;
+           duration = 0;
+           distance = 0.;
+           mode = Metro;
+           schedules = [];
+         })
+      (CW.of_edge
+         {
+           line = line_a;
+           duration = 0;
+           distance = 0.;
+           mode = Metro;
+           schedules = [];
+         })
+  in
+  let w_one_transfer =
+    CW.add
+      (CW.of_edge
+         {
+           line = line_a;
+           duration = 0;
+           distance = 0.;
+           mode = Metro;
+           schedules = [];
+         })
+      (CW.of_edge
+         {
+           line = line_b;
+           duration = 0;
+           distance = 0.;
+           mode = Metro;
+           schedules = [];
+         })
+  in
+
+  Alcotest.(check bool)
+    "0 correspondance < 1 correspondance" true
+    CW.(w_no_transfer < w_one_transfer);
+  Alcotest.(check bool)
+    "1 correspondance > 0 correspondance" true
+    CW.(w_one_transfer > w_no_transfer)
 
 (* ========================================================== *)
 (* TESTS: BFS (Parcours en largeur)                           *)
@@ -242,13 +504,15 @@ module BFS_Tests = struct
     type t = Metrocaml.Network.connection
 
     let compare = compare
-    let default = { 
-      Metrocaml.Network.line = { name=""; color="" }; 
-      duration = 0; 
-      distance = 0.; 
-      mode = Walk; 
-      schedules = []
-    }
+
+    let default =
+      {
+        Metrocaml.Network.line = { name = ""; color = "" };
+        duration = 0;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+      }
   end
 
   (* Utilisation du VRAI module Graph de la librairie *)
@@ -258,13 +522,14 @@ module BFS_Tests = struct
   module BFS = Routing.Bfs.Make (TestGraph) (HW)
 
   (* Données de test *)
-  let dummy_conn : Metrocaml.Network.connection = {
-    line = { name = "Test"; color = "#000000" }; 
-    duration = 60; 
-    distance = 1000.0; 
-    mode = Metro;
-    schedules = []
-  }
+  let dummy_conn : Metrocaml.Network.connection =
+    {
+      line = { name = "Test"; color = "#000000" };
+      duration = 60;
+      distance = 1000.0;
+      mode = Metro;
+      schedules = [];
+    }
 
   (* Tests *)
 
@@ -351,10 +616,15 @@ module Dijkstra_Tests = struct
     type t = Metrocaml.Network.connection
 
     let compare = compare
-    let default = {
-      Metrocaml.Network.line = { name = ""; color = "" };
-      duration = 0; distance = 0.; mode = Walk; schedules = []
-    }
+
+    let default =
+      {
+        Metrocaml.Network.line = { name = ""; color = "" };
+        duration = 0;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+      }
   end
 
   module TestGraph = Routing.Graph.Make (TestNode) (TestEdge)
@@ -365,8 +635,13 @@ module Dijkstra_Tests = struct
     Alcotest.testable (fun ppf w -> Fmt.string ppf (TW.to_string w)) TW.( = )
 
   let conn dur : Metrocaml.Network.connection =
-    { line = { name = "Test"; color = "#000000" };
-      duration = dur; distance = 0.; mode = Metro; schedules = [] }
+    {
+      line = { name = "Test"; color = "#000000" };
+      duration = dur;
+      distance = 0.;
+      mode = Metro;
+      schedules = [];
+    }
 
   (* --- Tests --- *)
 
@@ -468,50 +743,60 @@ end
 
 let () =
   let open Alcotest in
-  run "MetroCaml Suite" [
-    "HopWeight", [
-      test_case "Poids unitaire" `Quick test_hop_of_edge;
-      test_case "Arithmétique" `Quick test_hop_arithmetic;
-      test_case "Gestion Infini" `Quick test_hop_infinity;
-    ];
-    "TimeWeight", [
-      test_case "Extraction de la durée" `Quick test_time_of_edge;
-      test_case "Arithmétique" `Quick test_time_arithmetic;
-      test_case "Comparaison booléenne" `Quick test_time_compare;
-      test_case "Gestion de l'Infini" `Quick test_time_infinity;
-      test_case "Formatage de l'affichage" `Quick test_time_to_string;
-    ];
-    "DistanceWeight", [
-      test_case "Extraction de la distance" `Quick test_distance_of_edge;
-      test_case "Arithmétique" `Quick test_distance_arithmetic;
-      test_case "Comparaison booléenne" `Quick test_distance_compare;
-      test_case "Gestion de l'Infini" `Quick test_distance_infinity;
-      test_case "Formatage de l'affichage" `Quick test_distance_to_string;
-    ];
-    "CorrespondenceWeight", [
-      test_case "Poids initial" `Quick test_cw_of_edge;
-      test_case "Arithmétique et pénalité" `Quick test_cw_arithmetic_same_line;
-      test_case "Pénalité de correspondance" `Quick test_cw_transfer_penalty;
-      test_case "Neutre et infini" `Quick test_cw_neutral_and_inf;
-      test_case "Comparaison" `Quick test_cw_compare;
-    ];
-    "BFS", [
-      test_case "Chemin simple" `Quick BFS_Tests.test_bfs_simple_path;
-      test_case "Pas de chemin" `Quick BFS_Tests.test_bfs_no_path;
-      test_case "Même nœud" `Quick BFS_Tests.test_bfs_same_node;
-      test_case "Source manquante" `Quick BFS_Tests.test_bfs_missing_source;
-      test_case "Chemin long" `Quick BFS_Tests.test_bfs_longer_path;
-      test_case "Cycle" `Quick BFS_Tests.test_bfs_cycle;
-    ];
-    "Dijkstra", [
-      test_case "Chemin simple" `Quick Dijkstra_Tests.test_simple_path;
-      test_case "Pas de chemin" `Quick Dijkstra_Tests.test_no_path;
-      test_case "Même nœud" `Quick Dijkstra_Tests.test_same_node;
-      test_case "Source manquante" `Quick Dijkstra_Tests.test_missing_source;
-      test_case "Destination manquante" `Quick Dijkstra_Tests.test_missing_destination;
-      test_case "Chaîne" `Quick Dijkstra_Tests.test_chain;
-      test_case "Cycle" `Quick Dijkstra_Tests.test_cycle;
-      test_case "Chemin optimal pondéré" `Quick Dijkstra_Tests.test_weighted_optimal;
-      test_case "Poids total" `Quick Dijkstra_Tests.test_total_weight;
-    ];
-  ]
+  run "MetroCaml Suite"
+    [
+      ( "HopWeight",
+        [
+          test_case "Poids unitaire" `Quick test_hop_of_edge;
+          test_case "Arithmétique" `Quick test_hop_arithmetic;
+          test_case "Gestion Infini" `Quick test_hop_infinity;
+        ] );
+      ( "TimeWeight",
+        [
+          test_case "Extraction de la durée" `Quick test_time_of_edge;
+          test_case "Arithmétique" `Quick test_time_arithmetic;
+          test_case "Comparaison booléenne" `Quick test_time_compare;
+          test_case "Gestion de l'Infini" `Quick test_time_infinity;
+          test_case "Formatage de l'affichage" `Quick test_time_to_string;
+        ] );
+      ( "DistanceWeight",
+        [
+          test_case "Extraction de la distance" `Quick test_distance_of_edge;
+          test_case "Arithmétique" `Quick test_distance_arithmetic;
+          test_case "Comparaison booléenne" `Quick test_distance_compare;
+          test_case "Gestion de l'Infini" `Quick test_distance_infinity;
+          test_case "Formatage de l'affichage" `Quick test_distance_to_string;
+        ] );
+      ( "CorrespondenceWeight",
+        [
+          test_case "Poids initial" `Quick test_cw_of_edge;
+          test_case "Arithmétique et pénalité" `Quick
+            test_cw_arithmetic_same_line;
+          test_case "Pénalité de correspondance" `Quick test_cw_transfer_penalty;
+          test_case "Neutre et infini" `Quick test_cw_neutral_and_inf;
+          test_case "Comparaison" `Quick test_cw_compare;
+        ] );
+      ( "BFS",
+        [
+          test_case "Chemin simple" `Quick BFS_Tests.test_bfs_simple_path;
+          test_case "Pas de chemin" `Quick BFS_Tests.test_bfs_no_path;
+          test_case "Même nœud" `Quick BFS_Tests.test_bfs_same_node;
+          test_case "Source manquante" `Quick BFS_Tests.test_bfs_missing_source;
+          test_case "Chemin long" `Quick BFS_Tests.test_bfs_longer_path;
+          test_case "Cycle" `Quick BFS_Tests.test_bfs_cycle;
+        ] );
+      ( "Dijkstra",
+        [
+          test_case "Chemin simple" `Quick Dijkstra_Tests.test_simple_path;
+          test_case "Pas de chemin" `Quick Dijkstra_Tests.test_no_path;
+          test_case "Même nœud" `Quick Dijkstra_Tests.test_same_node;
+          test_case "Source manquante" `Quick Dijkstra_Tests.test_missing_source;
+          test_case "Destination manquante" `Quick
+            Dijkstra_Tests.test_missing_destination;
+          test_case "Chaîne" `Quick Dijkstra_Tests.test_chain;
+          test_case "Cycle" `Quick Dijkstra_Tests.test_cycle;
+          test_case "Chemin optimal pondéré" `Quick
+            Dijkstra_Tests.test_weighted_optimal;
+          test_case "Poids total" `Quick Dijkstra_Tests.test_total_weight;
+        ] );
+    ]
