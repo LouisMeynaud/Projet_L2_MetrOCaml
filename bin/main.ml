@@ -5,11 +5,19 @@ open Weight
 open Routing
 
 module DIJKSTRA_CorrespondenceWeight = Dijkstra.Make(Network.TransportGraph)(Weight.CorrespondenceWeight)
-module DIJKSTRA_TransferWeight       = Dijkstra.Make(Network.TransportGraph)(Weight.TransferWeight)
 module DIJKSTRA_DistanceWeight       = Dijkstra.Make(Network.TransportGraph)(Weight.DistanceWeight)
 module DIJKSTRA_TimeWeight           = Dijkstra.Make(Network.TransportGraph)(Weight.TimeWeight)
 module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
 module BFS_HopWeight                 = Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
+
+let criteria = [
+  Combinator.criterion (module Weight.TimeWeight) ~coefficient:0.5 ~label:"Temps";
+  Combinator.criterion (module Weight.CorrespondenceWeight) ~coefficient:0.3 ~label:"Correspondances";
+  Combinator.criterion (module Weight.HopWeight) ~coefficient:0.2 ~label:"Arrêts";
+]
+module CombinedWeight = (val Combinator.combine criteria : Routing.WEIGHT with type edge = Network.connection)
+module DIJKSTRA_CombinedWeight = Dijkstra.Make(Network.TransportGraph)(CombinedWeight)
+
 
 let find_station graphe id =
   List.find_opt (fun (s : Network.station) -> s.id = id) (Network.TransportGraph.nodes graphe)
@@ -89,7 +97,8 @@ let () =
                 | "Arrets"          -> (module DIJKSTRA_HopWeight)
                 | "Temps"           -> (module DIJKSTRA_TimeWeight)
                 | "Correspondances" -> (module DIJKSTRA_CorrespondenceWeight)
-                | _                 -> (module DIJKSTRA_TransferWeight)
+                | "Combinaison"     -> (module DIJKSTRA_CombinedWeight)
+                | _                 -> (module DIJKSTRA_TimeWeight)
               in
           let module ShowPath = Show.Make(Routeur.P) in
           (match Routeur.find_path ~graph:graphe ~source ~destination with
