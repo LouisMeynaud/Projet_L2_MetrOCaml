@@ -13,6 +13,8 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   (** Extract duration from connection metadata. *)
   let of_edge (conn : connection) = conn.duration
 
+  let is_inf = ( = ) infinity
+
   let add = ( + )
 
   (** (a - b) / max(a, b)*)
@@ -53,6 +55,8 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   If distance is not specified, estimate from duration *)
   let of_edge (conn : connection) : t = conn.distance
 
+  let is_inf = ( = ) infinity
+
   let add = ( +. )
 
   (** (a - b) / max(a, b)*)
@@ -87,6 +91,8 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
 
   (** All edges have unit cost—ignore edge data entirely. *)
   let of_edge (_conn : connection) = 1
+
+  let is_inf = ( = ) infinity
 
   let add w1 w2 =
     if w1 = infinity || w2 = infinity then infinity
@@ -139,6 +145,10 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection = struc
   let of_edge (conn : connection) = 
     ( 0 , Some conn.line.name)
     
+  let is_inf (weight : t) =
+    let (correspondance, _) = weight in
+      correspondance = max_int
+
   (** Calcule la somme de deux poids.
   Détecte si une correspondance a lieu en comparant la ligne du poids cumulé 
   avec celle de la nouvelle arête. 

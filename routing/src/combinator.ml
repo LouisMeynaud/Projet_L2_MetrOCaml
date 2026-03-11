@@ -63,6 +63,15 @@ let combine (type e) (criteria : e criterion list)
             let module W = (val c.weight) in
             Entry (c, W.of_edge edge))
 
+      let is_inf (t : t) : bool =
+        Array.exists (fun entry ->
+          match entry with
+          | Entry (c, v) ->
+            let module W = (val c.weight : WEIGHT with type edge = edge and type t = 'w) in
+            let v : W.t = Obj.magic v in
+            W.is_inf v
+        ) t
+
       let add (a : t) (b : t) : t =
         Array.init n (fun i ->
           match slots.(i), a.(i), b.(i) with
@@ -70,7 +79,7 @@ let combine (type e) (criteria : e criterion list)
             let module W = (val c.weight) in
             let va : W.t = Obj.magic va in
             let vb : W.t = Obj.magic vb in
-            if va = W.infinity || vb = W.infinity
+            if W.is_inf va || W.is_inf vb
             then Entry (c, W.infinity)
             else Entry (c, W.add va vb))
 
@@ -80,18 +89,21 @@ let combine (type e) (criteria : e criterion list)
           - Sum these weighted comparisons to get an overall score.
           - The final comparison is based on this overall score. 
       *)
-      (* TODO - if one compare is infinity, treat as if infinity *)
       let compare (a : t) (b : t) : float =
-        let sum = ref 0.0 in
-        for i = 0 to n - 1 do
-          match slots.(i), a.(i), b.(i) with
-          | Criterion c, Entry (_, va), Entry (_, vb) ->
-            let module W = (val c.weight) in
-            let va : W.t = Obj.magic va in
-            let vb : W.t = Obj.magic vb in
-            sum := !sum +. norm_coeffs.(i) *. W.compare va vb
-        done;
-        !sum
+        if is_inf a && is_inf b then 0.0
+        else if is_inf a then 1.0
+        else if is_inf b then -1.0
+        else
+          let sum = ref 0.0 in
+          for i = 0 to n - 1 do
+            match slots.(i), a.(i), b.(i) with
+            | Criterion c, Entry (_, va), Entry (_, vb) ->
+              let module W = (val c.weight) in
+              let va : W.t = Obj.magic va in
+              let vb : W.t = Obj.magic vb in
+              sum := !sum +. norm_coeffs.(i) *. W.compare va vb
+          done;
+          !sum
 
       let ( < ) a b = compare a b < 0.0
       let ( > ) a b = compare a b > 0.0
@@ -106,7 +118,7 @@ let combine (type e) (criteria : e criterion list)
             c.coefficient
 
       let to_string (t : t) : string =
-        if t = infinity then "∞"
+        if is_inf t then "∞"
         else
           let parts =
             Array.to_list (Array.map (fun v ->

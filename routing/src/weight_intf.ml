@@ -19,6 +19,9 @@ module type WEIGHT = sig
   val of_edge : edge -> t
   (** get the weight from edge data *)
 
+  val is_inf : t -> bool
+  (** Check if the weight is infinity. *)
+
   val add : t -> t -> t
   (** Combine two weights (must handle infinity correctly). *)
 
