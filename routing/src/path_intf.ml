@@ -1,9 +1,17 @@
 (**Path module signature *)
 
+open Graph_intf
+open Weight_intf
+
 module type PATH = sig 
-  type node
-  type edge
-  type weight
+  module Node : NODE
+  type node = Node.t
+
+  module Edge : EDGE
+  type edge = Edge.t
+
+  module Weight : WEIGHT
+  type weight = Weight.t
 
   type step = {
     (** Source node of this step*)
@@ -24,10 +32,4 @@ module type PATH = sig
     steps : step list;
     total_weight : weight;
   }
-
-  (** For use the function to convert weight to string *)
-  module Weight : sig
-    val to_string : weight -> string
-  end
-
 end 

@@ -18,9 +18,9 @@ let find_station_by_name graphe name =
   List.find_opt (fun (s : Network.station) -> s.name = name) (Network.TransportGraph.nodes graphe)
 
 module type ALGO = sig
-  module P : Routing.PATH 
-    with type node = Network.station 
-     and type edge = Network.connection 
+  module P : Routing.PATH
+    with type Node.t = Network.station
+     and type Edge.t = Network.connection
 
   val find_path : graph:Network.TransportGraph.t -> source:Network.station -> destination:Network.station -> P.t option
 end
