@@ -329,11 +329,19 @@ let draw_graph etat =
   (*Dessin des noeuds *)
   List.iter (draw_noeud etat) noeuds_visibles
 
+let cache_photo = ref None
+
 let rafraichir_ecran etat =
   Sdl_area.clear (get_canvas ());
   Sdl_area.fill_rectangle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~w:!largeur ~h:!hauteur (0,0);
   draw_graph etat;
   draw_ui etat;
+  
+  (* Mise en mémoire de la photo de ce qu'on vient de dessiner *)
+  (match Sdl_area.get_texture (get_canvas ()) with
+   | Some tex -> cache_photo := Some tex
+   | None -> ());
+   
   Sdl_area.update (get_canvas ())
 
 (*---------------FOCNTION INTERACTION----------------*)
@@ -407,6 +415,7 @@ let run noeuds aretes algos poids_list on_search =
   let debut_y = ref 0 in
   let pos_initiales = ref [] in
   let needs_redraw = ref false in
+  let action_courante = ref "Rien" (* Pour savoir si on doit redessiner tout ou juste glisser l'image *)
 
   let boucle _w _target ev =
     let etat = !current_etat in
@@ -421,7 +430,8 @@ let run noeuds aretes algos poids_list on_search =
         let mx, my = !largeur / 2, !hauteur / 2 in
         let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
         current_etat := etat';
-        rafraichir_ecran etat'
+        action_courante := "Zoom";
+        needs_redraw := true
       end
 
     | `Mouse_button_down | `Finger_down ->
@@ -435,17 +445,22 @@ let run noeuds aretes algos poids_list on_search =
         pos_initiales := etat.positions
       end else begin
         current_etat := etat';
-        rafraichir_ecran etat'
+        action_courante := "Clic";
+        needs_redraw := true
       end
 
     | `Mouse_button_up | `Finger_up ->
-      is_dragging := false;
-      needs_redraw := false
+      if !is_dragging then begin
+         is_dragging := false;
+         action_courante := "FinDrag";
+         needs_redraw := true (* On lâche la carte, on redessine proprement *)
+      end
 
     | `Mouse_motion | `Finger_motion ->
       if !is_dragging then begin
         let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
         current_etat := { etat with positions = move !pos_initiales (mx - !debut_x) (my - !debut_y) };
+        action_courante := "Drag";
         needs_redraw := true 
       end
 
@@ -463,7 +478,21 @@ let run noeuds aretes algos poids_list on_search =
   let rafraichissement_continu () =
     if !needs_redraw then begin
       needs_redraw := false;
-      rafraichir_ecran !current_etat
+      if !action_courante = "Drag" && !cache_photo <> None then begin
+        (* Si on glisse, on efface tout et on colle juste la photo avec le décalage *)
+        Sdl_area.clear (get_canvas ());
+        Sdl_area.fill_rectangle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~w:!largeur ~h:!hauteur (0,0);
+        Sdl_area.add (get_canvas ()) (fun renderer -> 
+           let (mx, my) = Tsdl.Sdl.get_mouse_state () in
+           let dx = mx - !debut_x and dy = my - !debut_y in
+           ignore (Tsdl.Sdl.render_copy ~dst:(Tsdl.Sdl.Rect.create ~x:dx ~y:dy ~w:!largeur ~h:!hauteur) renderer (Option.get !cache_photo))
+        );
+        draw_ui !current_etat;
+        Sdl_area.update (get_canvas ())
+      end else begin
+        (* Sinon (zoom, fin du drag, clic...), on refait le calcul complet *)
+        rafraichir_ecran !current_etat
+      end
     end
   in
 
