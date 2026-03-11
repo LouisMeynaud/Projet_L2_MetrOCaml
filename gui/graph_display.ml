@@ -89,36 +89,6 @@ let zoom_positions positions cx cy facteur =
   ) positions
 
 
-(*corrige les strings afin de retirer les accents non reconnue par Graphics*)
-let clean_accents s =
-  let b = Buffer.create (String.length s) in
-  let rec loop i =
-    if i >= String.length s then Buffer.contents b
-    else match s.[i] with
-      | '\xC3' when i + 1 < String.length s ->
-          let next = s.[i+1] in
-          let c = match next with
-            | '\xA0' | '\xA2' | '\xA4' -> 'a' (* à, â, ä *)
-            | '\x80' | '\x82' | '\x84' -> 'A' (* À, Â, Ä *)
-            | '\xA7' -> 'c' (* ç *)
-            | '\x87' -> 'C' (* Ç *)
-            | '\xA8' | '\xA9' | '\xAA' | '\xAB' -> 'e' (* è, é, ê, ë *)
-            | '\x88' | '\x89' | '\x8A' | '\x8B' -> 'E' (* È, É, Ê, Ë *)
-            | '\xAE' | '\xAF' -> 'i' (* î, ï *)
-            | '\x8E' | '\x8F' -> 'I' (* Î, Ï *)
-            | '\xB4' | '\xB6' -> 'o' (* ô, ö *)
-            | '\x94' | '\x96' -> 'O' (* Ô, Ö *)
-            | '\xB9' | '\xBB' | '\xBC' -> 'u' (* ù, û, ü *)
-            | '\x99' | '\x9B' | '\x9C' -> 'U' (* Ù, Û, Ü *)
-            | _ -> '?'
-          in
-          Buffer.add_char b c;
-          loop (i + 2)
-      | c -> 
-          Buffer.add_char b c;
-          loop (i + 1)
-  in
-  loop 0
 
 
 let distance_carre px py mx my =
@@ -253,14 +223,14 @@ let draw_noeud etat noeud =
   Sdl_area.fill_circle (get_canvas ()) ~color:(rgb_to_bogue color_ext) ~radius:r_ext (int_of_float x, int_of_float y);
   Sdl_area.fill_circle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~radius:r_int (int_of_float x, int_of_float y);
   if etat.show_names then begin
-    dessiner_texte (int_of_float x + 12) (int_of_float y - 4) (clean_accents noeud.nom) (0,0,0)
+    dessiner_texte (int_of_float x + 12) (int_of_float y - 4) noeud.nom (0,0,0)
   end
 
 (* dessine un bouton *)
 let draw_bouton x y w h text (r,g,b) (fond_r,fond_g,fond_b) =
   Sdl_area.fill_rectangle (get_canvas ()) ~color:(rgb_to_bogue (fond_r,fond_g,fond_b)) ~w ~h (x, y);
   Sdl_area.draw_rectangle (get_canvas ()) ~color:(rgb_to_bogue (r,g,b)) ~thick:1 ~w ~h (x, y);
-  dessiner_texte (x + 10) (y + 8) (clean_accents text) (r,g,b)
+  dessiner_texte (x + 10) (y + 8) text (r,g,b)
 
 let draw_selection_row y_pos label boutons actif =
   dessiner_texte 5 (y_pos + 8) label (0,0,0);
