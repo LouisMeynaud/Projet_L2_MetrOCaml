@@ -330,18 +330,51 @@ let draw_graph etat =
   List.iter (draw_noeud etat) noeuds_visibles
 
 let cache_photo = ref None
+let cible_originale = ref None
 
 let rafraichir_ecran etat =
   Sdl_area.clear (get_canvas ());
-  Sdl_area.fill_rectangle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~w:!largeur ~h:!hauteur (0,0);
+
+  (*On prépare une image invisible et on dit à Bogue de dessiner dessus *)
+  Sdl_area.add (get_canvas ()) (fun renderer ->
+    cible_originale := Tsdl.Sdl.get_render_target renderer; (* On sauvegarde l'écran normal *)
+    
+    (match !cache_photo with Some t -> Tsdl.Sdl.destroy_texture t | None -> ());
+    match Tsdl.Sdl.create_texture renderer Tsdl.Sdl.Pixel.format_argb8888 Tsdl.Sdl.Texture.access_target ~w:!largeur ~h:!hauteur with
+    | Ok texture ->
+        cache_photo := Some texture;
+        ignore (Tsdl.Sdl.set_render_target renderer (Some texture));
+        ignore (Tsdl.Sdl.set_render_draw_color renderer 255 255 255 255);
+        ignore (Tsdl.Sdl.render_clear renderer)
+    | Error _ -> ()
+  );
+
   draw_graph etat;
+  Sdl_area.add (get_canvas ()) (fun renderer ->
+    ignore (Tsdl.Sdl.set_render_target renderer !cible_originale);
+    match !cache_photo with
+    | Some tex -> ignore (Tsdl.Sdl.render_copy renderer tex)
+    | None -> ()
+  );
+
   draw_ui etat;
+  Sdl_area.update (get_canvas ())
+
+
+(* Utilisé uniquement pendant qu'on glisse la souris *)
+let rafraichir dx dy etat =
+  Sdl_area.clear (get_canvas ());
+  Sdl_area.add (get_canvas ()) (fun renderer ->
+    ignore (Tsdl.Sdl.set_render_draw_color renderer 255 255 255 255); 
+    ignore (Tsdl.Sdl.render_fill_rect renderer None);
+    
+    (* On déplace la "photo" du graphe de dx et dy *)
+    match !cache_photo with 
+    | None -> () 
+    | Some tex -> ignore (Tsdl.Sdl.render_copy ~dst:(Tsdl.Sdl.Rect.create ~x:dx ~y:dy ~w:!largeur ~h:!hauteur) renderer tex)
+  );
   
-  (* Mise en mémoire de la photo de ce qu'on vient de dessiner *)
-  (match Sdl_area.get_texture (get_canvas ()) with
-   | Some tex -> cache_photo := Some tex
-   | None -> ());
-   
+  draw_ui etat;
   Sdl_area.update (get_canvas ())
 
 (*---------------FOCNTION INTERACTION----------------*)
@@ -413,9 +446,11 @@ let run noeuds aretes algos poids_list on_search =
   let is_dragging = ref false in
   let debut_x = ref 0 in
   let debut_y = ref 0 in
+  let dx_glisse = ref 0 in
+  let dy_glisse = ref 0 in
   let pos_initiales = ref [] in
   let needs_redraw = ref false in
-  let action_courante = ref "Rien" (* Pour savoir si on doit redessiner tout ou juste glisser l'image *)
+  let action_courante = ref "Rien" in 
 
   let boucle _w _target ev =
     let etat = !current_etat in
@@ -442,6 +477,8 @@ let run noeuds aretes algos poids_list on_search =
         is_dragging := true;
         debut_x := mx;
         debut_y := my;
+        dx_glisse := 0;
+        dy_glisse := 0;
         pos_initiales := etat.positions
       end else begin
         current_etat := etat';
@@ -459,7 +496,9 @@ let run noeuds aretes algos poids_list on_search =
     | `Mouse_motion | `Finger_motion ->
       if !is_dragging then begin
         let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
-        current_etat := { etat with positions = move !pos_initiales (mx - !debut_x) (my - !debut_y) };
+        dx_glisse := mx - !debut_x;
+        dy_glisse := my - !debut_y;
+        current_etat := { etat with positions = move !pos_initiales !dx_glisse !dy_glisse };
         action_courante := "Drag";
         needs_redraw := true 
       end
@@ -479,16 +518,7 @@ let run noeuds aretes algos poids_list on_search =
     if !needs_redraw then begin
       needs_redraw := false;
       if !action_courante = "Drag" && !cache_photo <> None then begin
-        (* Si on glisse, on efface tout et on colle juste la photo avec le décalage *)
-        Sdl_area.clear (get_canvas ());
-        Sdl_area.fill_rectangle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~w:!largeur ~h:!hauteur (0,0);
-        Sdl_area.add (get_canvas ()) (fun renderer -> 
-           let (mx, my) = Tsdl.Sdl.get_mouse_state () in
-           let dx = mx - !debut_x and dy = my - !debut_y in
-           ignore (Tsdl.Sdl.render_copy ~dst:(Tsdl.Sdl.Rect.create ~x:dx ~y:dy ~w:!largeur ~h:!hauteur) renderer (Option.get !cache_photo))
-        );
-        draw_ui !current_etat;
-        Sdl_area.update (get_canvas ())
+        rafraichir !dx_glisse !dy_glisse !current_etat
       end else begin
         (* Sinon (zoom, fin du drag, clic...), on refait le calcul complet *)
         rafraichir_ecran !current_etat
