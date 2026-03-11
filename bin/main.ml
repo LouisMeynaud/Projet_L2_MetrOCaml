@@ -64,13 +64,14 @@ let run_console graphe search_callback =
 let () =
   (*let montpellier = "https://www.data.gouv.fr/api/1/datasets/r/85ef3b33-2289-4d19-b479-276e5b1c5a52" in*)
   (*let toulouse = "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77" in*)
+  let cest_marseille_bebe = "https://www.data.gouv.fr/api/1/datasets/r/ab931edc-0bc1-4c66-960a-dc546b46df03" in (* test jour fériée*)
   let date_cible = "20260501" in 
   let heure_min = 8 * 3600 in  
 
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
 
   try
-    let graphe = Gtfs_adapter.load_network_from_url "https://www.data.gouv.fr/api/1/datasets/r/ab931edc-0bc1-4c66-960a-dc546b46df03" date_cible heure_min in
+    let graphe = Gtfs_adapter.load_network_from_url cest_marseille_bebe  date_cible heure_min in
     
     Printf.printf "Graphe chargé ! Lancement de l'interface graphique...\n";
     flush stdout;
