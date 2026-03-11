@@ -1,4 +1,5 @@
 (* ------------------TYPE ET CONSTANTE------------------- *)
+open Bogue
 
 type noeud = { id : string;nom : string;x : float;y :float}
 type arete = { source : string;destination : string;couleur : int;categorie : string;groupe : string}
@@ -139,10 +140,83 @@ let get_noeud_clique mx my etat =
     ) (None, max_float) etat.positions
   in best_id
 
+
+
+let mon_canvas = ref None
+let get_canvas () = match !mon_canvas with Some c -> c | None -> failwith "Canvas non initialisé"
+
+
+let hex_to_rgb hexa = 
+  let rouge = (hexa lsr 16) land 255 in (* lsr : décalage vers la droite et land coupe les deux derniers bits *)
+  let vert  = (hexa lsr 8) land 255 in
+  let bleu  = hexa land 255 in
+  (rouge, vert, bleu)
+
+let rgb_to_bogue (r, g, b) = Draw.opaque (r, g, b)
+
+
+let police_actuelle = ref None
+
+let charger_police () =
+  if !police_actuelle = None then begin
+    let liste_candidats = ["FreeSans.otf"; "LiberationSans-Regular.ttf"; "DejaVuSans.ttf"] in
+    
+    (* On cherche la première police qui existe sur l'ordinateur *)
+    let chemin_trouve = 
+      List.fold_left (fun resultat_precedent nom_police -> 
+        match resultat_precedent with 
+        | Some _ -> resultat_precedent (* On a déjà trouvé, on garde *)
+        | None -> Theme.get_font_path_opt nom_police (* On essaie la suivante *)
+      ) None liste_candidats 
+    in
+    
+    (* Si on a trouvé un chemin, on demande à SDL d'ouvrir la police taille 12 *)
+    match chemin_trouve with 
+    | Some chemin -> 
+        (match Tsdl_ttf.Ttf.open_font chemin 12 with 
+         | Ok vraie_police -> police_actuelle := Some vraie_police 
+         | Error _ -> ()) 
+    | None -> ()
+  end
+
+(* 3. Le dessin du texte *)
+let dessiner_texte x y texte (r, g, b) =
+  charger_police ();
+  
+  match !police_actuelle with
+  | None -> () (* Si on n'a pas de police, on abandonne *)
+  | Some ma_police ->
+      Sdl_area.add (get_canvas ()) (fun pinceau_sdl ->
+        let couleur_texte = Tsdl.Sdl.Color.create ~r ~g ~b ~a:255 in
+        
+        (*  Dessiner le texte sur une image en mémoire (Surface) *)
+        match Tsdl_ttf.Ttf.render_utf8_blended ma_police texte couleur_texte with
+        | Error _ -> ()
+        | Ok image_texte ->
+            
+            (* Envoyer l'image à la carte graphique (Texture) *)
+            (match Tsdl.Sdl.create_texture_from_surface pinceau_sdl image_texte with
+             | Error _ -> ()
+             | Ok image_carte_graphique ->
+                 
+                 (*  Récupérer la taille du texte et le coller à l'écran *)
+                 (match Tsdl.Sdl.query_texture image_carte_graphique with
+                  | Error _ -> ()
+                  | Ok (_, _, (largeur, hauteur)) -> 
+                      let zone_ecran = Tsdl.Sdl.Rect.create ~x ~y ~w:largeur ~h:hauteur in
+                      let _ = Tsdl.Sdl.render_copy ~dst:zone_ecran pinceau_sdl image_carte_graphique in
+                      ()
+                 );
+                 
+                 (*  Nettoyer la mémoire de la carte graphique *)
+                 Tsdl.Sdl.destroy_texture image_carte_graphique
+            );
+            
+            (*  Nettoyer la mémoire de l'ordinateur *)
+            Tsdl.Sdl.free_surface image_texte
+      )
+
 (*---------------FONCTION DE DESSIN----------------*)
-(* Cache du graphe rendu sous forme d'image.
-   Permet d'éviter de redessiner tous les primitifs lors du déplacement. *)
-let graph_cache : Graphics.image option ref = ref None
 
 (* dessine une arrete (ligne) entre deux position donée
   @param positions la liste associative (id,(x_pixel,y_pixel));..
@@ -163,39 +237,48 @@ let draw_arete positions (arete : arete) i n =
         let shift = (float i -. (float (n - 1) /. 2.0)) *. 4.0 in (* decalle pour centré le paquet*)
         (nx *. shift, ny *. shift)
   in
-  Graphics.set_color arete.couleur; 
-  Graphics.set_line_width 3;
-  Graphics.moveto (int_of_float (x1 +. ox)) (int_of_float (y1 +. oy));
-  Graphics.lineto (int_of_float (x2 +. ox)) (int_of_float (y2 +. oy))
+  let color = rgb_to_bogue (hex_to_rgb arete.couleur) in
+  Sdl_area.draw_line (get_canvas ()) ~color ~thick:3
+    (int_of_float (x1 +. ox), int_of_float (y1 +. oy))
+    (int_of_float (x2 +. ox), int_of_float (y2 +. oy))
 
 (*dessine un noeud*)
-  let draw_noeud etat noeud =
+let draw_noeud etat noeud =
   let (x, y) = cherche noeud.id etat.positions (0., 0.) in
-  let (r_ext, r_int) =
-    if Some noeud.id = etat.source then (Graphics.set_color Graphics.green; 9, 8)
-    else if Some noeud.id = etat.dest then (Graphics.set_color Graphics.red; 9, 8)
-    else (Graphics.set_color Graphics.black; 5, 4)
+  let (color_ext, r_ext, r_int) =
+    if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 9, 8)
+    else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 9, 8)
+    else (hex_to_rgb 0x000000, 5, 4)
   in
-  Graphics.fill_circle (int_of_float x) (int_of_float y) r_ext;
-  Graphics.set_color Graphics.white; Graphics.fill_circle (int_of_float x) (int_of_float y) r_int;
+  Sdl_area.fill_circle (get_canvas ()) ~color:(rgb_to_bogue color_ext) ~radius:r_ext (int_of_float x, int_of_float y);
+  Sdl_area.fill_circle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~radius:r_int (int_of_float x, int_of_float y);
   if etat.show_names then begin
-    Graphics.set_color Graphics.black; Graphics.moveto (int_of_float x + 12) (int_of_float y - 4);
-    Graphics.draw_string (clean_accents noeud.nom)
+    dessiner_texte (int_of_float x + 12) (int_of_float y - 4) (clean_accents noeud.nom) (0,0,0)
   end
 
 (* dessine un bouton *)
-let draw_bouton x y w h text color bg_color =
-  Graphics.set_color bg_color; Graphics.fill_rect x y w h;
-  Graphics.set_color color; Graphics.draw_rect x y w h;
-  Graphics.moveto (x + 10) (y + 8); Graphics.draw_string (clean_accents text)
+let draw_bouton x y w h text (r,g,b) (fond_r,fond_g,fond_b) =
+  Sdl_area.fill_rectangle (get_canvas ()) ~color:(rgb_to_bogue (fond_r,fond_g,fond_b)) ~w ~h (x, y);
+  Sdl_area.draw_rectangle (get_canvas ()) ~color:(rgb_to_bogue (r,g,b)) ~thick:1 ~w ~h (x, y);
+  dessiner_texte (x + 10) (y + 8) (clean_accents text) (r,g,b)
+
 let draw_selection_row y_pos label boutons actif =
-  Graphics.set_color Graphics.black; Graphics.moveto 5 (y_pos + 8); Graphics.draw_string label;
-  List.iteri (fun i nom -> draw_bouton(60 + i * (btn_w + 5)) y_pos btn_w btn_h nom Graphics.black (if nom = actif then 0x2196F3 else 0xCCCCCC)) boutons
+  dessiner_texte 5 (y_pos + 8) label (0,0,0);
+  List.iteri (fun i nom -> 
+    let couleur_fond = if nom = actif then hex_to_rgb 0x2196F3 else hex_to_rgb 0xCCCCCC in
+    draw_bouton (60 + i * (btn_w + 5)) y_pos btn_w btn_h nom (0,0,0) couleur_fond
+  ) boutons
 
 let draw_ui etat =
-  List.iteri (fun i (nom, actif) -> draw_bouton (10 + i * (btn_w + 10)) (!hauteur - btn_h - 10) btn_w btn_h nom Graphics.black (if actif then 0x4CAF50 else 0xCCCCCC)) etat.categories;
-  draw_bouton (!largeur - 120) (!hauteur - 45) 100 35 "CHERCHER" Graphics.white Graphics.blue;
-  draw_bouton (!largeur - 240) (!hauteur - 45) 110 35 (if etat.show_names then "NOMS : ON" else "NOMS : OFF") Graphics.black (if etat.show_names then 0x4CAF50 else 0xCCCCCC);
+  List.iteri (fun i (nom, actif) -> 
+    let couleur_fond = if actif then hex_to_rgb 0x4CAF50 else hex_to_rgb 0xCCCCCC in
+    draw_bouton (10 + i * (btn_w + 10)) (!hauteur - btn_h - 10) btn_w btn_h nom (0,0,0) couleur_fond
+  ) etat.categories;
+  draw_bouton (!largeur - 120) (!hauteur - 45) 100 35 "CHERCHER" (255,255,255) (hex_to_rgb 0x0000FF);
+  
+  let col_noms = if etat.show_names then hex_to_rgb 0x4CAF50 else hex_to_rgb 0xCCCCCC in
+  draw_bouton (!largeur - 240) (!hauteur - 45) 110 35 (if etat.show_names then "NOMS : ON" else "NOMS : OFF") (0,0,0) col_noms;
+  
   draw_selection_row 10 "Algo :" etat.algos etat.algo_actif;
   if etat.algo_actif = "Dijkstra" then 
     draw_selection_row 50 "Poids:" etat.poids_list etat.poids_actif
@@ -246,18 +329,12 @@ let draw_graph etat =
   (*Dessin des noeuds *)
   List.iter (draw_noeud etat) noeuds_visibles
 
-let redraw etat =
-  Graphics.set_color Graphics.white; Graphics.fill_rect 0 0 !largeur !hauteur;
-  draw_graph etat; graph_cache := Some (Graphics.get_image 0 0 !largeur !hauteur);
-  draw_ui etat; Graphics.synchronize ()
-  (* rafraichissement rapide utilisant l'image en cache.
-   Au lieu de redessiner tous les primitifs, on blit l'image
-   du graphe décalée de (dx, dy) puis on redessine les boutons.
-   Utilisé pendant le déplacement (drag) pour de meilleures performances. *)
-let redraw_cached dx dy etat =
-  Graphics.set_color Graphics.white; Graphics.fill_rect 0 0 !largeur !hauteur;
-  (match !graph_cache with Some img -> Graphics.draw_image img dx dy | None -> ());
-  draw_ui etat; Graphics.synchronize ()
+let rafraichir_ecran etat =
+  Sdl_area.clear (get_canvas ());
+  Sdl_area.fill_rectangle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~w:!largeur ~h:!hauteur (0,0);
+  draw_graph etat;
+  draw_ui etat;
+  Sdl_area.update (get_canvas ())
 
 (*---------------FOCNTION INTERACTION----------------*)
 (* inverse l'etat actif/inactif d'une categorie donnée par sont index i*)
@@ -303,48 +380,16 @@ let traiter_clic mx my etat on_search =
     in { etat with source = new_s; dest = new_d }
     | None -> etat
 
-let rec drag etat debut_x debut_y =
-  if not (Graphics.button_down ()) then
-    let (mx, my) = Graphics.mouse_pos () in
-    { etat with positions = move etat.positions (mx - debut_x) (my - debut_y) }
-  else begin
-    let (mx, my) = Graphics.mouse_pos () in
-    if mx <> debut_x || my <> debut_y then redraw_cached (mx - debut_x) (my - debut_y) etat;
-    drag etat debut_x debut_y
-  end
-
-(* boucle principale 
-  attend un clique ou une touche et decide de quoi faire
-  - clic sur bouton -> toggle categorie
-  - clic ailleurs -> drag camera
-  - touche + -> zoom in
-  - touche - -> zoom out *)
-let rec boucle etat on_search =
-  let ev = Graphics.wait_next_event [Graphics.Button_down; Graphics.Key_pressed] in
-  
-  if ev.Graphics.keypressed then
-    let zoom = if ev.Graphics.key = '+' || ev.Graphics.key = '=' then zoom_in_factor else zoom_out_factor in
-    let (mx, my) = Graphics.mouse_pos () in
-    let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
-    redraw etat'; boucle etat' on_search
-  else
-    let mx, my = ev.Graphics.mouse_x, ev.Graphics.mouse_y in
-    let etat' = traiter_clic mx my etat on_search in
-    if etat' = etat then
-      let etat_drag = drag etat mx my in
-      redraw etat_drag; boucle etat_drag on_search
-    else begin
-      redraw etat'; boucle etat' on_search
-    end
 (*----------------FONCTIONS PRINCIPALE------------------*)
-
 let run noeuds aretes algos poids_list on_search =
-  Graphics.open_graph " 3000x2000";
-  largeur := Graphics.size_x ();
-  hauteur := Graphics.size_y ();
+  largeur := 1200;
+  hauteur := 800;
 
   let bornes = calcule_bornes noeuds in
   let cats = List.sort_uniq String.compare (List.map (fun (a : arete) -> a.categorie) aretes) in
+
+  let widget_dessin = Widget.sdl_area ~w:!largeur ~h:!hauteur () in
+  mon_canvas := Some (Widget.get_sdl_area widget_dessin);
 
   let etat_initial = {
     noeuds; aretes;
@@ -355,6 +400,71 @@ let run noeuds aretes algos poids_list on_search =
     poids_list; poids_actif = List.hd poids_list;
   } in
 
-  Graphics.auto_synchronize false;
-  redraw etat_initial;
-  boucle etat_initial on_search
+  
+  let current_etat = ref etat_initial in
+  let is_dragging = ref false in
+  let debut_x = ref 0 in
+  let debut_y = ref 0 in
+  let pos_initiales = ref [] in
+  let needs_redraw = ref false in
+
+  let boucle _w _target ev =
+    let etat = !current_etat in
+
+    match Trigger.event_kind ev with
+    
+    | `Key_down ->
+      let key = Tsdl.Sdl.Event.(get ev keyboard_keycode) in
+      let open Tsdl.Sdl.K in
+      let zoom = if key = plus || key = equals || key = kp_plus then zoom_in_factor else zoom_out_factor in
+      if zoom <> 1.0 then begin
+        let mx, my = !largeur / 2, !hauteur / 2 in
+        let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
+        current_etat := etat';
+        rafraichir_ecran etat'
+      end
+
+    | `Mouse_button_down | `Finger_down ->
+      let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
+      let etat' = traiter_clic mx my etat on_search in
+      
+      if etat' = etat then begin
+        is_dragging := true;
+        debut_x := mx;
+        debut_y := my;
+        pos_initiales := etat.positions
+      end else begin
+        current_etat := etat';
+        rafraichir_ecran etat'
+      end
+
+    | `Mouse_button_up | `Finger_up ->
+      is_dragging := false;
+      needs_redraw := false
+
+    | `Mouse_motion | `Finger_motion ->
+      if !is_dragging then begin
+        let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
+        current_etat := { etat with positions = move !pos_initiales (mx - !debut_x) (my - !debut_y) };
+        needs_redraw := true 
+      end
+
+    | _ -> ()
+  in
+
+  let liste_ev = Trigger.buttons_down @ Trigger.buttons_up @ Trigger.pointer_motion @ [Trigger.key_down] in
+  let connexion = Widget.connect_main widget_dessin widget_dessin boucle liste_ev in
+
+  let mise_en_page = Layout.resident ~w:!largeur ~h:!hauteur widget_dessin in
+  let fenetre = Main.of_layout ~connections:[connexion] mise_en_page in
+
+  rafraichir_ecran etat_initial;
+
+  let rafraichissement_continu () =
+    if !needs_redraw then begin
+      needs_redraw := false;
+      rafraichir_ecran !current_etat
+    end
+  in
+
+  Main.run ~before_display:rafraichissement_continu fenetre

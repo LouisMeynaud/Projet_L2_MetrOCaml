@@ -1,4 +1,4 @@
 (library
  (name gui)
- (libraries routing metrocaml graphics)
+ (libraries routing metrocaml graphics bogue tsdl-ttf)
  (modules graph_display transport_view))
