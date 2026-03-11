@@ -30,21 +30,116 @@ let get_index_opt header field =
   let field = String.trim field in
   List.find_index (fun h -> String.trim (clean_header_col h) = field) header
 
+let day_of_week date_str =
+  try
+    let year  = int_of_string (String.sub date_str 0 4) in
+    let month = int_of_string (String.sub date_str 4 2) in
+    let day   = int_of_string (String.sub date_str 6 2) in
+    let month_offsets = [| 0; 3; 2; 5; 0; 3; 5; 1; 4; 6; 2; 4 |] in
+    let adjusted_year = if month < 3 then year - 1 else year in
+    let sum = adjusted_year 
+            + (adjusted_year / 4) 
+            - (adjusted_year / 100) 
+            + (adjusted_year / 400) 
+            + month_offsets.(month - 1) 
+            + day 
+    in
+    sum mod 7
+  with _ -> 
+    0
+let next_day_str yyyymmdd =
+  try
+    let y = int_of_string (String.sub yyyymmdd 0 4) in
+    let m = int_of_string (String.sub yyyymmdd 4 2) in
+    let d = int_of_string (String.sub yyyymmdd 6 2) in
+    
+    let is_leap = y mod 4 = 0 && (y mod 100 <> 0 || y mod 400 = 0) in
+    let days_in_month = [| 31; (if is_leap then 29 else 28); 31; 30; 31; 30; 31; 31; 30; 31; 30; 31 |] in
+    
+    if d + 1 <= days_in_month.(m - 1) then
+      Printf.sprintf "%04d%02d%02d" y m (d + 1)
+    else if m + 1 <= 12 then
+      Printf.sprintf "%04d%02d01" y (m + 1)
+    else
+      Printf.sprintf "%04d0101" (y + 1)
+  with _ -> yyyymmdd 
+
+
 (* --- 2. Chargement --- *)
 let load_network_gtfs directory target_date target_time_seconds =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
   let valid_services = Hashtbl.create 1000 in
-  let load_services name =
-    let path = Filename.concat directory name in
-    if Sys.file_exists path then
-      let csv = Csv.load path in
-      let i_sid = get_index (List.hd csv) "service_id" in
-      List.iter (fun row -> Hashtbl.replace valid_services (List.nth row i_sid) true) (List.tl csv)
-  in
-  load_services "calendar.txt";
-  load_services "calendar_dates.txt";
+  let date_0 = target_date in
+  let date_1 = next_day_str date_0 in
+  let date_2 = next_day_str date_1 in
+  
+  let day_cols = [| "sunday"; "monday"; "tuesday"; "wednesday"; "thursday"; "friday"; "saturday" |] in
+  let col_0 = day_cols.(day_of_week date_0) in
+  (*let col_1 = day_cols.(day_of_week date_1) in
+  let col_2 = day_cols.(day_of_week date_2) in*)
+  let cal_path = Filename.concat directory "calendar.txt" in
+  if Sys.file_exists cal_path then begin
+    let csv = Csv.load cal_path in
+    if List.length csv > 1 then begin
+      let header = List.hd csv in
+      let i_sid = get_index header "service_id" in
+      let i_start = get_index header "start_date" in
+      let i_end = get_index header "end_date" in
+      let i_d0 = get_index header col_0 in
+      (*let i_d1 = get_index header col_1 in
+      let i_d2 = get_index header col_2 in*)
+      List.iter (fun row ->
+        let sid = List.nth row i_sid in
+        let start_d = String.trim (List.nth row i_start) in
+        let end_d = String.trim (List.nth row i_end) in
+        let mut_offsets = ref [] in
+        if date_0 >= start_d && date_0 <= end_d && String.trim (List.nth row i_d0) = "1" then 
+          mut_offsets := 0 :: !mut_offsets;
+        (*if date_1 >= start_d && date_1 <= end_d && String.trim (List.nth row i_d1) = "1" then 
+          mut_offsets := 86400 :: !mut_offsets;
+        if date_2 >= start_d && date_2 <= end_d && String.trim (List.nth row i_d2) = "1" then 
+          mut_offsets := 172800 :: !mut_offsets;*)
+        if !mut_offsets <> [] then
+          Hashtbl.replace valid_services sid (List.rev !mut_offsets)
+      ) (List.tl csv)
+    end
+  end;
+  let cal_dates_path = Filename.concat directory "calendar_dates.txt" in
+  if Sys.file_exists cal_dates_path then begin
+    let csv = Csv.load cal_dates_path in
+    if List.length csv > 1 then begin
+      let header = List.hd csv in
+      let i_sid = get_index header "service_id" in
+      let i_date = get_index header "date" in
+      let i_exc = get_index header "exception_type" in
+      List.iter (fun row ->
+        let d = String.trim (List.nth row i_date) in
+        let sid = List.nth row i_sid in
+        let exc = String.trim (List.nth row i_exc) in
+          let offset_opt = 
+          if d = date_0 then Some 0 
+          else if d = date_1 then Some 86400 
+          else if d = date_2 then Some 172800 
+          else None 
+        in
+        match offset_opt with
+        | Some offset ->
+            let current_offsets = try Hashtbl.find valid_services sid with Not_found -> [] in
+            if exc = "1" then begin 
+              if not (List.mem offset current_offsets) then
+                Hashtbl.replace valid_services sid (List.sort compare (offset :: current_offsets))
+            end 
+            else if exc = "2" then begin 
+              let filtered = List.filter (fun o -> o <> offset) current_offsets in
+              if filtered = [] then Hashtbl.remove valid_services sid
+              else Hashtbl.replace valid_services sid filtered
+            end
+        | None -> ()
+      ) (List.tl csv)
+    end
+  end;
 
   (* B. Routes *)
   let route_info = Hashtbl.create 1000 in
