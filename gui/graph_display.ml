@@ -395,6 +395,32 @@ let run noeuds aretes algos poids_list on_search =
     (nom, Widget.button (text_select nom (nom = etat_initial.poids_actif)))
   ) etat_initial.poids_list in
 
+  (* --- HORAIRES --- *)
+  
+  let tm = Unix.localtime (Unix.time ()) in
+  let curr_heure = ref tm.Unix.tm_hour in
+  let curr_minute = ref tm.Unix.tm_min in
+  let is_depart = ref true in
+
+  let str_h () = Printf.sprintf "%02d h" !curr_heure in
+  let str_m () = Printf.sprintf "%02d m" !curr_minute in
+
+  let btn_dep_arr = Widget.button "DÉPART" in
+  let btn_maintenant = Widget.button "MAINTENANT" in
+  
+  let btn_h_minus = Widget.button "-" in
+  let lbl_h = Widget.label (str_h ()) in
+  let btn_h_plus = Widget.button "+" in
+  
+  let btn_m_minus = Widget.button "-" in
+  let lbl_m = Widget.label (str_m ()) in
+  let btn_m_plus = Widget.button "+" in
+
+  let update_time_display () =
+    Widget.set_text lbl_h (str_h ());
+    Widget.set_text lbl_m (str_m ())
+  in
+
   (*Les sliders pour le poids custom "Combinaison" *)
   let s_temps = Widget.slider ~length:100 50 in
   let s_dist = Widget.slider ~length:100 50 in
@@ -411,15 +437,23 @@ let run noeuds aretes algos poids_list on_search =
 
   let box_sliders = Layout.tower [row_temps; row_dist; row_arrets; row_corresp] in
 
-  
 
-  let titre_panneau = Widget.label "CONTROLES" in
-  let label_cat = Widget.label "CATEGORIES" in
-  let label_algo = Widget.label "ALGORITHMES" in
-  let label_poids = Widget.label "POIDS" in
-  let label_sliders = Widget.label "COMBINAISON" in
+
+  let titre_panneau = Widget.label  "------------------------------CONTROLES------------------------------" in
+  let label_cat = Widget.label      "------------------------------CATEGORIES-----------------------------" in
+  let label_algo = Widget.label     "-----------------------------ALGORITHMES-----------------------------" in
+  let label_poids = Widget.label    "--------------------------------POIDS--------------------------------" in
+  let label_horaire = Widget.label  "-------------------------------HORAIRE-------------------------------" in
+  let label_sliders = Widget.label  "-----------------------------COMBINAISON-----------------------------" in
 
   let block_actions = Layout.tower_of_w [btn_chercher; btn_noms] in
+
+  (* Layout de l'horaire *)
+  let ligne_dep_maint = Layout.flat_of_w [btn_dep_arr; btn_maintenant] in
+  let ligne_h = Layout.flat_of_w [btn_h_minus; lbl_h; btn_h_plus] in
+  let ligne_m = Layout.flat_of_w [btn_m_minus; lbl_m; btn_m_plus] in
+  let ligne_temps = Layout.flat ~align:Draw.Center [ligne_h; Layout.empty ~w:5 ~h:1 (); ligne_m] in
+  let block_horaire = Layout.tower ~align:Draw.Center [Layout.resident label_horaire; ligne_dep_maint; ligne_temps] in
 
   let block_algo = Layout.tower_of_w (label_algo :: List.map snd boutons_algos) in
   let block_poids = Layout.tower_of_w (label_poids :: List.map snd boutons_poids) in
@@ -463,6 +497,40 @@ let run noeuds aretes algos poids_list on_search =
   in
 
   (* --- CONNEXIONS (Ce qui se passe quand on clique) --- *)
+
+  (* Connexions Horaire *)
+  let conn_dep = Widget.connect btn_dep_arr btn_dep_arr (fun _ _ _ ->
+    is_depart := not !is_depart;
+    Widget.set_text btn_dep_arr (if !is_depart then "DÉPART" else "ARRIVÉE")
+  ) Trigger.buttons_down in
+
+  let conn_maint = Widget.connect btn_maintenant btn_maintenant (fun _ _ _ ->
+    let tm = Unix.localtime (Unix.time ()) in
+    curr_heure := tm.Unix.tm_hour;
+    curr_minute := tm.Unix.tm_min;
+    update_time_display ()
+  ) Trigger.buttons_down in
+
+  let conn_hm = Widget.connect btn_h_minus btn_h_minus (fun _ _ _ ->
+    curr_heure := if !curr_heure = 0 then 23 else !curr_heure - 1; 
+    update_time_display ()
+  ) Trigger.buttons_down in
+
+  let conn_hp = Widget.connect btn_h_plus btn_h_plus (fun _ _ _ ->
+    curr_heure := if !curr_heure = 23 then 0 else !curr_heure + 1; 
+    update_time_display ()
+  ) Trigger.buttons_down in
+
+  let conn_mm = Widget.connect btn_m_minus btn_m_minus (fun _ _ _ ->
+    curr_minute := if !curr_minute = 0 then 59 else !curr_minute - 1; 
+    update_time_display ()
+  ) Trigger.buttons_down in
+
+  let conn_mp = Widget.connect btn_m_plus btn_m_plus (fun _ _ _ ->
+    curr_minute := if !curr_minute = 59 then 0 else !curr_minute + 1; 
+    update_time_display ()
+  ) Trigger.buttons_down in
+
 
   let conn_chercher = Widget.connect btn_chercher btn_chercher (fun _ _ _ ->
     (* On récupère la valeur de nos 4 sliders, on divise par 100 pour avoir un float *)
@@ -583,6 +651,8 @@ let run noeuds aretes algos poids_list on_search =
     espace;
     block_actions;
     espace;
+    block_horaire;
+    espace;
     block_algo;
     espace;
     block_poids;
@@ -601,7 +671,8 @@ let run noeuds aretes algos poids_list on_search =
     layout_carte
   ] in
 
-  let connexions = connexion_carte :: conn_chercher :: conn_noms :: (conn_cats @ conn_algos @ conn_poids) in
+  (* les 6 nouvelles connexions des horaires *)
+  let connexions = connexion_carte :: conn_chercher :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids) in
   let fenetre = Main.of_layout ~connections:connexions interface in
 
   rafraichir_ecran etat_initial;
