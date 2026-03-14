@@ -1,7 +1,6 @@
-(** Abstract weight interface for routing algorithms.
-  Weight modules are responsible for interpreting edge data and producing
-  routing costs. The routing algorithms operate on these abstract weights.
-*)
+(** Abstract weight interface for routing algorithms. Weight modules are
+    responsible for interpreting edge data and producing routing costs. The
+    routing algorithms operate on these abstract weights. *)
 
 module type WEIGHT = sig
   type t
@@ -26,23 +25,21 @@ module type WEIGHT = sig
   (** Combine two weights (must handle infinity correctly). *)
 
   val compare : t -> t -> float
-  (** Normalised comparison returning a value within [-1, 1] representing the magnitude of the difference.
-      Negative means first < second,
-      Positive means first > second,
-      Zero means first = second.
-      Magnitude reflects how much better/worse the first is compared to the second,
-      Must handle infinity correctly. *)
+  (** Normalised comparison returning a value within [-1, 1] representing the
+      magnitude of the difference. Negative means first < second, Positive means
+      first > second, Zero means first = second. Magnitude reflects how much
+      better/worse the first is compared to the second, Must handle infinity
+      correctly. *)
 
   val ( < ) : t -> t -> bool
-  (** Strict less-than.  Equivalent to [compare a b < 0.0]. *)
+  (** Strict less-than. Equivalent to [compare a b < 0.0]. *)
 
   val ( > ) : t -> t -> bool
-  (** Strict greater-than.  Equivalent to [compare a b > 0.0]. *)
+  (** Strict greater-than. Equivalent to [compare a b > 0.0]. *)
 
   val ( = ) : t -> t -> bool
-  (** Equality.  Equivalent to [compare a b = 0.0]. *)
+  (** Equality. Equivalent to [compare a b = 0.0]. *)
 
   val to_string : t -> string
   (** Convert weight to string for debugging/logging. *)
-
 end
