@@ -19,6 +19,9 @@ type etat = {
 }
 let largeur = ref 1200
 let hauteur = ref 800
+let panel_w = 250 (* Largeur du panneau gauche *)
+let canvas_w = ref (!largeur - panel_w) (* La carte prend la place restante *)
+let canvas_h = ref !hauteur
 let marge = 50
 let btn_w = 80
 let btn_h = 30
@@ -55,8 +58,8 @@ let calcule_bornes noeuds =
 let to_screen bornes x y =
   let (min_x, max_x, min_y, max_y) = bornes in
   let echelle = min 
-    (float (!largeur - 2*marge) /. (max_x -. min_x)) 
-                    (float (!hauteur - 2*marge) /. (max_y -. min_y)) in
+    (float (!canvas_w - 2*marge) /. (max_x -. min_x)) 
+                    (float (!canvas_h - 2*marge) /. (max_y -. min_y)) in
   (float marge +. (x -. min_x) *. echelle,
    float marge +. (y -. min_y) *. echelle)
 
@@ -226,33 +229,6 @@ let draw_noeud etat noeud =
     dessiner_texte (int_of_float x + 12) (int_of_float y - 4) noeud.nom (0,0,0)
   end
 
-(* dessine un bouton *)
-let draw_bouton x y w h text (r,g,b) (fond_r,fond_g,fond_b) =
-  Sdl_area.fill_rectangle (get_canvas ()) ~color:(rgb_to_bogue (fond_r,fond_g,fond_b)) ~w ~h (x, y);
-  Sdl_area.draw_rectangle (get_canvas ()) ~color:(rgb_to_bogue (r,g,b)) ~thick:1 ~w ~h (x, y);
-  dessiner_texte (x + 10) (y + 8) text (r,g,b)
-
-let draw_selection_row y_pos label boutons actif =
-  dessiner_texte 5 (y_pos + 8) label (0,0,0);
-  List.iteri (fun i nom -> 
-    let couleur_fond = if nom = actif then hex_to_rgb 0x2196F3 else hex_to_rgb 0xCCCCCC in
-    draw_bouton (60 + i * (btn_w + 5)) y_pos btn_w btn_h nom (0,0,0) couleur_fond
-  ) boutons
-
-let draw_ui etat =
-  List.iteri (fun i (nom, actif) -> 
-    let couleur_fond = if actif then hex_to_rgb 0x4CAF50 else hex_to_rgb 0xCCCCCC in
-    draw_bouton (10 + i * (btn_w + 10)) (!hauteur - btn_h - 10) btn_w btn_h nom (0,0,0) couleur_fond
-  ) etat.categories;
-  draw_bouton (!largeur - 120) (!hauteur - 45) 100 35 "CHERCHER" (255,255,255) (hex_to_rgb 0x0000FF);
-  
-  let col_noms = if etat.show_names then hex_to_rgb 0x4CAF50 else hex_to_rgb 0xCCCCCC in
-  draw_bouton (!largeur - 240) (!hauteur - 45) 110 35 (if etat.show_names then "NOMS : ON" else "NOMS : OFF") (0,0,0) col_noms;
-  
-  draw_selection_row 10 "Algo :" etat.algos etat.algo_actif;
-  if etat.algo_actif = "Dijkstra" then 
-    draw_selection_row 50 "Poids:" etat.poids_list etat.poids_actif
-
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
 *)
 let draw_graph etat =
@@ -310,7 +286,7 @@ let rafraichir_ecran etat =
     cible_originale := Tsdl.Sdl.get_render_target renderer; (* On sauvegarde l'écran normal *)
     
     (match !cache_photo with Some t -> Tsdl.Sdl.destroy_texture t | None -> ());
-    match Tsdl.Sdl.create_texture renderer Tsdl.Sdl.Pixel.format_argb8888 Tsdl.Sdl.Texture.access_target ~w:!largeur ~h:!hauteur with
+    match Tsdl.Sdl.create_texture renderer Tsdl.Sdl.Pixel.format_argb8888 Tsdl.Sdl.Texture.access_target ~w:!canvas_w ~h:!canvas_h with
     | Ok texture ->
         cache_photo := Some texture;
         ignore (Tsdl.Sdl.set_render_target renderer (Some texture));
@@ -327,7 +303,6 @@ let rafraichir_ecran etat =
     | None -> ()
   );
 
-  draw_ui etat;
   Sdl_area.update (get_canvas ())
 
 
@@ -341,46 +316,19 @@ let rafraichir dx dy etat =
     (* On déplace la "photo" du graphe de dx et dy *)
     match !cache_photo with 
     | None -> () 
-    | Some tex -> ignore (Tsdl.Sdl.render_copy ~dst:(Tsdl.Sdl.Rect.create ~x:dx ~y:dy ~w:!largeur ~h:!hauteur) renderer tex)
+    | Some tex -> ignore (Tsdl.Sdl.render_copy ~dst:(Tsdl.Sdl.Rect.create ~x:dx ~y:dy ~w:!canvas_w ~h:!canvas_h) renderer tex)
   );
   
-  draw_ui etat;
   Sdl_area.update (get_canvas ())
 
 (*---------------FOCNTION INTERACTION----------------*)
 (* inverse l'etat actif/inactif d'une categorie donnée par sont index i*)
 let toggle categories i =
   List.mapi (fun j (c, v) -> (c, if i = j then not v else v)) categories
-let is_in_rect mx my rx ry rw rh = (mx >= rx && mx <= (rx + rw) && my >= ry && my <= (ry + rh))
 
-let traiter_clic mx my etat on_search =
-  
-  (* Raccourcis pour les calculs d'index *)
-  let get_idx x_start gap = (mx - x_start) / (btn_w + gap) in
-
-  (* on test (Chercher, Noms) *)
-  if is_in_rect mx my (!largeur - 120) (!hauteur - 45) 100 35 then 
-    ((match etat.source, etat.dest with 
-      | Some s, Some d -> on_search s d etat.algo_actif etat.poids_actif 
-      | _ -> print_endline "Sélectionnez une source et une destination !"); etat)
-
-  else if is_in_rect mx my (!largeur - 240) (!hauteur - 45) 110 35 then 
-    { etat with show_names = not etat.show_names }
-
-  (* Ligne des catégories *)
-  else if is_in_rect mx my 10 (!hauteur - btn_h - 10) (List.length etat.categories * (btn_w + 10)) btn_h then
-    { etat with categories = toggle etat.categories (get_idx 10 10) }
-
-  (* Ligne des algos*)
-  else if is_in_rect mx my 60 10 (List.length etat.algos * (btn_w + 5)) btn_h then
-    { etat with algo_actif = List.nth etat.algos (get_idx 60 5) }
-
-  (* Ligne des poids) *)
-  else if etat.algo_actif = "Dijkstra" && is_in_rect mx my 60 50 (List.length etat.poids_list * (btn_w + 5)) btn_h then
-    { etat with poids_actif = List.nth etat.poids_list (get_idx 60 5) }
-
+let traiter_clic mx my etat =
   (*clique sur la carte*)
-  else match get_noeud_clique mx my etat with
+  match get_noeud_clique mx my etat with
     | Some id ->
     let (new_s, new_d) =
           if Some id = etat.source then (None, None)               (*  Re-clic sur Source = On efface tout *)       
@@ -393,13 +341,13 @@ let traiter_clic mx my etat on_search =
 
 (*----------------FONCTIONS PRINCIPALE------------------*)
 let run noeuds aretes algos poids_list on_search =
-  largeur := 1200;
-  hauteur := 800;
+  canvas_w := !largeur - panel_w;
+  canvas_h := !hauteur;
 
   let bornes = calcule_bornes noeuds in
   let cats = List.sort_uniq String.compare (List.map (fun (a : arete) -> a.categorie) aretes) in
 
-  let widget_dessin = Widget.sdl_area ~w:!largeur ~h:!hauteur () in
+  let widget_dessin = Widget.sdl_area ~w:!canvas_w ~h:!canvas_h () in
   mon_canvas := Some (Widget.get_sdl_area widget_dessin);
 
   let etat_initial = {
@@ -413,6 +361,85 @@ let run noeuds aretes algos poids_list on_search =
 
   
   let current_etat = ref etat_initial in
+
+  (* --- Paneau de gauche --- *)
+
+  let btn_chercher = Widget.button "CHERCHER L'ITINÉRAIRE" in
+  let btn_noms = Widget.button "Afficher Noms : OFF" in
+
+  let boutons_categories = List.map (fun (nom, actif) ->
+    (nom, Widget.button (if actif then "[X] " ^ nom else "[ ] " ^ nom))
+  ) etat_initial.categories in
+
+  let boutons_algos = List.map (fun nom ->
+    (nom, Widget.button (if nom = etat_initial.algo_actif then "[X] " ^ nom else "[ ] " ^ nom))
+  ) etat_initial.algos in
+
+  let boutons_poids = List.map (fun nom ->
+    (nom, Widget.button (if nom = etat_initial.poids_actif then "[X] " ^ nom else "[ ] " ^ nom))
+  ) etat_initial.poids_list in
+
+  (* --- LOGIQUE DE MISE A JOUR DES WIDGETS --- *)
+
+  let update_ui_buttons () =
+    let etat = !current_etat in
+    Widget.set_text btn_noms (if etat.show_names then "Afficher Noms : ON" else "Afficher Noms : OFF");
+    
+    List.iter (fun (nom, w) ->
+      let actif = cherche nom etat.categories true in
+      Widget.set_text w (if actif then "[X] " ^ nom else "[ ] " ^ nom)
+    ) boutons_categories;
+    
+    List.iter (fun (nom, w) ->
+      Widget.set_text w (if nom = etat.algo_actif then "[X] " ^ nom else "[ ] " ^ nom)
+    ) boutons_algos;
+    
+    List.iter (fun (nom, w) ->
+      Widget.set_text w (if nom = etat.poids_actif then "[X] " ^ nom else "[ ] " ^ nom)
+    ) boutons_poids
+  in
+
+  (* --- CONNEXIONS (Ce qui se passe quand on clique) --- *)
+
+  let conn_chercher = Widget.connect btn_chercher btn_chercher (fun _ _ _ ->
+    match !current_etat.source, !current_etat.dest with 
+    | Some s, Some d -> on_search s d !current_etat.algo_actif !current_etat.poids_actif 
+    | _ -> print_endline "Sélectionnez une source et une destination !"
+  ) Trigger.buttons_down in
+
+  let conn_noms = Widget.connect btn_noms btn_noms (fun _ _ _ ->
+    current_etat := { !current_etat with show_names = not !current_etat.show_names };
+    update_ui_buttons ();
+    rafraichir_ecran !current_etat
+  ) Trigger.buttons_down in
+
+  let conn_cats = List.map (fun (nom, w) ->
+    Widget.connect w w (fun _ _ _ ->
+      let new_cats = List.map (fun (c, v) -> if c = nom then (c, not v) else (c, v)) !current_etat.categories in
+      current_etat := { !current_etat with categories = new_cats };
+      update_ui_buttons ();
+      rafraichir_ecran !current_etat
+    ) Trigger.buttons_down
+  ) boutons_categories in
+
+  let conn_algos = List.map (fun (nom, w) ->
+    Widget.connect w w (fun _ _ _ ->
+      current_etat := { !current_etat with algo_actif = nom };
+      update_ui_buttons ();
+      rafraichir_ecran !current_etat
+    ) Trigger.buttons_down
+  ) boutons_algos in
+
+  let conn_poids = List.map (fun (nom, w) ->
+    Widget.connect w w (fun _ _ _ ->
+      current_etat := { !current_etat with poids_actif = nom };
+      update_ui_buttons ();
+      rafraichir_ecran !current_etat
+    ) Trigger.buttons_down
+  ) boutons_poids in
+
+  (* --- GESTION DE LA SOURIS SUR LA CARTE --- *)
+
   let is_dragging = ref false in
   let debut_x = ref 0 in
   let debut_y = ref 0 in
@@ -426,13 +453,13 @@ let run noeuds aretes algos poids_list on_search =
     let etat = !current_etat in
 
     match Trigger.event_kind ev with
-    
+
     | `Key_down ->
       let key = Tsdl.Sdl.Event.(get ev keyboard_keycode) in
       let open Tsdl.Sdl.K in
       let zoom = if key = plus || key = equals || key = kp_plus then zoom_in_factor else zoom_out_factor in
       if zoom <> 1.0 then begin
-        let mx, my = !largeur / 2, !hauteur / 2 in
+        let mx, my = !canvas_w / 2, !canvas_h / 2 in
         let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
         current_etat := etat';
         action_courante := "Zoom";
@@ -441,7 +468,7 @@ let run noeuds aretes algos poids_list on_search =
 
     | `Mouse_button_down | `Finger_down ->
       let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
-      let etat' = traiter_clic mx my etat on_search in
+      let etat' = traiter_clic mx my etat in
       
       if etat' = etat then begin
         is_dragging := true;
@@ -460,27 +487,62 @@ let run noeuds aretes algos poids_list on_search =
       if !is_dragging then begin
          is_dragging := false;
          action_courante := "FinDrag";
-         needs_redraw := true (* On lâche la carte, on redessine proprement *)
+         needs_redraw := true
       end
 
     | `Mouse_motion | `Finger_motion ->
       if !is_dragging then begin
-        let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
+        let _, (mx, my) = Tsdl.Sdl.get_mouse_state () in
         dx_glisse := mx - !debut_x;
         dy_glisse := my - !debut_y;
         current_etat := { etat with positions = move !pos_initiales !dx_glisse !dy_glisse };
         action_courante := "Drag";
         needs_redraw := true 
       end
-
     | _ -> ()
   in
 
   let liste_ev = Trigger.buttons_down @ Trigger.buttons_up @ Trigger.pointer_motion @ [Trigger.key_down] in
-  let connexion = Widget.connect_main widget_dessin widget_dessin boucle liste_ev in
+  let connexion_carte = Widget.connect_main widget_dessin widget_dessin boucle liste_ev in
 
-  let mise_en_page = Layout.resident ~w:!largeur ~h:!hauteur widget_dessin in
-  let fenetre = Main.of_layout ~connections:[connexion] mise_en_page in
+
+  (* --- ASSEMBLAGE DE L'ÉCRAN SCINDÉ EN DEUX --- *)
+
+  let label_cat = Widget.label "--- CATEGORIES ---" in
+  let label_algo = Widget.label "--- ALGOS ---" in
+  let label_poids = Widget.label "--- POIDS ---" in
+
+  let block_algo = Layout.tower_of_w (label_algo :: List.map snd boutons_algos) in
+  let block_poids = Layout.tower_of_w (label_poids :: List.map snd boutons_poids) in
+  let block_cat = Layout.tower_of_w (label_cat :: List.map snd boutons_categories) in
+
+  (* CORRECTION : Ajout du fond gris pour la barre latérale ! *)
+  let fond_gris = Layout.color_bg (rgb_to_bogue (230, 230, 230)) in
+
+  (* La tour avec tout le panneau de contrôle à gauche *)
+  let panneau_gauche = Layout.tower ~background:fond_gris ~align:Draw.Center [
+    Layout.resident btn_chercher;
+    Layout.empty ~w:1 ~h:15 ();
+    Layout.resident btn_noms;
+    Layout.empty ~w:1 ~h:15 ();
+    block_algo;
+    Layout.empty ~w:1 ~h:15 ();
+    block_poids;
+    Layout.empty ~w:1 ~h:15 ();
+    block_cat;
+  ] in
+
+  (* La carte à droite *)
+  let layout_carte = Layout.resident ~w:!canvas_w ~h:!canvas_h widget_dessin in
+  
+  (* L'écran coupé en deux avec un espace entre les deux *)
+  let interface= Layout.flat [
+    panneau_gauche; 
+    layout_carte
+  ] in
+
+  let connexions = connexion_carte :: conn_chercher :: conn_noms :: (conn_cats @ conn_algos @ conn_poids) in
+  let fenetre = Main.of_layout ~connections:connexions interface in
 
   rafraichir_ecran etat_initial;
 
@@ -490,7 +552,6 @@ let run noeuds aretes algos poids_list on_search =
       if !action_courante = "Drag" && !cache_photo <> None then begin
         rafraichir !dx_glisse !dy_glisse !current_etat
       end else begin
-        (* Sinon (zoom, fin du drag, clic...), on refait le calcul complet *)
         rafraichir_ecran !current_etat
       end
     end
