@@ -364,19 +364,27 @@ let run noeuds aretes algos poids_list on_search =
 
   (* --- Paneau de gauche --- *)
 
+  let text_toggle nom actif =
+    if actif then "[ON] " ^ nom else "[OFF] " ^ nom
+  in
+
+  let text_select nom actif =
+    if actif then "[*] " ^ nom else "[ ] " ^ nom
+  in
+
   let btn_chercher = Widget.button "CHERCHER L'ITINÉRAIRE" in
-  let btn_noms = Widget.button "Afficher Noms : OFF" in
+  let btn_noms = Widget.button "Noms des stations : OFF" in
 
   let boutons_categories = List.map (fun (nom, actif) ->
-    (nom, Widget.button (if actif then "[X] " ^ nom else "[ ] " ^ nom))
+    (nom, Widget.button (text_toggle nom actif))
   ) etat_initial.categories in
 
   let boutons_algos = List.map (fun nom ->
-    (nom, Widget.button (if nom = etat_initial.algo_actif then "[X] " ^ nom else "[ ] " ^ nom))
+    (nom, Widget.button (text_select nom (nom = etat_initial.algo_actif)))
   ) etat_initial.algos in
 
   let boutons_poids = List.map (fun nom ->
-    (nom, Widget.button (if nom = etat_initial.poids_actif then "[X] " ^ nom else "[ ] " ^ nom))
+    (nom, Widget.button (text_select nom (nom = etat_initial.poids_actif)))
   ) etat_initial.poids_list in
 
   (*Les sliders pour le poids custom "Combinaison" *)
@@ -385,35 +393,65 @@ let run noeuds aretes algos poids_list on_search =
   let s_arrets = Widget.slider ~length:100 50 in
   let s_corresp = Widget.slider ~length:100 50 in
 
-  let row_temps = Layout.flat_of_w [Widget.label "Temps :"; s_temps] in
-  let row_dist = Layout.flat_of_w [Widget.label "Dist. :"; s_dist] in
-  let row_arrets = Layout.flat_of_w [Widget.label "Arrêts:"; s_arrets] in
-  let row_corresp = Layout.flat_of_w [Widget.label "Corres:"; s_corresp] in
+  let fond_slider = Layout.color_bg (rgb_to_bogue (208, 214, 222)) in
+  let slider_cell s = Layout.resident ~background:fond_slider s in
+
+  let row_temps = Layout.flat [Layout.resident (Widget.label "Temps :"); slider_cell s_temps] in
+  let row_dist = Layout.flat [Layout.resident (Widget.label "Dist. :"); slider_cell s_dist] in
+  let row_arrets = Layout.flat [Layout.resident (Widget.label "Arrêts:"); slider_cell s_arrets] in
+  let row_corresp = Layout.flat [Layout.resident (Widget.label "Corres:"); slider_cell s_corresp] in
 
   let box_sliders = Layout.tower [row_temps; row_dist; row_arrets; row_corresp] in
-  Layout.set_show box_sliders (etat_initial.poids_actif = "Combinaison");
+
+  
+
+  let titre_panneau = Widget.label "CONTROLES" in
+  let label_cat = Widget.label "CATEGORIES" in
+  let label_algo = Widget.label "ALGORITHMES" in
+  let label_poids = Widget.label "POIDS" in
+  let label_sliders = Widget.label "COMBINAISON" in
+
+  let block_actions = Layout.tower_of_w [btn_chercher; btn_noms] in
+
+  let block_algo = Layout.tower_of_w (label_algo :: List.map snd boutons_algos) in
+  let block_poids = Layout.tower_of_w (label_poids :: List.map snd boutons_poids) in
+  let block_cat = Layout.tower_of_w (label_cat :: List.map snd boutons_categories) in
+  let block_combinaison = Layout.tower [Layout.resident label_sliders; box_sliders] in
+
+  let fond_gris = Layout.color_bg (rgb_to_bogue (236, 239, 243)) in
+  let espace = Layout.empty ~w:1 ~h:12 () in
+
+  let show_poids_init = (etat_initial.algo_actif = "Dijkstra") in
+  let show_combinaison_init = show_poids_init && etat_initial.poids_actif = "Combinaison" in
+  Layout.set_show block_poids show_poids_init;
+  Layout.set_show box_sliders show_combinaison_init;
+  Layout.set_show block_combinaison show_combinaison_init;
 
   (* --- LOGIQUE DE MISE A JOUR DES WIDGETS --- *)
 
   let update_ui_buttons () =
     let etat = !current_etat in
-    Widget.set_text btn_noms (if etat.show_names then "Afficher Noms : ON" else "Afficher Noms : OFF");
+    Widget.set_text btn_noms (if etat.show_names then "Noms des stations : ON" else "Noms des stations : OFF");
     
     List.iter (fun (nom, w) ->
       let actif = cherche nom etat.categories true in
-      Widget.set_text w (if actif then "[X] " ^ nom else "[ ] " ^ nom)
+      Widget.set_text w (text_toggle nom actif)
     ) boutons_categories;
     
     List.iter (fun (nom, w) ->
-      Widget.set_text w (if nom = etat.algo_actif then "[X] " ^ nom else "[ ] " ^ nom)
+      Widget.set_text w (text_select nom (nom = etat.algo_actif))
     ) boutons_algos;
     
     List.iter (fun (nom, w) ->
-      Widget.set_text w (if nom = etat.poids_actif then "[X] " ^ nom else "[ ] " ^ nom)
+      Widget.set_text w (text_select nom (nom = etat.poids_actif))
     ) boutons_poids;
     
-    (* On affiche ou on cache les sliders en fonction du poids sélectionné *)
-    Layout.set_show box_sliders (etat.poids_actif = "Combinaison")
+    (* Visibilite conditionnelle des sections selon algo + poids *)
+    let show_poids = (etat.algo_actif = "Dijkstra") in
+    let show_combinaison = show_poids && etat.poids_actif = "Combinaison" in
+    Layout.set_show block_poids show_poids;
+    Layout.set_show box_sliders show_combinaison;
+    Layout.set_show block_combinaison show_combinaison
   in
 
   (* --- CONNEXIONS (Ce qui se passe quand on clique) --- *)
@@ -516,7 +554,7 @@ let run noeuds aretes algos poids_list on_search =
 
     | `Mouse_motion | `Finger_motion ->
       if !is_dragging then begin
-        let _, (mx, my) = Tsdl.Sdl.get_mouse_state () in
+        let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
         dx_glisse := mx - !debut_x;
         dy_glisse := my - !debut_y;
         current_etat := { etat with positions = move !pos_initiales !dx_glisse !dy_glisse };
@@ -531,28 +569,18 @@ let run noeuds aretes algos poids_list on_search =
 
 
   (* --- ASSEMBLAGE DE L'ÉCRAN SCINDÉ EN DEUX --- *)
-
-  let label_cat = Widget.label "--- CATEGORIES ---" in
-  let label_algo = Widget.label "--- ALGOS ---" in
-  let label_poids = Widget.label "--- POIDS ---" in
-
-  let block_algo = Layout.tower_of_w (label_algo :: List.map snd boutons_algos) in
-  let block_poids = Layout.tower_of_w (label_poids :: List.map snd boutons_poids) in
-  let block_cat = Layout.tower_of_w (label_cat :: List.map snd boutons_categories) in
-
-  let fond_gris = Layout.color_bg (rgb_to_bogue (230, 230, 230)) in
-
   (* La tour avec tout le panneau de contrôle à gauche *)
   let panneau_gauche = Layout.tower ~background:fond_gris ~align:Draw.Center [
-    Layout.resident btn_chercher;
-    Layout.empty ~w:1 ~h:15 ();
-    Layout.resident btn_noms;
-    Layout.empty ~w:1 ~h:15 ();
+    Layout.resident titre_panneau;
+    espace;
+    block_actions;
+    espace;
     block_algo;
-    Layout.empty ~w:1 ~h:15 ();
+    espace;
     block_poids;
-    box_sliders;
-    Layout.empty ~w:1 ~h:15 ();
+    Layout.empty ~w:1 ~h:8 ();
+    block_combinaison;
+    espace;
     block_cat;
   ] in
 
