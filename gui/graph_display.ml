@@ -3,8 +3,12 @@ open Bogue
 open Gui_types
 open Gui_draw
 
-(*----------------FONCTIONS PRINCIPALE------------------*)
+(* ================================================== *)
+(*                       RUN                          *)
+(* ================================================== *)
 let run noeuds aretes algos poids_list on_search =
+
+  (* -------------------- Initialisation -------------------- *)
   canvas_w := !largeur - panel_w;
   canvas_h := !hauteur;
 
@@ -26,7 +30,9 @@ let run noeuds aretes algos poids_list on_search =
 
   let current_etat = ref etat_initial in
 
-  (* --- ONGLET ITINÉRAIRE--- *)
+  (* ================================================== *)
+  (*                ONGLET: REGLAGE/CARTE              *)
+  (* ================================================== *)
 
   let text_toggle nom actif =
     if actif then "[ON] " ^ nom else "[OFF] " ^ nom
@@ -50,7 +56,7 @@ let run noeuds aretes algos poids_list on_search =
     (nom, Widget.button (text_select nom (nom = etat_initial.poids_actif)))
   ) etat_initial.poids_list in
 
-  (* --- HORAIRES --- *)
+  (* -------------------- Bloc horaires -------------------- *)
   
   let tm = Unix.localtime (Unix.time ()) in
   let curr_heure = ref tm.Unix.tm_hour in
@@ -76,7 +82,7 @@ let run noeuds aretes algos poids_list on_search =
     Widget.set_text lbl_m (str_m ())
   in
 
-  (*Les sliders pour le poids custom "Combinaison" *)
+  (* -------------------- Bloc sliders (poids) -------------------- *)
   let s_temps = Widget.slider ~length:100 50 in
   let s_dist = Widget.slider ~length:100 50 in
   let s_arrets = Widget.slider ~length:100 50 in
@@ -92,8 +98,7 @@ let run noeuds aretes algos poids_list on_search =
 
   let box_sliders = Layout.tower [row_temps; row_dist; row_arrets; row_corresp] in
 
-
-
+  (* -------------------- Titres et sous-blocs -------------------- *)
   let titre_panneau = Widget.label  "------------------------------CONTROLES------------------------------" in
   let label_cat = Widget.label      "------------------------------CATEGORIES-----------------------------" in
   let label_algo = Widget.label     "-----------------------------ALGORITHMES-----------------------------" in
@@ -123,7 +128,9 @@ let run noeuds aretes algos poids_list on_search =
   Layout.set_show box_sliders show_combinaison_init;
   Layout.set_show block_combinaison show_combinaison_init;
 
-  (* --- ONGLET RECHERCHE  --- *)
+  (* ================================================== *)
+  (*               ONGLET: ITINERAIRE                  *)
+  (* ================================================== *)
   
   let label_recherche = Widget.label "Recherche d'itineraire" in
   let label_depart = Widget.label "Depart" in
@@ -132,7 +139,7 @@ let run noeuds aretes algos poids_list on_search =
   let label_arrivee = Widget.label "Arrivee" in
   let input_arrivee = Widget.text_input ~prompt:"Ex: Bastille" () in
   let btn_select_arrivee = Widget.button "Selection carte" in
-    let btn_valider_recherche = Widget.button "Rechercher" in
+  let btn_valider_recherche = Widget.button "Rechercher" in
   let fond_barre_recherche = Layout.color_bg (rgb_to_bogue (218, 223, 230)) in
   let barre_depart = Layout.resident ~background:fond_barre_recherche input_depart in
   let barre_arrivee = Layout.resident ~background:fond_barre_recherche input_arrivee in
@@ -155,7 +162,9 @@ let run noeuds aretes algos poids_list on_search =
 
   let mode_selection_carte = ref `Aucun in
   
-  (* Contenu de la recherche (sera caché par défaut) *)
+  (* -------------------- Contenu des onglets -------------------- *)
+
+  (* Contenu ITINERAIRE  *)
   let contenu_recherche = Layout.tower ~align:Draw.Center [
     Layout.resident label_recherche;
     Layout.empty ~w:1 ~h:8 ();
@@ -170,7 +179,7 @@ let run noeuds aretes algos poids_list on_search =
     Layout.resident btn_valider_recherche;
   ] in
 
-  (* La tour de l'itinéraire (tout ce qu'on avait avant) *)
+  (* Contenu REGLAGE/CARTE *)
   let contenu_itineraire = Layout.tower ~align:Draw.Center [
     Layout.resident titre_panneau;
     espace;
@@ -191,7 +200,7 @@ let run noeuds aretes algos poids_list on_search =
   (* Les contenus d'onglets se superposent pour conserver la meme position visuelle. *)
   let zone_onglet = Layout.superpose [contenu_itineraire; contenu_recherche] in
 
-  (* --- BARRE DE NAVIGATION (Onglets) --- *)
+  (* -------------------- Barre d'onglets -------------------- *)
 
   let tab_itineraire = Widget.button "[ REGLAGE ]" in
   let tab_recherche = Widget.button "[ ITINÉRAIRE ]" in
@@ -203,8 +212,9 @@ let run noeuds aretes algos poids_list on_search =
     Layout.resident tab_horaires;
   ] in
 
-
-  (* --- LOGIQUE DE MISE A JOUR DES WIDGETS --- *)
+  (* ================================================== *)
+  (*                 LOGIQUE UI / ETAT                 *)
+  (* ================================================== *)
 
   let update_ui_buttons () =
     let etat = !current_etat in
@@ -231,7 +241,9 @@ let run noeuds aretes algos poids_list on_search =
     Layout.set_show block_combinaison show_combinaison
   in
 
-  (* --- CONNEXIONS (Ce qui se passe quand on clique) --- *)
+  (* ================================================== *)
+  (*                     CONNEXIONS                     *)
+  (* ================================================== *)
 
   let reset_selection_mode () =
     mode_selection_carte := `Aucun;
@@ -363,7 +375,9 @@ let run noeuds aretes algos poids_list on_search =
     ) Trigger.buttons_down
   ) boutons_poids in
 
-  (* --- GESTION DE LA SOURIS SUR LA CARTE --- *)
+  (* ================================================== *)
+  (*                 EVENEMENTS CARTE                  *)
+  (* ================================================== *)
 
   let is_dragging = ref false in
   let debut_x = ref 0 in
@@ -444,8 +458,9 @@ let run noeuds aretes algos poids_list on_search =
   let liste_ev = Trigger.buttons_down @ Trigger.buttons_up @ Trigger.pointer_motion @ [Trigger.key_down] in
   let connexion_carte = Widget.connect_main widget_dessin widget_dessin boucle liste_ev in
 
-
-  (* --- ASSEMBLAGE DE L'ÉCRAN SCINDÉ EN DEUX --- *)
+  (* ================================================== *)
+  (*               ASSEMBLAGE DE L'INTERFACE           *)
+  (* ================================================== *)
   
   let fond_gris = Layout.color_bg (rgb_to_bogue (236, 239, 243)) in
 
@@ -472,9 +487,10 @@ let run noeuds aretes algos poids_list on_search =
   Layout.disable_resize panneau_gauche;
   Layout.disable_resize layout_carte;
 
+  (* -------------------- Boucle de rendu -------------------- *)
   rafraichir_ecran etat_initial;
 
-  let rafraichissement_continu () =
+  let rafraichissement () =
     if !needs_redraw then begin
       needs_redraw := false;
       if (not !current_etat.show_names) && !action_courante = "Drag" && !cache_photo <> None then begin
@@ -485,4 +501,4 @@ let run noeuds aretes algos poids_list on_search =
     end
   in
 
-  Main.run ~before_display:rafraichissement_continu fenetre
+  Main.run ~before_display:rafraichissement fenetre
