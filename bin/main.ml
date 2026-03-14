@@ -10,15 +10,6 @@ module DIJKSTRA_TimeWeight           = Dijkstra.Make(Network.TransportGraph)(Wei
 module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
 module BFS_HopWeight                 = Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
 
-let criteria = [
-  Combinator.criterion (module Weight.TimeWeight) ~coefficient:0.5 ~label:"Temps";
-  Combinator.criterion (module Weight.CorrespondenceWeight) ~coefficient:0.3 ~label:"Correspondances";
-  Combinator.criterion (module Weight.HopWeight) ~coefficient:0.2 ~label:"Arrêts";
-]
-module CombinedWeight = (val Combinator.combine criteria : Routing.WEIGHT with type edge = Network.connection)
-module DIJKSTRA_CombinedWeight = Dijkstra.Make(Network.TransportGraph)(CombinedWeight)
-
-
 let find_station graphe id =
   List.find_opt (fun (s : Network.station) -> s.id = id) (Network.TransportGraph.nodes graphe)
 
@@ -64,11 +55,11 @@ let run_console graphe search_callback =
   
   let poids = 
     if algo = "Dijkstra" then begin
-      raw_select "Choisissez le poids : " ["Distance"; "Arrets"; "Temps"; "Correspondances"];
+      raw_select "Choisissez le poids : " ["Distance"; "Arrets"; "Temps"; "Correspondances"; "Combinaison"];
     end else ""
   in
-
-  search_callback source_id dest_id algo poids
+  (* il faudra ici traiter les coefficients pour le poids combiné *)
+  search_callback source_id dest_id algo poids [0.5; 0.5; 0.5; 0.5]
 
 let () =
   (*let montpellier = "https://www.data.gouv.fr/api/1/datasets/r/85ef3b33-2289-4d19-b479-276e5b1c5a52" in*)
@@ -84,7 +75,7 @@ let () =
     
     flush stdout;
     
-    let search_callback source_id dest_id algo poids =
+    let search_callback source_id dest_id algo poids coeffs =
       match find_station graphe source_id, find_station graphe dest_id with
       | Some source, Some destination ->
 
@@ -97,7 +88,20 @@ let () =
                 | "Arrets"          -> (module DIJKSTRA_HopWeight)
                 | "Temps"           -> (module DIJKSTRA_TimeWeight)
                 | "Correspondances" -> (module DIJKSTRA_CorrespondenceWeight)
-                | "Combinaison"     -> (module DIJKSTRA_CombinedWeight)
+                | "Combinaison"     -> 
+                     (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
+                     let ct, cd, ca, cc = match coeffs with 
+                     |[a;b;c;d] -> a,b,c,d 
+                     | _ -> 0.5,0.5,0.5,0.5 in
+                     let critere = [
+                        Combinator.criterion (module Weight.TimeWeight) ~coefficient:ct ~label:"Temps";
+                        Combinator.criterion (module Weight.DistanceWeight) ~coefficient:cd ~label:"Distance";
+                        Combinator.criterion (module Weight.HopWeight) ~coefficient:ca ~label:"Arrêts";
+                        Combinator.criterion (module Weight.CorrespondenceWeight) ~coefficient:cc ~label:"Correspondances";
+                     ] in
+                     let module CombinedWeight = (val Combinator.combine critere : Routing.WEIGHT with type edge = Network.connection) in
+                     let module DIJKSTRA_CombinedWeight = Dijkstra.Make(Network.TransportGraph)(CombinedWeight) in
+                     (module DIJKSTRA_CombinedWeight)
                 | _                 -> (module DIJKSTRA_TimeWeight)
               in
           let module ShowPath = Show.Make(Routeur.P) in

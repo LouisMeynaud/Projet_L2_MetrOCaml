@@ -358,8 +358,8 @@ let run noeuds aretes algos poids_list on_search =
     algos; algo_actif = List.hd algos;
     poids_list; poids_actif = List.hd poids_list;
   } in
-
   
+
   let current_etat = ref etat_initial in
 
   (* --- Paneau de gauche --- *)
@@ -379,6 +379,20 @@ let run noeuds aretes algos poids_list on_search =
     (nom, Widget.button (if nom = etat_initial.poids_actif then "[X] " ^ nom else "[ ] " ^ nom))
   ) etat_initial.poids_list in
 
+  (*Les sliders pour le poids custom "Combinaison" *)
+  let s_temps = Widget.slider ~length:100 50 in
+  let s_dist = Widget.slider ~length:100 50 in
+  let s_arrets = Widget.slider ~length:100 50 in
+  let s_corresp = Widget.slider ~length:100 50 in
+
+  let row_temps = Layout.flat_of_w [Widget.label "Temps :"; s_temps] in
+  let row_dist = Layout.flat_of_w [Widget.label "Dist. :"; s_dist] in
+  let row_arrets = Layout.flat_of_w [Widget.label "Arrêts:"; s_arrets] in
+  let row_corresp = Layout.flat_of_w [Widget.label "Corres:"; s_corresp] in
+
+  let box_sliders = Layout.tower [row_temps; row_dist; row_arrets; row_corresp] in
+  Layout.set_show box_sliders (etat_initial.poids_actif = "Combinaison");
+
   (* --- LOGIQUE DE MISE A JOUR DES WIDGETS --- *)
 
   let update_ui_buttons () =
@@ -396,14 +410,24 @@ let run noeuds aretes algos poids_list on_search =
     
     List.iter (fun (nom, w) ->
       Widget.set_text w (if nom = etat.poids_actif then "[X] " ^ nom else "[ ] " ^ nom)
-    ) boutons_poids
+    ) boutons_poids;
+    
+    (* On affiche ou on cache les sliders en fonction du poids sélectionné *)
+    Layout.set_show box_sliders (etat.poids_actif = "Combinaison")
   in
 
   (* --- CONNEXIONS (Ce qui se passe quand on clique) --- *)
 
   let conn_chercher = Widget.connect btn_chercher btn_chercher (fun _ _ _ ->
+    (* On récupère la valeur de nos 4 sliders, on divise par 100 pour avoir un float *)
+    let c_temps = float_of_int (Slider.value (Widget.get_slider s_temps)) /. 100.0 in
+    let c_dist = float_of_int (Slider.value (Widget.get_slider s_dist)) /. 100.0 in
+    let c_arrets = float_of_int (Slider.value (Widget.get_slider s_arrets)) /. 100.0 in
+    let c_corresp = float_of_int (Slider.value (Widget.get_slider s_corresp)) /. 100.0 in
+    
     match !current_etat.source, !current_etat.dest with 
-    | Some s, Some d -> on_search s d !current_etat.algo_actif !current_etat.poids_actif 
+    (* On passe les coefficients à la fonction on_search ! *)
+    | Some s, Some d -> on_search s d !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp]
     | _ -> print_endline "Sélectionnez une source et une destination !"
   ) Trigger.buttons_down in
 
@@ -492,7 +516,7 @@ let run noeuds aretes algos poids_list on_search =
 
     | `Mouse_motion | `Finger_motion ->
       if !is_dragging then begin
-        let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
+        let _, (mx, my) = Tsdl.Sdl.get_mouse_state () in
         dx_glisse := mx - !debut_x;
         dy_glisse := my - !debut_y;
         current_etat := { etat with positions = move !pos_initiales !dx_glisse !dy_glisse };
@@ -516,7 +540,6 @@ let run noeuds aretes algos poids_list on_search =
   let block_poids = Layout.tower_of_w (label_poids :: List.map snd boutons_poids) in
   let block_cat = Layout.tower_of_w (label_cat :: List.map snd boutons_categories) in
 
-  (* CORRECTION : Ajout du fond gris pour la barre latérale ! *)
   let fond_gris = Layout.color_bg (rgb_to_bogue (230, 230, 230)) in
 
   (* La tour avec tout le panneau de contrôle à gauche *)
@@ -528,6 +551,7 @@ let run noeuds aretes algos poids_list on_search =
     block_algo;
     Layout.empty ~w:1 ~h:15 ();
     block_poids;
+    box_sliders;
     Layout.empty ~w:1 ~h:15 ();
     block_cat;
   ] in
