@@ -329,23 +329,6 @@ let rafraichir dx dy etat =
   
   Sdl_area.update (get_canvas ())
 
-(*---------------FOCNTION INTERACTION----------------*)
-(* inverse l'etat actif/inactif d'une categorie donnée par sont index i*)
-let toggle categories i =
-  List.mapi (fun j (c, v) -> (c, if i = j then not v else v)) categories
-
-let traiter_clic mx my etat =
-  (*clique sur la carte*)
-  match get_noeud_clique mx my etat with
-    | Some id ->
-    let (new_s, new_d) =
-          if Some id = etat.source then (None, None)               (*  Re-clic sur Source = On efface tout *)       
-          else if Some id = etat.dest then (etat.source, None)     (*  Re-clic sur Dest = On efface juste la Dest *)
-          else if etat.source = None then (Some id, None)          (*  Rien n'est coché = Devient la Source (Vert) *)
-          else if etat.dest = None then (etat.source, Some id)     (*  Source déjà là = Devient la Dest (Rouge) *)
-          else (Some id, None)                                     (*  Les deux sont là = On recommence avec une nouvelle Source *)
-    in { etat with source = new_s; dest = new_d }
-    | None -> etat
 
 (*----------------FONCTIONS PRINCIPALE------------------*)
 let run noeuds aretes algos poids_list on_search =
@@ -370,7 +353,7 @@ let run noeuds aretes algos poids_list on_search =
 
   let current_etat = ref etat_initial in
 
-  (* --- Paneau de gauche --- *)
+  (* --- ONGLET ITINÉRAIRE--- *)
 
   let text_toggle nom actif =
     if actif then "[ON] " ^ nom else "[OFF] " ^ nom
@@ -380,7 +363,6 @@ let run noeuds aretes algos poids_list on_search =
     if actif then "[*] " ^ nom else "[ ] " ^ nom
   in
 
-  let btn_chercher = Widget.button "CHERCHER L'ITINÉRAIRE" in
   let btn_noms = Widget.button "Noms des stations : OFF" in
 
   let boutons_categories = List.map (fun (nom, actif) ->
@@ -446,7 +428,7 @@ let run noeuds aretes algos poids_list on_search =
   let label_horaire = Widget.label  "-------------------------------HORAIRE-------------------------------" in
   let label_sliders = Widget.label  "-----------------------------COMBINAISON-----------------------------" in
 
-  let block_actions = Layout.tower_of_w [btn_chercher; btn_noms] in
+  let block_actions = Layout.tower_of_w [btn_noms] in
 
   (* Layout de l'horaire *)
   let ligne_dep_maint = Layout.flat_of_w [btn_dep_arr; btn_maintenant] in
@@ -460,7 +442,6 @@ let run noeuds aretes algos poids_list on_search =
   let block_cat = Layout.tower_of_w (label_cat :: List.map snd boutons_categories) in
   let block_combinaison = Layout.tower [Layout.resident label_sliders; box_sliders] in
 
-  let fond_gris = Layout.color_bg (rgb_to_bogue (236, 239, 243)) in
   let espace = Layout.empty ~w:1 ~h:12 () in
 
   let show_poids_init = (etat_initial.algo_actif = "Dijkstra") in
@@ -468,6 +449,87 @@ let run noeuds aretes algos poids_list on_search =
   Layout.set_show block_poids show_poids_init;
   Layout.set_show box_sliders show_combinaison_init;
   Layout.set_show block_combinaison show_combinaison_init;
+
+  (* --- ONGLET RECHERCHE  --- *)
+  
+  let label_recherche = Widget.label "Recherche d'itineraire" in
+  let label_depart = Widget.label "Depart" in
+  let input_depart = Widget.text_input ~prompt:"Ex: Chatelet" () in
+  let btn_select_depart = Widget.button "Selection carte" in
+  let label_arrivee = Widget.label "Arrivee" in
+  let input_arrivee = Widget.text_input ~prompt:"Ex: Bastille" () in
+  let btn_select_arrivee = Widget.button "Selection carte" in
+  let btn_valider_recherche = Widget.button "Rechercher" in
+  let fond_barre_recherche = Layout.color_bg (rgb_to_bogue (218, 223, 230)) in
+  let barre_depart = Layout.resident ~background:fond_barre_recherche input_depart in
+  let barre_arrivee = Layout.resident ~background:fond_barre_recherche input_arrivee in
+
+  let station_name_of_id id =
+    match List.find_opt (fun (n : noeud) -> n.id = id) noeuds with
+    | Some n -> n.nom
+    | None -> id
+  in
+
+  let station_id_of_name nom =
+    let cible = String.lowercase_ascii (String.trim nom) in
+    if cible = "" then None
+    else
+      List.find_opt
+        (fun (n : noeud) -> String.lowercase_ascii n.nom = cible)
+        noeuds
+      |> Option.map (fun n -> n.id)
+  in
+
+  let mode_selection_carte = ref `Aucun in
+  
+  (* Contenu de la recherche (sera caché par défaut) *)
+  let contenu_recherche = Layout.tower ~align:Draw.Center [
+    Layout.resident label_recherche;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident label_depart;
+    Layout.flat [barre_depart; Layout.resident btn_select_depart];
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident label_arrivee;
+    Layout.flat [barre_arrivee; Layout.resident btn_select_arrivee];
+    Layout.empty ~w:1 ~h:10 ();
+    block_horaire;
+    Layout.empty ~w:1 ~h:10 ();
+    Layout.resident btn_valider_recherche;
+  ] in
+
+  (* La tour de l'itinéraire (tout ce qu'on avait avant) *)
+  let contenu_itineraire = Layout.tower ~align:Draw.Center [
+    Layout.resident titre_panneau;
+    espace;
+    block_actions;
+    espace;
+    block_algo;
+    espace;
+    block_poids;
+    Layout.empty ~w:1 ~h:8 ();
+    block_combinaison;
+    espace;
+    block_cat;
+  ] in
+
+  (* On cache la recherche au démarrage *)
+  Layout.set_show contenu_recherche false;
+
+  (* Les contenus d'onglets se superposent pour conserver la meme position visuelle. *)
+  let zone_onglet = Layout.superpose [contenu_itineraire; contenu_recherche] in
+
+  (* --- BARRE DE NAVIGATION (Onglets) --- *)
+
+  let tab_itineraire = Widget.button "[ REGLAGE ]" in
+  let tab_recherche = Widget.button "[ ITINÉRAIRE ]" in
+  let tab_horaires = Widget.button "[ HORAIRES ]" in
+  
+  let barre_onglets = Layout.flat ~align:Draw.Center [
+    Layout.resident tab_itineraire;
+    Layout.resident tab_recherche;
+    Layout.resident tab_horaires;
+  ] in
+
 
   (* --- LOGIQUE DE MISE A JOUR DES WIDGETS --- *)
 
@@ -497,6 +559,72 @@ let run noeuds aretes algos poids_list on_search =
   in
 
   (* --- CONNEXIONS (Ce qui se passe quand on clique) --- *)
+
+  let reset_selection_mode () =
+    mode_selection_carte := `Aucun;
+    Widget.set_text btn_select_depart "Selection carte";
+    Widget.set_text btn_select_arrivee "Selection carte"
+  in
+
+  let switch_tab ~show_itineraire ~show_recherche =
+    Layout.set_show contenu_itineraire show_itineraire;
+    Layout.set_show contenu_recherche show_recherche;
+    reset_selection_mode ();
+    rafraichir_ecran !current_etat
+  in
+
+  let begin_map_selection mode =
+    mode_selection_carte := mode;
+    match mode with
+    | `Depart ->
+      Widget.set_text btn_select_depart "Cliquez sur la carte...";
+      Widget.set_text btn_select_arrivee "Selection carte"
+    | `Arrivee ->
+      Widget.set_text btn_select_arrivee "Cliquez sur la carte...";
+      Widget.set_text btn_select_depart "Selection carte"
+    | `Aucun ->
+      Widget.set_text btn_select_depart "Selection carte";
+      Widget.set_text btn_select_arrivee "Selection carte"
+  in
+
+  let launch_search source dest =
+    let c_temps = float_of_int (Slider.value (Widget.get_slider s_temps)) /. 100.0 in
+    let c_dist = float_of_int (Slider.value (Widget.get_slider s_dist)) /. 100.0 in
+    let c_arrets = float_of_int (Slider.value (Widget.get_slider s_arrets)) /. 100.0 in
+    let c_corresp = float_of_int (Slider.value (Widget.get_slider s_corresp)) /. 100.0 in
+    on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp]
+  in
+
+  (* Connexions des Onglets *)
+  let conn_tab_iti = Widget.connect tab_itineraire tab_itineraire (fun _ _ _ ->
+    switch_tab ~show_itineraire:true ~show_recherche:false
+  ) Trigger.buttons_down in
+
+  let conn_tab_rech = Widget.connect tab_recherche tab_recherche (fun _ _ _ ->
+    switch_tab ~show_itineraire:false ~show_recherche:true
+  ) Trigger.buttons_down in
+
+  let conn_select_depart = Widget.connect btn_select_depart btn_select_depart (fun _ _ _ ->
+    begin_map_selection `Depart
+  ) Trigger.buttons_down in
+
+  let conn_select_arrivee = Widget.connect btn_select_arrivee btn_select_arrivee (fun _ _ _ ->
+    begin_map_selection `Arrivee
+  ) Trigger.buttons_down in
+
+  (* Action de recherche depuis l'onglet recherche *)
+  let conn_valider_rech = Widget.connect btn_valider_recherche btn_valider_recherche (fun _ _ _ ->
+    let id_dep = station_id_of_name (Widget.get_text input_depart) in
+    let id_arr = station_id_of_name (Widget.get_text input_arrivee) in
+    let source = match id_dep with Some id -> Some id | None -> !current_etat.source in
+    let dest = match id_arr with Some id -> Some id | None -> !current_etat.dest in
+    current_etat := { !current_etat with source; dest };
+    update_ui_buttons ();
+    rafraichir_ecran !current_etat;
+    match source, dest with
+    | Some s, Some d -> launch_search s d
+    | _ -> print_endline "Entrez un depart et une arrivee valides, ou selectionnez-les sur la carte."
+  ) Trigger.buttons_down in
 
   (* Connexions Horaire *)
   let conn_dep = Widget.connect btn_dep_arr btn_dep_arr (fun _ _ _ ->
@@ -529,20 +657,6 @@ let run noeuds aretes algos poids_list on_search =
   let conn_mp = Widget.connect btn_m_plus btn_m_plus (fun _ _ _ ->
     curr_minute := if !curr_minute = 59 then 0 else !curr_minute + 1; 
     update_time_display ()
-  ) Trigger.buttons_down in
-
-
-  let conn_chercher = Widget.connect btn_chercher btn_chercher (fun _ _ _ ->
-    (* On récupère la valeur de nos 4 sliders, on divise par 100 pour avoir un float *)
-    let c_temps = float_of_int (Slider.value (Widget.get_slider s_temps)) /. 100.0 in
-    let c_dist = float_of_int (Slider.value (Widget.get_slider s_dist)) /. 100.0 in
-    let c_arrets = float_of_int (Slider.value (Widget.get_slider s_arrets)) /. 100.0 in
-    let c_corresp = float_of_int (Slider.value (Widget.get_slider s_corresp)) /. 100.0 in
-    
-    match !current_etat.source, !current_etat.dest with 
-    (* On passe les coefficients à la fonction on_search ! *)
-    | Some s, Some d -> on_search s d !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp]
-    | _ -> print_endline "Sélectionnez une source et une destination !"
   ) Trigger.buttons_down in
 
   let conn_noms = Widget.connect btn_noms btn_noms (fun _ _ _ ->
@@ -606,7 +720,21 @@ let run noeuds aretes algos poids_list on_search =
 
     | `Mouse_button_down | `Finger_down ->
       let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
-      let etat' = traiter_clic mx my etat in
+      let etat' =
+        match !mode_selection_carte, get_noeud_clique mx my etat with
+        | `Depart, Some id ->
+          Widget.set_text input_depart (station_name_of_id id);
+          Widget.set_text btn_select_depart "Selection carte";
+          mode_selection_carte := `Aucun;
+          { etat with source = Some id }
+        | `Arrivee, Some id ->
+          Widget.set_text input_arrivee (station_name_of_id id);
+          Widget.set_text btn_select_arrivee "Selection carte";
+          mode_selection_carte := `Aucun;
+          { etat with dest = Some id }
+        | (`Depart | `Arrivee), None -> etat
+        | `Aucun, _ -> etat
+      in
       
       if etat' = etat then begin
         is_dragging := true;
@@ -645,21 +773,14 @@ let run noeuds aretes algos poids_list on_search =
 
 
   (* --- ASSEMBLAGE DE L'ÉCRAN SCINDÉ EN DEUX --- *)
+  
+  let fond_gris = Layout.color_bg (rgb_to_bogue (236, 239, 243)) in
+
   (* La tour avec tout le panneau de contrôle à gauche *)
   let panneau_gauche = Layout.tower ~background:fond_gris ~align:Draw.Center [
-    Layout.resident titre_panneau;
+    barre_onglets;
     espace;
-    block_actions;
-    espace;
-    block_horaire;
-    espace;
-    block_algo;
-    espace;
-    block_poids;
-    Layout.empty ~w:1 ~h:8 ();
-    block_combinaison;
-    espace;
-    block_cat;
+    zone_onglet;
   ] in
 
   (* La carte à droite *)
@@ -671,9 +792,12 @@ let run noeuds aretes algos poids_list on_search =
     layout_carte
   ] in
 
-  (* les 6 nouvelles connexions des horaires *)
-  let connexions = connexion_carte :: conn_chercher :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids) in
+  (* On rassemble toutes les connexions pour les passer à la fenêtre *)
+  let connexions = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids) in
   let fenetre = Main.of_layout ~connections:connexions interface in
+
+  Layout.disable_resize panneau_gauche;
+  Layout.disable_resize layout_carte;
 
   rafraichir_ecran etat_initial;
 
