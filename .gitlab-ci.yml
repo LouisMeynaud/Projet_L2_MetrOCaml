@@ -41,7 +41,7 @@ test:
   script:
     - opam exec -- dune test --instrument-with bisect_ppx -f
     - opam exec -- bisect-ppx-report summary
-    - opam exec -- bisect-ppx-report html --output _coverage/html
+    - opam exec -- bisect-ppx-report html -o _coverage/html
     - opam exec -- bisect-ppx-report cobertura _coverage/cobertura-coverage.xml
   coverage: '/Coverage: \d+\/\d+ \((\d+\.\d+%)\)/'
   artifacts:
