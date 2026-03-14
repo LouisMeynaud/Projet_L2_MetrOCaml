@@ -492,7 +492,7 @@ let run noeuds aretes algos poids_list on_search =
 
     | `Mouse_motion | `Finger_motion ->
       if !is_dragging then begin
-        let _, (mx, my) = Tsdl.Sdl.get_mouse_state () in
+        let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
         dx_glisse := mx - !debut_x;
         dy_glisse := my - !debut_y;
         current_etat := { etat with positions = move !pos_initiales !dx_glisse !dy_glisse };
