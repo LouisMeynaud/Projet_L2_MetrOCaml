@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Métrocaml</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #f5f5f5;
+        color: #333;
+      }
+
+      h1 {
+        margin-bottom: 0.25rem;
+      }
+
+      p {
+        margin-top: 0;
+        margin-bottom: 2rem;
+        color: #666;
+      }
+
+      nav {
+        display: flex;
+        gap: 1rem;
+      }
+
+      a.card {
+        display: block;
+        padding: 1.25rem 2rem;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #333;
+        font-weight: bold;
+        transition: box-shadow 0.15s;
+      }
+
+      a.card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      a.card span {
+        display: block;
+        font-weight: normal;
+        font-size: 0.85rem;
+        color: #888;
+        margin-top: 0.25rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Métrocaml</h1>
+    <p>Ressources du projet</p>
+    <nav>
+      <a class="card" href="docs/">
+        Documentation
+        <span>API odoc</span>
+      </a>
+      <a class="card" href="coverage/">
+        Rapport de couverture de tests
+        <span>Rapport HTML bisect_ppx</span>
+      </a>
+    </nav>
+  </body>
+</html>
