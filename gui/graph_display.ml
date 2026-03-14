@@ -279,6 +279,13 @@ let cache_photo = ref None
 let cible_originale = ref None
 
 let rafraichir_ecran etat =
+  if etat.show_names then begin
+    (match !cache_photo with Some t -> Tsdl.Sdl.destroy_texture t | None -> ());
+    cache_photo := None;
+    Sdl_area.clear (get_canvas ());
+    draw_graph etat;
+    Sdl_area.update (get_canvas ())
+  end else begin
   Sdl_area.clear (get_canvas ());
 
   (*On prépare une image invisible et on dit à Bogue de dessiner dessus *)
@@ -304,6 +311,7 @@ let rafraichir_ecran etat =
   );
 
   Sdl_area.update (get_canvas ())
+  end
 
 
 (* Utilisé uniquement pendant qu'on glisse la souris *)
@@ -601,7 +609,7 @@ let run noeuds aretes algos poids_list on_search =
   let rafraichissement_continu () =
     if !needs_redraw then begin
       needs_redraw := false;
-      if !action_courante = "Drag" && !cache_photo <> None then begin
+      if (not !current_etat.show_names) && !action_courante = "Drag" && !cache_photo <> None then begin
         rafraichir !dx_glisse !dy_glisse !current_etat
       end else begin
         rafraichir_ecran !current_etat
