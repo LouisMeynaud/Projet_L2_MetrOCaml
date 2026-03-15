@@ -393,11 +393,10 @@ let run noeuds aretes algos poids_list on_search =
 
     match Trigger.event_kind ev with
 
-    | `Key_down ->
-      let key = Tsdl.Sdl.Event.(get ev keyboard_keycode) in
-      let open Tsdl.Sdl.K in
-      let zoom = if key = plus || key = equals || key = kp_plus then zoom_in_factor else zoom_out_factor in
-      if zoom <> 1.0 then begin
+    | `Mouse_wheel ->
+      let wheel_delta = Tsdl.Sdl.Event.(get ev mouse_wheel_y) in
+      if wheel_delta <> 0 then begin
+        let zoom = if wheel_delta > 0 then zoom_in_factor else zoom_out_factor in
         let mx, my = !canvas_w / 2, !canvas_h / 2 in
         let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
         current_etat := etat';
@@ -455,7 +454,7 @@ let run noeuds aretes algos poids_list on_search =
     | _ -> ()
   in
 
-  let liste_ev = Trigger.buttons_down @ Trigger.buttons_up @ Trigger.pointer_motion @ [Trigger.key_down] in
+  let liste_ev = Trigger.buttons_down @ Trigger.buttons_up @ Trigger.pointer_motion @ [Tsdl.Sdl.Event.mouse_wheel] in
   let connexion_carte = Widget.connect_main widget_dessin widget_dessin boucle liste_ev in
 
   (* ================================================== *)
