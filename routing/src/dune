@@ -1,4 +1,13 @@
 (library
  (name routing)
  (public_name routing)
- (modules routing graph_intf graph weight_intf combinator path_intf path bfs dijkstra))
+ (modules
+  routing
+  graph_intf
+  graph
+  weight_intf
+  combinator
+  path_intf
+  path
+  bfs
+  dijkstra))
