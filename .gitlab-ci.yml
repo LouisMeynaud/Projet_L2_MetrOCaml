@@ -6,7 +6,7 @@ stages:
   - test
   - release
   - docs
-  - deploy
+#  - deploy
 
 # --- Cache template ---
 .opam_cache: &opam_cache
@@ -82,16 +82,16 @@ docs:
     paths:
       - public
 
-# --- Deploy (GitLab Pages) ---
-pages:
-  stage: deploy
-  dependencies:
-    - docs
-  script:
-    - echo "Deploying docs and coverage to GitLab Pages"
-  pages: true
-  artifacts:
-    paths:
-      - public
-  rules:
-    - if: $CI_COMMIT_BRANCH == "cicd-odoc"
+# --- Deploy (GitLab Pages) ---   ## Désactivé sur le serveur Moule
+# pages:
+#   stage: deploy
+#   dependencies:
+#     - docs
+#   script:
+#     - echo "Deploying docs and coverage to GitLab Pages"
+#   pages: true
+#   artifacts:
+#     paths:
+#       - public
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "main"
