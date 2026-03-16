@@ -266,9 +266,10 @@ module ScheduleWeight : SCHEDULE_WEIGHT = struct
         let hours = s.time mod 86400 / 3600 in
         let minutes = s.time mod 3600 / 60 in
         let seconds = s.time mod 60 in
-        Printf.sprintf
-          "Arrivée au bout de %02d jour(s), %02d heure(s), %02d minute(s) et \
-           %02d seconde(s)"
-          days hours minutes seconds
+        (match days with
+          | 0 -> Printf.sprintf "Arrivée aujourd'hui à %02dh%02dm%02ds" hours minutes seconds
+          | 1 -> Printf.sprintf "Arrivée demain à %02dh%02dm%02ds" hours minutes seconds
+          | 2 -> Printf.sprintf "Arrivée après-demain à %02dh%02dm%02ds" hours minutes seconds
+          | _ -> Printf.sprintf "Arrivée au bout de %02d jour(s) à %02dh%02dm%02ds" days hours minutes seconds)
     | EdgeData _ -> "Données d'arête"
 end
