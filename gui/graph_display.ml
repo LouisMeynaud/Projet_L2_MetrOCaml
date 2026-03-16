@@ -508,12 +508,52 @@ let run noeuds aretes algos poids_list on_search =
 
   Layout.set_size interface ~w:!largeur ~h:!hauteur;
 
+  (* ================================================== *)
+  (*                     FENETRE                      *)
+  (* ================================================== *)
+
+  (* Fonction pour redimensionner les positions des noeuds lors d'un resize de la fenêtre *)
+  let scale_positions ~from_w ~from_h ~to_w ~to_h positions =
+    let sx = float_of_int to_w /. float_of_int from_w in (* facteur de mise à l'échelle en x *)
+    let sy = float_of_int to_h /. float_of_int from_h in (* facteur de mise à l'échelle en y *)
+    List.map (fun (id, (x, y)) -> (id, (x *. sx, y *. sy))) positions
+  in
+  (* Fonction pour réinitialiser l'état de glissement après un zoom ou un resize *)
+  let reset_drag_state () =
+    is_dragging := false;
+    dx_glisse := 0;
+    dy_glisse := 0;
+    pos_initiales := !current_etat.positions
+  in
+
+  (* Lors d'un resize de la fenêtre, on doit redimensionner les positions des noeuds pour qu'ils restent à la bonne place sur la carte *)
+  let apply_map_resize () =
+    let old_w = max 1 !canvas_w in
+    let old_h = max 1 !canvas_h in
+    let new_w, new_h = Layout.get_physical_size layout_carte in
+    let size_changed = new_w > 0 && new_h > 0 && (new_w <> old_w || new_h <> old_h) in
+    if size_changed then begin
+      canvas_w := new_w;
+      canvas_h := new_h;
+      current_etat := {
+        !current_etat with
+        positions = scale_positions ~from_w:old_w ~from_h:old_h ~to_w:new_w ~to_h:new_h !current_etat.positions
+      };
+      reset_drag_state ();
+      action_courante := "Resize";
+      needs_redraw := true
+    end
+  in
+
+  Layout.on_resize layout_carte apply_map_resize;
+
   (* On rassemble toutes les connexions pour les passer à la fenêtre *)
   let connexions = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids) in
   let fenetre = Main.of_layout ~connections:connexions interface in
 
   (* -------------------- Boucle de rendu -------------------- *)
-  rafraichir_ecran etat_initial;
+  apply_map_resize ();
+  rafraichir_ecran !current_etat;
 
   let rafraichissement () =
     if !needs_redraw then begin
