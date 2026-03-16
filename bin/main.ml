@@ -65,11 +65,34 @@ let run_console graphe search_callback =
 
   let poids =
     if algo = "Dijkstra" then begin
-      raw_select "Choisissez le poids : " ["Distance"; "Arrets"; "Temps"; "Correspondances"; "Combinaison"];
+      raw_select "Choisissez le poids : " ["Temps"; "Distance"; "Arrets"; "Correspondances"; "Combinaison"];
     end else ""
   in
-  (* il faudra ici traiter les coefficients pour le poids combiné *)
-  search_callback source_id dest_id algo poids [0.5; 0.5; 0.5; 0.5]
+
+  let coeffs =
+    if algo = "Dijkstra" && poids = "Combinaison" then
+      let rec ask_coeffs () =
+        Printf.printf "Entrez les 4 coefficients (Temps Distance Arrêts Correspondances) : %!";
+        let input = read_line () in
+        let parts = String.split_on_char ' ' input |> List.filter (fun s -> s <> "") in
+        
+        try
+          let floats = List.map float_of_string parts in
+          if List.length floats = 4 then 
+            floats
+          else (
+            Printf.printf "Erreur : Il faut exactement 4 valeurs (reçu : %d).\n" (List.length floats);
+            ask_coeffs ()
+          )
+        with Failure _ ->
+          Printf.printf "Erreur : Saisie invalide. Veuillez n'entrer que des nombres.\n";
+          ask_coeffs ()
+      in
+      ask_coeffs ()
+    else []
+  in
+
+  search_callback source_id dest_id algo poids coeffs
 
 let () =
   (*let montpellier = "https://www.data.gouv.fr/api/1/datasets/r/85ef3b33-2289-4d19-b479-276e5b1c5a52" in*)
@@ -101,7 +124,7 @@ let () =
                      (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
                      let ct, cd, ca, cc = match coeffs with 
                      |[a;b;c;d] -> a,b,c,d 
-                     | _ -> 0.5,0.5,0.5,0.5 in
+                     | _ -> 1.0,1.0,1.0,1.0 in
                      let critere = [
                         Combinator.criterion (module Weight.TimeWeight) ~coefficient:ct ~label:"Temps";
                         Combinator.criterion (module Weight.DistanceWeight) ~coefficient:cd ~label:"Distance";
