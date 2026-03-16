@@ -648,7 +648,7 @@ module Dijkstra_Tests = struct
   let test_simple_path () =
     let g = TestGraph.create () in
     TestGraph.add_edge g "A" "B" (conn 60);
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" () with
     | Some path ->
         Alcotest.(check int)
           "Chemin direct (1 étape)" 1 (List.length path.steps)
@@ -658,14 +658,14 @@ module Dijkstra_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_node g "A";
     TestGraph.add_node g "B";
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" () with
     | Some _ -> Alcotest.fail "Aucun chemin ne devrait être trouvé"
     | None -> ()
 
   let test_same_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g "A";
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"A" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"A" () with
     | Some path ->
         Alcotest.(check int)
           "Source = destination (0 étape)" 0 (List.length path.steps)
@@ -674,14 +674,14 @@ module Dijkstra_Tests = struct
   let test_missing_source () =
     let g = TestGraph.create () in
     TestGraph.add_node g "B";
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" () with
     | Some _ -> Alcotest.fail "Devrait échouer car A n'existe pas"
     | None -> ()
 
   let test_missing_destination () =
     let g = TestGraph.create () in
     TestGraph.add_node g "A";
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" () with
     | Some _ -> Alcotest.fail "Devrait échouer car B n'existe pas"
     | None -> ()
 
@@ -691,7 +691,7 @@ module Dijkstra_Tests = struct
     TestGraph.add_edge g "A" "B" (conn 10);
     TestGraph.add_edge g "B" "C" (conn 10);
     TestGraph.add_edge g "C" "D" (conn 10);
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"D" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"D" () with
     | Some path ->
         Alcotest.(check int)
           "Chaîne A->B->C->D (3 étapes)" 3 (List.length path.steps)
@@ -701,7 +701,7 @@ module Dijkstra_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_edge g "A" "B" (conn 10);
     TestGraph.add_edge g "B" "A" (conn 10);
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"B" () with
     | Some path ->
         Alcotest.(check int)
           "Gère les cycles (1 étape)" 1 (List.length path.steps)
@@ -714,7 +714,7 @@ module Dijkstra_Tests = struct
     TestGraph.add_edge g "A" "B" (conn 10);
     TestGraph.add_edge g "B" "C" (conn 10);
     (* chemin indirect, moins coûteux *)
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"C" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"C" () with
     | None -> Alcotest.fail "Chemin A->C introuvable"
     | Some path ->
         Alcotest.(check int)
@@ -728,7 +728,7 @@ module Dijkstra_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_edge g "A" "B" (conn 30);
     TestGraph.add_edge g "B" "C" (conn 45);
-    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"C" with
+    match Dijkstra.find_path ~graph:g ~source:"A" ~destination:"C" () with
     | None -> Alcotest.fail "Chemin non trouvé"
     | Some path ->
         Alcotest.(check time_weight_t)

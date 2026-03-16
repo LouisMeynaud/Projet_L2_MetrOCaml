@@ -11,18 +11,17 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
 
   type path = P.t
 
-  let find_path ~graph ~source ~destination =
+  let find_path ?(initial_weight = W.zero) ~graph ~source ~destination () =
     if not (G.has_node graph source) then None
     else if not (G.has_node graph destination) then None
     else if G.Node.equal source destination then
-      Some { P.steps = []; total_weight = W.zero }
+      Some { P.steps = []; total_weight = initial_weight }
     else
       let n = List.length (G.nodes graph) in
       let dist = Hashtbl.create n in
       let prev = Hashtbl.create n in
-      (* Priority queue: sorted list of (weight, node) in ascending order *)
-      let pq = ref [ (W.zero, source) ] in
-      Hashtbl.add dist source W.zero;
+      let pq = ref [ (initial_weight, source) ] in
+      Hashtbl.add dist source initial_weight;
 
       let pq_push w n =
         let rec insert = function
