@@ -8,8 +8,29 @@ open Gui_draw
 (* ================================================== *)
 let run noeuds aretes algos poids_list on_search =
 
-  (* -------------------- Initialisation -------------------- *)
-  canvas_w := !largeur - panel_w;
+  (* -------------------- Initialisation  -------------------- *)
+  ignore (Tsdl.Sdl.init Tsdl.Sdl.Init.video);
+
+  let screen_w, screen_h =
+    match Tsdl.Sdl.get_display_usable_bounds 0 with
+    | Ok rect -> (Tsdl.Sdl.Rect.w rect, Tsdl.Sdl.Rect.h rect)
+    | Error _ ->
+      (match Tsdl.Sdl.get_desktop_display_mode 0 with
+       | Ok mode -> (mode.Tsdl.Sdl.dm_w, mode.Tsdl.Sdl.dm_h)
+       | Error _ -> (!largeur, !hauteur))
+  in
+
+  (* On ouvre au maximum de l'ecran (hors barres systeme). *)
+  largeur := max 720 (screen_w - 16);
+  hauteur := max 520 (screen_h - 16);
+
+  (* Le panneau prend ~30% de la largeur, avec bornes pour petits/grands ecrans. *)
+  let panel_width =
+    let preferred = !largeur * 30 / 100 in
+    max 210 (min 360 preferred)
+  in
+
+  canvas_w := max 320 (!largeur - panel_width);
   canvas_h := !hauteur;
 
   let bornes = calcule_bornes noeuds in
@@ -83,10 +104,11 @@ let run noeuds aretes algos poids_list on_search =
   in
 
   (* -------------------- Bloc sliders (poids) -------------------- *)
-  let s_temps = Widget.slider ~length:100 50 in
-  let s_dist = Widget.slider ~length:100 50 in
-  let s_arrets = Widget.slider ~length:100 50 in
-  let s_corresp = Widget.slider ~length:100 50 in
+  let slider_len = max 80 (panel_width - 140) in
+  let s_temps = Widget.slider ~length:slider_len 50 in
+  let s_dist = Widget.slider ~length:slider_len 50 in
+  let s_arrets = Widget.slider ~length:slider_len 50 in
+  let s_corresp = Widget.slider ~length:slider_len 50 in
 
   let fond_slider = Layout.color_bg (rgb_to_bogue (208, 214, 222)) in
   let slider_cell s = Layout.resident ~background:fond_slider s in
@@ -141,8 +163,9 @@ let run noeuds aretes algos poids_list on_search =
   let btn_select_arrivee = Widget.button "Selection carte" in
   let btn_valider_recherche = Widget.button "Rechercher" in
   let fond_barre_recherche = Layout.color_bg (rgb_to_bogue (218, 223, 230)) in
-  let barre_depart = Layout.resident ~background:fond_barre_recherche input_depart in
-  let barre_arrivee = Layout.resident ~background:fond_barre_recherche input_arrivee in
+  let search_input_w = max 110 (panel_width - 120) in
+  let barre_depart = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_depart in
+  let barre_arrivee = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_arrivee in
 
   let station_name_of_id id =
     match List.find_opt (fun (n : noeud) -> n.id = id) noeuds with
@@ -199,6 +222,8 @@ let run noeuds aretes algos poids_list on_search =
 
   (* Les contenus d'onglets se superposent pour conserver la meme position visuelle. *)
   let zone_onglet = Layout.superpose [contenu_itineraire; contenu_recherche] in
+  let h_zone_onglet = max 220 (!hauteur - 70) in
+  let zone_onglet_scroll = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:h_zone_onglet zone_onglet in
 
   (* -------------------- Barre d'onglets -------------------- *)
 
@@ -467,8 +492,10 @@ let run noeuds aretes algos poids_list on_search =
   let panneau_gauche = Layout.tower ~background:fond_gris ~align:Draw.Center [
     barre_onglets;
     espace;
-    zone_onglet;
+    zone_onglet_scroll;
   ] in
+
+  Layout.set_size panneau_gauche ~w:panel_width ~h:!hauteur;
 
   (* La carte à droite *)
   let layout_carte = Layout.resident ~w:!canvas_w ~h:!canvas_h widget_dessin in
@@ -479,12 +506,11 @@ let run noeuds aretes algos poids_list on_search =
     layout_carte
   ] in
 
+  Layout.set_size interface ~w:!largeur ~h:!hauteur;
+
   (* On rassemble toutes les connexions pour les passer à la fenêtre *)
   let connexions = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids) in
   let fenetre = Main.of_layout ~connections:connexions interface in
-
-  Layout.disable_resize panneau_gauche;
-  Layout.disable_resize layout_carte;
 
   (* -------------------- Boucle de rendu -------------------- *)
   rafraichir_ecran etat_initial;
