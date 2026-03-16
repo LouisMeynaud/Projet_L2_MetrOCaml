@@ -249,31 +249,65 @@ let draw_graph etat =
   (*Dessin des noeuds *)
   List.iter (draw_noeud etat) noeuds_visibles
 
+  (* rafraichit l'écran en dessinant le graphe *)
 let cache_photo = ref None
 let cible_originale = ref None
+let cache_w = ref 0 (* largeur de la "photo" du graphe *)
+let cache_h = ref 0 (* hauteur de la "photo" du graphe *)
 
+(* détruit la texture de cache si elle existe *)
+let destroy_cache_texture () =
+  match !cache_photo with
+  | Some t ->
+      Tsdl.Sdl.destroy_texture t;
+      cache_photo := None;
+      cache_w := 0;
+      cache_h := 0
+  | None -> ()
+
+  (* rafraichit l'écran en dessinant le graphe, en utilisant une   "photo" pour éviter de redessiner tout le graphe pendant les glissements *)
 let rafraichir_ecran etat =
+  (* Si on affiche les noms, on ne peut pas utiliser la "photo" du graphe car les positions des textes changent à chaque zoom ou déplacement (et le texte deviendrai flou), donc on redessine tout à chaque fois *)
   if etat.show_names then begin
-    (match !cache_photo with Some t -> Tsdl.Sdl.destroy_texture t | None -> ());
-    cache_photo := None;
+    destroy_cache_texture ();
     Sdl_area.clear (get_canvas ());
     draw_graph etat;
     Sdl_area.update (get_canvas ())
   end else begin
+    (* Si on n'affiche pas les noms, on peut utiliser la "photo" du graphe pour faire un glissement fluide sans redessiner tout le graphe à chaque fois *)
   Sdl_area.clear (get_canvas ());
 
   (*On prépare une image invisible et on dit à Bogue de dessiner dessus *)
   Sdl_area.add (get_canvas ()) (fun renderer ->
     cible_originale := Tsdl.Sdl.get_render_target renderer; (* On sauvegarde l'écran normal *)
+
     
-    (match !cache_photo with Some t -> Tsdl.Sdl.destroy_texture t | None -> ());
-    match Tsdl.Sdl.create_texture renderer Tsdl.Sdl.Pixel.format_argb8888 Tsdl.Sdl.Texture.access_target ~w:!canvas_w ~h:!canvas_h with
-    | Ok texture ->
-        cache_photo := Some texture;
-        ignore (Tsdl.Sdl.set_render_target renderer (Some texture));
+    let wanted_w = max 1 !canvas_w in
+    let wanted_h = max 1 !canvas_h in
+    let must_recreate =
+      (* Vérifie si la texture de cache doit être recréée *)
+      match !cache_photo with
+      | None -> true
+      | Some _ -> !cache_w <> wanted_w || !cache_h <> wanted_h
+    in
+
+    (* si doit etre redessinée , on la recrée *)
+    if must_recreate then begin
+      destroy_cache_texture ();
+      match Tsdl.Sdl.create_texture renderer Tsdl.Sdl.Pixel.format_argb8888 Tsdl.Sdl.Texture.access_target ~w:wanted_w ~h:wanted_h with
+      | Ok texture ->
+          cache_photo := Some texture;
+          cache_w := wanted_w;
+          cache_h := wanted_h
+      | Error _ -> ()
+    end;
+
+    match !cache_photo with
+    | Some texture ->
+        ignore (Tsdl.Sdl.set_render_target renderer (Some texture)); 
         ignore (Tsdl.Sdl.set_render_draw_color renderer 255 255 255 255);
         ignore (Tsdl.Sdl.render_clear renderer)
-    | Error _ -> ()
+    | None -> ()
   );
 
   draw_graph etat;
@@ -298,7 +332,10 @@ let rafraichir dx dy etat =
     (* On déplace la "photo" du graphe de dx et dy *)
     match !cache_photo with 
     | None -> () 
-    | Some tex -> ignore (Tsdl.Sdl.render_copy ~dst:(Tsdl.Sdl.Rect.create ~x:dx ~y:dy ~w:!canvas_w ~h:!canvas_h) renderer tex)
+    | Some tex ->
+      let w = if !cache_w > 0 then !cache_w else !canvas_w in
+      let h = if !cache_h > 0 then !cache_h else !canvas_h in
+      ignore (Tsdl.Sdl.render_copy ~dst:(Tsdl.Sdl.Rect.create ~x:dx ~y:dy ~w ~h) renderer tex)
   );
   
   Sdl_area.update (get_canvas ())
