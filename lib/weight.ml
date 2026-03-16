@@ -215,7 +215,6 @@ module ScheduleWeight : SCHEDULE_WEIGHT = struct
         schedules = conn.schedules;
         line_name = conn.line.name;
         is_walk = conn.mode = Walk;
-        (* On utilise le type défini dans network.ml *)
       }
 
   let is_inf = function Infinity -> true | _ -> false
@@ -238,7 +237,6 @@ module ScheduleWeight : SCHEDULE_WEIGHT = struct
           let rec find_next_departure = function
             | [] ->
                 max_int
-                (* Liste vide (ex: jour férié) ou plus de métro -> infini *)
             | t :: ts -> if t >= ready_time then t else find_next_departure ts
           in
           let next_dep = find_next_departure e.schedules in
@@ -265,9 +263,10 @@ module ScheduleWeight : SCHEDULE_WEIGHT = struct
   let to_string = function
     | Infinity -> "∞"
     | State s ->
-        let hours = s.time / 3600 in
+        let days = s.time / 86400 in
+        let hours = s.time mod 86400 / 3600 in
         let minutes = s.time mod 3600 / 60 in
         let seconds = s.time mod 60 in
-        Printf.sprintf "Arrivée à %02dh%02dm%02ds" hours minutes seconds
+        Printf.sprintf "Arrivée au bout de %02d jour(s), %02d heure(s), %02d minute(s) et %02d seconde(s)" days hours minutes seconds
     | EdgeData _ -> "Données d'arête"
 end
