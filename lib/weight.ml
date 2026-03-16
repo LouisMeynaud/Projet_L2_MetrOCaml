@@ -186,83 +186,88 @@ end
     and transfer penalties. *)
 module type SCHEDULE_WEIGHT = sig
   include Routing.WEIGHT with type edge = connection
-  
+
   val start_at : int -> t
 end
 
 module ScheduleWeight : SCHEDULE_WEIGHT = struct
-  
   type t =
     | State of { time : int; line_name : string option }
-    | EdgeData of { duration : int; schedules : int list; line_name : string; is_walk : bool }
+    | EdgeData of {
+        duration : int;
+        schedules : int list;
+        line_name : string;
+        is_walk : bool;
+      }
     | Infinity
 
   type edge = connection
 
   let start_at time = State { time; line_name = None }
-
   let zero = State { time = 0; line_name = None }
   let infinity = Infinity
   let transfer_penalty = 180
-    
+
   let of_edge (conn : connection) =
-    EdgeData {
-      duration = conn.duration;
-      schedules = conn.schedules;
-      line_name = conn.line.name;
-      is_walk = (conn.mode = Walk); (* On utilise le type défini dans network.ml *)
-    }
-    
-  let is_inf = function
-    | Infinity -> true
-    | _ -> false
-    
+    EdgeData
+      {
+        duration = conn.duration;
+        schedules = conn.schedules;
+        line_name = conn.line.name;
+        is_walk = conn.mode = Walk;
+        (* On utilise le type défini dans network.ml *)
+      }
+
+  let is_inf = function Infinity -> true | _ -> false
+
   let add current_state edge_data =
-    match current_state, edge_data with
+    match (current_state, edge_data) with
     | Infinity, _ | _, Infinity -> Infinity
     | State s, EdgeData e ->
-      if e.is_walk then
-        State { time = s.time + e.duration; line_name = s.line_name }
-      else
-        let is_transfer =
-          match s.line_name with
+        if e.is_walk then
+          State { time = s.time + e.duration; line_name = s.line_name }
+        else
+          let is_transfer =
+            match s.line_name with
             | Some l when l <> e.line_name -> true
             | _ -> false
-        in
-        let ready_time =
-          if is_transfer then s.time + transfer_penalty else s.time
-        in
-        let rec find_next_departure = function
-          | [] -> max_int (* Liste vide (ex: jour férié) ou plus de métro -> infini *)
-          | t :: ts -> if t >= ready_time then t else find_next_departure ts
-        in              
-        let next_dep = find_next_departure e.schedules in
+          in
+          let ready_time =
+            if is_transfer then s.time + transfer_penalty else s.time
+          in
+          let rec find_next_departure = function
+            | [] ->
+                max_int
+                (* Liste vide (ex: jour férié) ou plus de métro -> infini *)
+            | t :: ts -> if t >= ready_time then t else find_next_departure ts
+          in
+          let next_dep = find_next_departure e.schedules in
           if next_dep = max_int then Infinity
           else
             State { time = next_dep + e.duration; line_name = Some e.line_name }
     | _ -> Infinity
-    
+
   let compare w1 w2 =
-    match w1, w2 with
-      | Infinity, Infinity -> 0.0
-      | Infinity, _ -> 1.0
-      | _, Infinity -> -1.0
-      | State s1, State s2 ->
+    match (w1, w2) with
+    | Infinity, Infinity -> 0.0
+    | Infinity, _ -> 1.0
+    | _, Infinity -> -1.0
+    | State s1, State s2 ->
         let diff = s1.time - s2.time in
         let denom = Int.max 1 (Int.max s1.time s2.time) in
         float_of_int diff /. float_of_int denom
-      | _ -> 0.0 
-    
+    | _ -> 0.0
+
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-    
+
   let to_string = function
     | Infinity -> "∞"
     | State s ->
-      let hours = s.time / 3600 in
-      let minutes = (s.time mod 3600) / 60 in
-      let seconds = s.time mod 60 in
-      Printf.sprintf "Arrivée à %02dh%02dm%02ds" hours minutes seconds
+        let hours = s.time / 3600 in
+        let minutes = s.time mod 3600 / 60 in
+        let seconds = s.time mod 60 in
+        Printf.sprintf "Arrivée à %02dh%02dm%02ds" hours minutes seconds
     | EdgeData _ -> "Données d'arête"
 end

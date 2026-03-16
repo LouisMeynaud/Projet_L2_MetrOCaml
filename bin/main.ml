@@ -124,59 +124,77 @@ let () =
       match (find_station graphe source_id, find_station graphe dest_id) with
       | Some source, Some destination -> (
           let (module Routeur : ALGO) =
-            if algo = "BFS" then 
+            if algo = "BFS" then
               (module struct
                 module P = BFS_HopWeight.P
+
                 let find_path ~graph ~source ~destination =
                   BFS_HopWeight.find_path ~graph ~source ~destination
               end)
             else
               match poids with
-              | "Distance" -> 
+              | "Distance" ->
                   (module struct
                     module P = DIJKSTRA_DistanceWeight.P
+
                     let find_path ~graph ~source ~destination =
-                      DIJKSTRA_DistanceWeight.find_path ~graph ~source ~destination ()
+                      DIJKSTRA_DistanceWeight.find_path ~graph ~source
+                        ~destination ()
                   end)
-              | "Arrets" -> 
+              | "Arrets" ->
                   (module struct
                     module P = DIJKSTRA_HopWeight.P
+
                     let find_path ~graph ~source ~destination =
-                      DIJKSTRA_HopWeight.find_path ~graph ~source ~destination ()
+                      DIJKSTRA_HopWeight.find_path ~graph ~source ~destination
+                        ()
                   end)
-              | "Temps" -> 
+              | "Temps" ->
                   (module struct
                     module P = DIJKSTRA_TimeWeight.P
+
                     let find_path ~graph ~source ~destination =
-                      DIJKSTRA_TimeWeight.find_path ~graph ~source ~destination ()
+                      DIJKSTRA_TimeWeight.find_path ~graph ~source ~destination
+                        ()
                   end)
-              | "Correspondances" -> 
+              | "Correspondances" ->
                   (module struct
                     module P = DIJKSTRA_CorrespondenceWeight.P
+
                     let find_path ~graph ~source ~destination =
-                      DIJKSTRA_CorrespondenceWeight.find_path ~graph ~source ~destination ()
+                      DIJKSTRA_CorrespondenceWeight.find_path ~graph ~source
+                        ~destination ()
                   end)
-              | "Combinaison" -> 
+              | "Combinaison" ->
                   (module struct
                     module P = DIJKSTRA_CombinedWeight.P
+
                     let find_path ~graph ~source ~destination =
-                      DIJKSTRA_CombinedWeight.find_path ~graph ~source ~destination ()
+                      DIJKSTRA_CombinedWeight.find_path ~graph ~source
+                        ~destination ()
                   end)
-              | "Horaires" -> 
+              | "Horaires" ->
                   (module struct
                     module P = DIJKSTRA_ScheduleWeight.P
+
                     let find_path ~graph ~source ~destination =
-                      let start_weight = Weight.ScheduleWeight.start_at heure_min in
-                      DIJKSTRA_ScheduleWeight.find_path ~initial_weight:start_weight ~graph ~source ~destination ()
+                      let start_weight =
+                        Weight.ScheduleWeight.start_at heure_min
+                      in
+                      DIJKSTRA_ScheduleWeight.find_path
+                        ~initial_weight:start_weight ~graph ~source ~destination
+                        ()
                   end)
-              | _ -> 
+              | _ ->
                   (module struct
                     module P = DIJKSTRA_TimeWeight.P
+
                     let find_path ~graph ~source ~destination =
-                      DIJKSTRA_TimeWeight.find_path ~graph ~source ~destination ()
+                      DIJKSTRA_TimeWeight.find_path ~graph ~source ~destination
+                        ()
                   end)
           in
-          
+
           let module ShowPath = Show.Make (Routeur.P) in
           match Routeur.find_path ~graph:graphe ~source ~destination with
           | Some p ->

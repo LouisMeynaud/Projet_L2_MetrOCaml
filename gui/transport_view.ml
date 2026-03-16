@@ -35,7 +35,9 @@ let extraire_aretes graph =
 let algos_disponibles = [ "Dijkstra"; "BFS" ]
 
 let poids_disponibles =
-  [ "Temps"; "Distance"; "Arrets"; "Correspondances"; "Combinaison" ; "Horaires"]
+  [
+    "Temps"; "Distance"; "Arrets"; "Correspondances"; "Combinaison"; "Horaires";
+  ]
 
 let affiche graph on_search =
   let stations = TransportGraph.nodes graph in
