@@ -34,35 +34,63 @@ let colorize_hex hex text =
 
 module Make (P : Routing.PATH) = struct
   let print_path node_to_string edge_to_string weight_to_string edge_to_color
-      (path : P.t) =
+      edge_to_duration edge_to_distance (path : P.t) =
     match path.steps with
     | [] -> Printf.printf "Chemin vide\n"
     | first_step :: _ ->
         let start = node_to_string first_step.from in
-        let _, _, transferts, segments =
+        let prev_line, stops, transferts, segments =
           List.fold_left
             (fun (prev_line, stops, transferts, acc) (step : P.step) ->
-              let line_name = edge_to_string step.edge in
+              let line = edge_to_string step.edge in
               let color = edge_to_color step.edge in
-              let segment, nb_stops, nb_transferts, new_prev_line =
-                if Some line_name <> prev_line then
+              match prev_line with
+              | None ->
+                  (* premier arrêt *)
+                  (Some line, 1, transferts + 1, acc)
+              | Some l when l = line ->
+                  (* même ligne donc on accumule les arrêts *)
+                  (prev_line, stops + 1, transferts, acc)
+              | Some l ->
+                  (* changement de ligne *)
                   let arrow =
-                    Printf.sprintf " --[%s | %d arrets]--> " line_name stops
+                    Printf.sprintf " --[%s | %d arrets]--> " l stops
                   in
                   let colored_arrow = colorize_hex color arrow in
-                  ( Printf.sprintf "%s%s" colored_arrow
-                      (node_to_string step.to_node),
-                    1,
-                    transferts + 1,
-                    Some line_name )
-                else ("", stops + 1, transferts, prev_line)
-              in
-              (new_prev_line, nb_stops, nb_transferts, acc @ [ segment ]))
-            (None, 1, 0, []) path.steps
+                  let segment =
+                    Printf.sprintf "%s%s\n%s" colored_arrow
+                      (node_to_string step.from) (node_to_string step.from)
+                  in
+                  (Some line, 1, transferts + 1, segment :: acc))
+            (None, 0, 0, []) path.steps
         in
-        let route = start ^ String.concat "" segments in
+        (* Dernier arrêt *)
+        let segments =
+          match prev_line with
+          | None -> segments
+          | Some l ->
+              let color = edge_to_color (List.hd (List.rev path.steps)).edge in
+              let arrow = Printf.sprintf " --[%s | %d arrets]--> " l stops in
+              let colored_arrow = colorize_hex color arrow in
+              let last_node =
+                node_to_string (List.hd (List.rev path.steps)).to_node
+              in
+              Printf.sprintf "%s%s" colored_arrow last_node :: segments
+        in
+        (* Temps et Distance *)
+        let total_time, total_distance =
+          List.fold_left
+            (fun (t, d) (step : P.step) ->
+              (t + edge_to_duration step.edge, d +. edge_to_distance step.edge))
+            (0, 0.0) path.steps
+        in
+        (*Affichage*)
+        let route = "\n" ^ start ^ String.concat "" (List.rev segments) in
         Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
           (List.length path.steps) transferts;
         Printf.printf "%s\n" route;
-        Printf.printf "Poids total : %s\n" (weight_to_string path.total_weight)
+        Printf.printf "Poids total : %s\n" (weight_to_string path.total_weight);
+        Printf.printf "Temps total : %d min %d s\n" (total_time / 60)
+          (total_time mod 60);
+        Printf.printf "Distance totale : %f km\n" (total_distance /. 1000.)
 end

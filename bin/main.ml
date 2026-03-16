@@ -142,6 +142,8 @@ let () =
                 (fun (c : Network.connection) -> c.line.name)
                 Routeur.P.Weight.to_string
                 (fun (c : Network.connection) -> c.line.color)
+                (fun (c : Network.connection) -> c.duration)
+                (fun (c : Network.connection) -> c.distance)
                 p;
               flush stdout
           | None -> Printf.printf "Aucun chemin trouvé.\n%!")
