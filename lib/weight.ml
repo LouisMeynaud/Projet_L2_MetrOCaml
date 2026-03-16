@@ -184,18 +184,25 @@ end
 
 (** Time-dependent weight based on departure schedules, handling walking links
     and transfer penalties. *)
-module ScheduleWeight : Routing.WEIGHT with type edge = connection = 
-struct
+module type SCHEDULE_WEIGHT = sig
+  include Routing.WEIGHT with type edge = connection
+  
+  val start_at : int -> t
+end
+
+module ScheduleWeight : SCHEDULE_WEIGHT = struct
+  
   type t =
     | State of { time : int; line_name : string option }
     | EdgeData of { duration : int; schedules : int list; line_name : string; is_walk : bool }
     | Infinity
-    
+
   type edge = connection
-    
+
+  let start_at time = State { time; line_name = None }
+
   let zero = State { time = 0; line_name = None }
   let infinity = Infinity
-    
   let transfer_penalty = 180
     
   let of_edge (conn : connection) =

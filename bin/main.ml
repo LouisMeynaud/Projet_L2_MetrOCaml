@@ -16,6 +16,9 @@ module DIJKSTRA_TimeWeight =
 module DIJKSTRA_HopWeight =
   Dijkstra.Make (Network.TransportGraph) (Weight.HopWeight)
 
+module DIJKSTRA_ScheduleWeight =
+  Dijkstra.Make (Network.TransportGraph) (Weight.ScheduleWeight)
+
 module BFS_HopWeight = Bfs.Make (Network.TransportGraph) (Weight.HopWeight)
 
 let criteria =
@@ -94,7 +97,7 @@ let run_console graphe search_callback =
   let poids =
     if algo = "Dijkstra" then begin
       raw_select "Choisissez le poids : "
-        [ "Distance"; "Arrets"; "Temps"; "Correspondances" ]
+        [ "Distance"; "Arrets"; "Temps"; "Correspondances"; "Horaires" ]
     end
     else ""
   in
@@ -102,13 +105,10 @@ let run_console graphe search_callback =
   search_callback source_id dest_id algo poids
 
 let () =
-  (*let montpellier = "https://www.data.gouv.fr/api/1/datasets/r/85ef3b33-2289-4d19-b479-276e5b1c5a52" in*)
-  (*let toulouse = "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77" in*)
   let marseille =
     "https://www.data.gouv.fr/api/1/datasets/r/ab931edc-0bc1-4c66-960a-dc546b46df03"
   in
-  (* test jour fériée*)
-  let date_cible = "20260501" in
+  let date_cible = "20260317" in
   let heure_min = 8 * 3600 in
 
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
@@ -124,16 +124,59 @@ let () =
       match (find_station graphe source_id, find_station graphe dest_id) with
       | Some source, Some destination -> (
           let (module Routeur : ALGO) =
-            if algo = "BFS" then (module BFS_HopWeight)
+            if algo = "BFS" then 
+              (module struct
+                module P = BFS_HopWeight.P
+                let find_path ~graph ~source ~destination =
+                  BFS_HopWeight.find_path ~graph ~source ~destination
+              end)
             else
               match poids with
-              | "Distance" -> (module DIJKSTRA_DistanceWeight)
-              | "Arrets" -> (module DIJKSTRA_HopWeight)
-              | "Temps" -> (module DIJKSTRA_TimeWeight)
-              | "Correspondances" -> (module DIJKSTRA_CorrespondenceWeight)
-              | "Combinaison" -> (module DIJKSTRA_CombinedWeight)
-              | _ -> (module DIJKSTRA_TimeWeight)
+              | "Distance" -> 
+                  (module struct
+                    module P = DIJKSTRA_DistanceWeight.P
+                    let find_path ~graph ~source ~destination =
+                      DIJKSTRA_DistanceWeight.find_path ~graph ~source ~destination ()
+                  end)
+              | "Arrets" -> 
+                  (module struct
+                    module P = DIJKSTRA_HopWeight.P
+                    let find_path ~graph ~source ~destination =
+                      DIJKSTRA_HopWeight.find_path ~graph ~source ~destination ()
+                  end)
+              | "Temps" -> 
+                  (module struct
+                    module P = DIJKSTRA_TimeWeight.P
+                    let find_path ~graph ~source ~destination =
+                      DIJKSTRA_TimeWeight.find_path ~graph ~source ~destination ()
+                  end)
+              | "Correspondances" -> 
+                  (module struct
+                    module P = DIJKSTRA_CorrespondenceWeight.P
+                    let find_path ~graph ~source ~destination =
+                      DIJKSTRA_CorrespondenceWeight.find_path ~graph ~source ~destination ()
+                  end)
+              | "Combinaison" -> 
+                  (module struct
+                    module P = DIJKSTRA_CombinedWeight.P
+                    let find_path ~graph ~source ~destination =
+                      DIJKSTRA_CombinedWeight.find_path ~graph ~source ~destination ()
+                  end)
+              | "Horaires" -> 
+                  (module struct
+                    module P = DIJKSTRA_ScheduleWeight.P
+                    let find_path ~graph ~source ~destination =
+                      let start_weight = Weight.ScheduleWeight.start_at heure_min in
+                      DIJKSTRA_ScheduleWeight.find_path ~initial_weight:start_weight ~graph ~source ~destination ()
+                  end)
+              | _ -> 
+                  (module struct
+                    module P = DIJKSTRA_TimeWeight.P
+                    let find_path ~graph ~source ~destination =
+                      DIJKSTRA_TimeWeight.find_path ~graph ~source ~destination ()
+                  end)
           in
+          
           let module ShowPath = Show.Make (Routeur.P) in
           match Routeur.find_path ~graph:graphe ~source ~destination with
           | Some p ->
