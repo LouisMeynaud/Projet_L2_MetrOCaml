@@ -297,7 +297,13 @@ let run noeuds aretes algos poids_list on_search =
       Widget.set_text btn_select_arrivee "Selection carte"
   in
 
+  (* Fonction pour lancer la recherche depuis l'onglet itinéraire ou après sélection sur la carte *)
   let launch_search source dest =
+    (* preparation de la recuperation du bool depart et de l'heure de depart , suprimer les ignore et les passer a on_search une fois les algo de temps fini*)
+    let depart = !is_depart in
+    let time_in_secondes = (!curr_heure * 3600) + (!curr_minute * 60) in
+    ignore(time_in_secondes); (* pour l'instant on ne l'utilise pas, mais ça permet d'éviter un warning *)
+    ignore depart; (* même chose pour le mode départ/arrivée *)
     let c_temps = float_of_int (Slider.value (Widget.get_slider s_temps)) /. 100.0 in
     let c_dist = float_of_int (Slider.value (Widget.get_slider s_dist)) /. 100.0 in
     let c_arrets = float_of_int (Slider.value (Widget.get_slider s_arrets)) /. 100.0 in
