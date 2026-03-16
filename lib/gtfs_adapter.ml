@@ -70,19 +70,23 @@ let next_day_str yyyymmdd =
 (** Convertit des degrés en radians *)
 let to_radians deg = deg *. (4.0 *. atan 1.0) /. 180.0
 
-(** Calcule la distance en mètres entre deux coordonnées GPS (Formule de Haversine) *)
+(** Calcule la distance en mètres entre deux coordonnées GPS (Formule de
+    Haversine) *)
 let haversine_distance lat1 lon1 lat2 lon2 =
-  let r = 6371000.0 in (* Rayon moyen de la Terre en mètres *)
+  let r = 6371000.0 in
+  (* Rayon moyen de la Terre en mètres *)
   let phi1 = to_radians lat1 in
   let phi2 = to_radians lat2 in
   let delta_phi = to_radians (lat2 -. lat1) in
   let delta_lambda = to_radians (lon2 -. lon1) in
 
-  let a = (sin (delta_phi /. 2.0) ** 2.0) +.
-          cos phi1 *. cos phi2 *. (sin (delta_lambda /. 2.0) ** 2.0) in
+  let a =
+    (sin (delta_phi /. 2.0) ** 2.0)
+    +. (cos phi1 *. cos phi2 *. (sin (delta_lambda /. 2.0) ** 2.0))
+  in
   let c = 2.0 *. atan2 (sqrt a) (sqrt (1.0 -. a)) in
   r *. c
-  
+
 (* --- 2. Chargement --- *)
 let load_network_gtfs directory target_date target_time_seconds =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
@@ -322,21 +326,26 @@ let load_network_gtfs directory target_date target_time_seconds =
 
   close_in st_ic;
 
- (* F. Construction finale des arêtes avec listes triées *)
- Hashtbl.iter (fun _ (f, t, line_obj, duration, m, schedules_ref) ->
-  let sorted_schedules = List.sort compare !schedules_ref in
-  let dist_meters = haversine_distance f.latitude f.longitude t.latitude t.longitude in
-  
-  let conn = {
-    Network.line = line_obj;
-    Network.duration = duration;
-    Network.schedules = sorted_schedules;
-    Network.distance = dist_meters;
-    Network.mode = m 
-  } in
-  Network.TransportGraph.add_edge graph f t conn
-) edges_acc;
-graph;
+  (* F. Construction finale des arêtes avec listes triées *)
+  Hashtbl.iter
+    (fun _ (f, t, line_obj, duration, m, schedules_ref) ->
+      let sorted_schedules = List.sort compare !schedules_ref in
+      let dist_meters =
+        haversine_distance f.latitude f.longitude t.latitude t.longitude
+      in
+
+      let conn =
+        {
+          Network.line = line_obj;
+          Network.duration;
+          Network.schedules = sorted_schedules;
+          Network.distance = dist_meters;
+          Network.mode = m;
+        }
+      in
+      Network.TransportGraph.add_edge graph f t conn)
+    edges_acc;
+  graph
 
 exception Invalid_GTFS_URL of string
 
