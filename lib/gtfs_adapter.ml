@@ -67,26 +67,6 @@ let next_day_str yyyymmdd =
     else Printf.sprintf "%04d0101" (y + 1)
   with _ -> yyyymmdd
 
-(** Convertit des degrés en radians *)
-let to_radians deg = deg *. (4.0 *. atan 1.0) /. 180.0
-
-(** Calcule la distance en mètres entre deux coordonnées GPS (Formule de
-    Haversine) *)
-let haversine_distance lat1 lon1 lat2 lon2 =
-  let r = 6371000.0 in
-  (* Rayon moyen de la Terre en mètres *)
-  let phi1 = to_radians lat1 in
-  let phi2 = to_radians lat2 in
-  let delta_phi = to_radians (lat2 -. lat1) in
-  let delta_lambda = to_radians (lon2 -. lon1) in
-
-  let a =
-    (sin (delta_phi /. 2.0) ** 2.0)
-    +. (cos phi1 *. cos phi2 *. (sin (delta_lambda /. 2.0) ** 2.0))
-  in
-  let c = 2.0 *. atan2 (sqrt a) (sqrt (1.0 -. a)) in
-  r *. c
-
 (* --- 2. Chargement --- *)
 let load_network_gtfs directory target_date target_time_seconds =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
@@ -109,8 +89,8 @@ let load_network_gtfs directory target_date target_time_seconds =
     |]
   in
   let col_0 = day_cols.(day_of_week date_0) in
-  (*let col_1 = day_cols.(day_of_week date_1) in
-  let col_2 = day_cols.(day_of_week date_2) in*)
+  let col_1 = day_cols.(day_of_week date_1) in
+  let col_2 = day_cols.(day_of_week date_2) in
   let cal_path = Filename.concat directory "calendar.txt" in
   if Sys.file_exists cal_path then begin
     let csv = Csv.load cal_path in
@@ -120,8 +100,8 @@ let load_network_gtfs directory target_date target_time_seconds =
       let i_start = get_index header "start_date" in
       let i_end = get_index header "end_date" in
       let i_d0 = get_index header col_0 in
-      (*let i_d1 = get_index header col_1 in
-      let i_d2 = get_index header col_2 in*)
+      let i_d1 = get_index header col_1 in
+      let i_d2 = get_index header col_2 in
       List.iter
         (fun row ->
           let sid = List.nth row i_sid in
@@ -132,10 +112,10 @@ let load_network_gtfs directory target_date target_time_seconds =
             date_0 >= start_d && date_0 <= end_d
             && String.trim (List.nth row i_d0) = "1"
           then mut_offsets := 0 :: !mut_offsets;
-          (*if date_1 >= start_d && date_1 <= end_d && String.trim (List.nth row i_d1) = "1" then 
+          if date_1 >= start_d && date_1 <= end_d && String.trim (List.nth row i_d1) = "1" then 
           mut_offsets := 86400 :: !mut_offsets;
         if date_2 >= start_d && date_2 <= end_d && String.trim (List.nth row i_d2) = "1" then 
-          mut_offsets := 172800 :: !mut_offsets;*)
+          mut_offsets := 172800 :: !mut_offsets;
           if !mut_offsets <> [] then
             Hashtbl.replace valid_services sid (List.rev !mut_offsets))
         (List.tl csv)
@@ -174,7 +154,7 @@ let load_network_gtfs directory target_date target_time_seconds =
                 let filtered =
                   List.filter (fun o -> o <> offset) current_offsets
                 in
-                if filtered = [] then Hashtbl.remove valid_services sid
+                if filtered = [0;86400;172800] then Hashtbl.remove valid_services sid
                 else Hashtbl.replace valid_services sid filtered
               end
           | None -> ())
@@ -227,15 +207,15 @@ let load_network_gtfs directory target_date target_time_seconds =
   let i_trid = get_index t_header "route_id" in
 
   List.iter
-    (fun row ->
-      let sid = List.nth row i_tsid in
-      if Hashtbl.mem valid_services sid then
-        let info =
-          try Hashtbl.find route_info (List.nth row i_trid)
-          with Not_found -> ({ name = "?"; color = "000000" }, Bus)
-        in
-        Hashtbl.add valid_trips (List.nth row i_tid) info)
-    (List.tl t_csv);
+  (fun row ->
+    let sid = List.nth row i_tsid in
+    if Hashtbl.mem valid_services sid then
+      let (line_obj, mode) =
+        try Hashtbl.find route_info (List.nth row i_trid)
+        with Not_found -> ({ name = "?"; color = "000000" }, Bus)
+      in
+      Hashtbl.add valid_trips (List.nth row i_tid) (line_obj, mode, sid))
+  (List.tl t_csv);
 
   (* D. Stops (FUSION DES AREAS) *)
   let stop_to_area = Hashtbl.create 5000 in
@@ -252,7 +232,6 @@ let load_network_gtfs directory target_date target_time_seconds =
   List.iter
     (fun row ->
       let raw_id = List.nth row i_sid in
-
       (* On cherche si cet arrêt a une Area parent *)
       let parent_id =
         match i_parent_opt with
@@ -299,7 +278,7 @@ let load_network_gtfs directory target_date target_time_seconds =
         in
         let arr_time = time_to_seconds (List.nth row i_st_arr) in
         let dep_time = time_to_seconds (List.nth row i_st_dep) in
-        let line_obj, m = Hashtbl.find valid_trips tid in
+        let line_obj, m, sid = Hashtbl.find valid_trips tid in
         match !last_trip_state with
         | Some (prev_tid, prev_area, prev_dep) when prev_tid = tid ->
             if prev_area <> area_id then begin
@@ -310,13 +289,16 @@ let load_network_gtfs directory target_date target_time_seconds =
               | Some f, Some t -> (
                   let key = (f.id, t.id, line_obj.name) in
                   let duration = max (arr_time - prev_dep) 0 in
-
+                  let active_offsets = 
+                  try Hashtbl.find valid_services sid with Not_found -> [0] 
+                  in
                   match Hashtbl.find_opt edges_acc key with
                   | Some (_, _, _, _, _, schedules_ref) ->
-                      schedules_ref := prev_dep :: !schedules_ref
-                  | None ->
-                      Hashtbl.add edges_acc key
-                        (f, t, line_obj, duration, m, ref [ prev_dep ]))
+                    List.iter (fun offset -> schedules_ref := (prev_dep + offset) :: !schedules_ref) active_offsets
+                  | None -> let initial_schedules = 
+                    List.map (fun offset -> prev_dep + offset) active_offsets  in
+                    Hashtbl.add edges_acc key
+                    (f, t, line_obj, duration, m, ref initial_schedules))
               | _ -> ()
             end;
             last_trip_state := Some (tid, area_id, dep_time)
@@ -330,21 +312,18 @@ let load_network_gtfs directory target_date target_time_seconds =
   Hashtbl.iter
     (fun _ (f, t, line_obj, duration, m, schedules_ref) ->
       let sorted_schedules = List.sort compare !schedules_ref in
-      let dist_meters =
-        haversine_distance f.latitude f.longitude t.latitude t.longitude
-      in
-
       let conn =
         {
           Network.line = line_obj;
           Network.duration;
           Network.schedules = sorted_schedules;
-          Network.distance = dist_meters;
+          Network.distance = 0.;
           Network.mode = m;
         }
       in
       Network.TransportGraph.add_edge graph f t conn)
     edges_acc;
+
   graph
 
 exception Invalid_GTFS_URL of string
