@@ -144,6 +144,11 @@ let () =
                 (fun (c : Network.connection) -> c.line.color)
                 (fun (c : Network.connection) -> c.duration)
                 (fun (c : Network.connection) -> c.distance)
+                (Printf.printf "Choisissez l'affichage que vous voulez (1 : Normal) (2 : Détaillés) \n%!";
+                match raw_select "" ["1"; "2"] with
+                |"1" -> false
+                |_ -> true
+                )
                 p;
               flush stdout
           | None -> Printf.printf "Aucun chemin trouvé.\n%!")
