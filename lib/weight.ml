@@ -235,8 +235,7 @@ module ScheduleWeight : SCHEDULE_WEIGHT = struct
             if is_transfer then s.time + transfer_penalty else s.time
           in
           let rec find_next_departure = function
-            | [] ->
-                max_int
+            | [] -> max_int
             | t :: ts -> if t >= ready_time then t else find_next_departure ts
           in
           let next_dep = find_next_departure e.schedules in
@@ -267,6 +266,9 @@ module ScheduleWeight : SCHEDULE_WEIGHT = struct
         let hours = s.time mod 86400 / 3600 in
         let minutes = s.time mod 3600 / 60 in
         let seconds = s.time mod 60 in
-        Printf.sprintf "Arrivée au bout de %02d jour(s), %02d heure(s), %02d minute(s) et %02d seconde(s)" days hours minutes seconds
+        Printf.sprintf
+          "Arrivée au bout de %02d jour(s), %02d heure(s), %02d minute(s) et \
+           %02d seconde(s)"
+          days hours minutes seconds
     | EdgeData _ -> "Données d'arête"
 end
