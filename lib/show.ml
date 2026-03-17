@@ -18,6 +18,8 @@ let hex_to_rgb hex =
   let hex =
     if String.length hex > 0 && hex.[0] = '#' then
       String.sub hex 1 (String.length hex - 1)
+    else if hex = "" then 
+      "000000"
     else hex
   in
   let r = int_of_string ("0x" ^ String.sub hex 0 2) in
@@ -49,7 +51,7 @@ module Make (P : Routing.PATH) = struct
               match prev_line with
               | None ->
                   (* premier arrêt *)
-                  (Some line, color, 1, transferts + 1, acc)
+                  (Some line, color, 1, transferts, acc)
               | Some l when l = line && stop = node_to_string step.to_node ->
                   (* Dernier arrêt *)
                   let arrow =
@@ -60,7 +62,7 @@ module Make (P : Routing.PATH) = struct
                     Printf.sprintf "%s%s" colored_arrow
                       (node_to_string step.to_node)
                   in
-                  (prev_line, color, 1, transferts + 1, segment :: acc)
+                  (prev_line, color, 1, transferts, segment :: acc)
               | Some l when l = line ->
                   (* même ligne donc on accumule les arrêts *)
                   if details then
