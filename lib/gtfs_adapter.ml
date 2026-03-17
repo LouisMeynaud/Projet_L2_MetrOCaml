@@ -89,8 +89,8 @@ let load_network_gtfs directory target_date target_time_seconds =
     |]
   in
   let col_0 = day_cols.(day_of_week date_0) in
-  (*let col_1 = day_cols.(day_of_week date_1) in
-  let col_2 = day_cols.(day_of_week date_2) in*)
+  let col_1 = day_cols.(day_of_week date_1) in
+  let col_2 = day_cols.(day_of_week date_2) in
   let cal_path = Filename.concat directory "calendar.txt" in
   if Sys.file_exists cal_path then begin
     let csv = Csv.load cal_path in
@@ -100,8 +100,8 @@ let load_network_gtfs directory target_date target_time_seconds =
       let i_start = get_index header "start_date" in
       let i_end = get_index header "end_date" in
       let i_d0 = get_index header col_0 in
-      (*let i_d1 = get_index header col_1 in
-      let i_d2 = get_index header col_2 in*)
+      let i_d1 = get_index header col_1 in
+      let i_d2 = get_index header col_2 in
       List.iter
         (fun row ->
           let sid = List.nth row i_sid in
@@ -112,10 +112,14 @@ let load_network_gtfs directory target_date target_time_seconds =
             date_0 >= start_d && date_0 <= end_d
             && String.trim (List.nth row i_d0) = "1"
           then mut_offsets := 0 :: !mut_offsets;
-          (*if date_1 >= start_d && date_1 <= end_d && String.trim (List.nth row i_d1) = "1" then 
-          mut_offsets := 86400 :: !mut_offsets;
-        if date_2 >= start_d && date_2 <= end_d && String.trim (List.nth row i_d2) = "1" then 
-          mut_offsets := 172800 :: !mut_offsets;*)
+          if
+            date_1 >= start_d && date_1 <= end_d
+            && String.trim (List.nth row i_d1) = "1"
+          then mut_offsets := 86400 :: !mut_offsets;
+          if
+            date_2 >= start_d && date_2 <= end_d
+            && String.trim (List.nth row i_d2) = "1"
+          then mut_offsets := 172800 :: !mut_offsets;
           if !mut_offsets <> [] then
             Hashtbl.replace valid_services sid (List.rev !mut_offsets))
         (List.tl csv)
@@ -154,7 +158,8 @@ let load_network_gtfs directory target_date target_time_seconds =
                 let filtered =
                   List.filter (fun o -> o <> offset) current_offsets
                 in
-                if filtered = [] then Hashtbl.remove valid_services sid
+                if filtered = [ 0; 86400; 172800 ] then
+                  Hashtbl.remove valid_services sid
                 else Hashtbl.replace valid_services sid filtered
               end
           | None -> ())
@@ -210,11 +215,11 @@ let load_network_gtfs directory target_date target_time_seconds =
     (fun row ->
       let sid = List.nth row i_tsid in
       if Hashtbl.mem valid_services sid then
-        let info =
+        let line_obj, mode =
           try Hashtbl.find route_info (List.nth row i_trid)
           with Not_found -> ({ name = "?"; color = "000000" }, Bus)
         in
-        Hashtbl.add valid_trips (List.nth row i_tid) info)
+        Hashtbl.add valid_trips (List.nth row i_tid) (line_obj, mode, sid))
     (List.tl t_csv);
 
   (* D. Stops (FUSION DES AREAS) *)
@@ -232,7 +237,6 @@ let load_network_gtfs directory target_date target_time_seconds =
   List.iter
     (fun row ->
       let raw_id = List.nth row i_sid in
-
       (* On cherche si cet arrêt a une Area parent *)
       let parent_id =
         match i_parent_opt with
@@ -279,7 +283,7 @@ let load_network_gtfs directory target_date target_time_seconds =
         in
         let arr_time = time_to_seconds (List.nth row i_st_arr) in
         let dep_time = time_to_seconds (List.nth row i_st_dep) in
-        let line_obj, m = Hashtbl.find valid_trips tid in
+        let line_obj, m, sid = Hashtbl.find valid_trips tid in
         match !last_trip_state with
         | Some (prev_tid, prev_area, prev_dep) when prev_tid = tid ->
             if prev_area <> area_id then begin
@@ -290,13 +294,24 @@ let load_network_gtfs directory target_date target_time_seconds =
               | Some f, Some t -> (
                   let key = (f.id, t.id, line_obj.name) in
                   let duration = max (arr_time - prev_dep) 0 in
-
+                  let active_offsets =
+                    try Hashtbl.find valid_services sid
+                    with Not_found -> [ 0 ]
+                  in
                   match Hashtbl.find_opt edges_acc key with
                   | Some (_, _, _, _, _, schedules_ref) ->
-                      schedules_ref := prev_dep :: !schedules_ref
+                      List.iter
+                        (fun offset ->
+                          schedules_ref := (prev_dep + offset) :: !schedules_ref)
+                        active_offsets
                   | None ->
+                      let initial_schedules =
+                        List.map
+                          (fun offset -> prev_dep + offset)
+                          active_offsets
+                      in
                       Hashtbl.add edges_acc key
-                        (f, t, line_obj, duration, m, ref [ prev_dep ]))
+                        (f, t, line_obj, duration, m, ref initial_schedules))
               | _ -> ()
             end;
             last_trip_state := Some (tid, area_id, dep_time)
