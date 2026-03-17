@@ -220,7 +220,8 @@ let load_network_gtfs directory target_date target_time_seconds =
         if Hashtbl.mem valid_services sid then
           let line_obj, mode =
             try Hashtbl.find route_info (List.nth row i_trid)
-            with Not_found -> ({ Network.name = "?"; color = "000000" }, Network.Bus)
+            with Not_found ->
+              ({ Network.name = "?"; color = "000000" }, Network.Bus)
           in
           Hashtbl.add valid_trips (List.nth row i_tid) (line_obj, mode, sid))
       t_csv;
@@ -262,11 +263,11 @@ let load_network_gtfs directory target_date target_time_seconds =
               pmr = false;
             }
           in
-          if raw_id = parent_id then Hashtbl.replace area_nodes parent_id station
+          if raw_id = parent_id then
+            Hashtbl.replace area_nodes parent_id station
           else if not (Hashtbl.mem area_nodes parent_id) then
             Hashtbl.add area_nodes parent_id station
-        with _ -> ()
-      )
+        with _ -> ())
       s_csv;
     close_in s_ic
   end;
