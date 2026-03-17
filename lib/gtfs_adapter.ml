@@ -205,60 +205,71 @@ let load_network_gtfs directory target_date target_time_seconds =
 
   (* C. Trips *)
   let valid_trips = Hashtbl.create 5000 in
-  let t_csv = Csv.load (Filename.concat directory "trips.txt") in
-  let t_header = List.hd t_csv in
-  let i_tid = get_index t_header "trip_id" in
-  let i_tsid = get_index t_header "service_id" in
-  let i_trid = get_index t_header "route_id" in
+  let t_path = Filename.concat directory "trips.txt" in
+  if Sys.file_exists t_path then begin
+    let t_ic = open_in t_path in
+    let t_csv = Csv.of_channel t_ic in
+    let t_header = Csv.next t_csv in
+    let i_tid = get_index t_header "trip_id" in
+    let i_tsid = get_index t_header "service_id" in
+    let i_trid = get_index t_header "route_id" in
 
-  List.iter
-    (fun row ->
-      let sid = List.nth row i_tsid in
-      if Hashtbl.mem valid_services sid then
-        let line_obj, mode =
-          try Hashtbl.find route_info (List.nth row i_trid)
-          with Not_found -> ({ name = "?"; color = "000000" }, Bus)
-        in
-        Hashtbl.add valid_trips (List.nth row i_tid) (line_obj, mode, sid))
-    (List.tl t_csv);
+    Csv.iter
+      ~f:(fun row ->
+        let sid = try List.nth row i_tsid with _ -> "" in
+        if Hashtbl.mem valid_services sid then
+          let line_obj, mode =
+            try Hashtbl.find route_info (List.nth row i_trid)
+            with Not_found -> ({ Network.name = "?"; color = "000000" }, Network.Bus)
+          in
+          Hashtbl.add valid_trips (List.nth row i_tid) (line_obj, mode, sid))
+      t_csv;
+    close_in t_ic
+  end;
 
-  (* D. Stops (FUSION DES AREAS) *)
+  (* D. Stops *)
   let stop_to_area = Hashtbl.create 5000 in
   let area_nodes = Hashtbl.create 1000 in
+  let s_path = Filename.concat directory "stops.txt" in
+  if Sys.file_exists s_path then begin
+    let s_ic = open_in s_path in
+    let s_csv = Csv.of_channel s_ic in
+    let s_header = Csv.next s_csv in
+    let i_sid = get_index s_header "stop_id" in
+    let i_sname = get_index s_header "stop_name" in
+    let i_lat = get_index s_header "stop_lat" in
+    let i_lon = get_index s_header "stop_lon" in
+    let i_parent_opt = get_index_opt s_header "parent_station" in
 
-  let s_csv = Csv.load (Filename.concat directory "stops.txt") in
-  let s_header = List.hd s_csv in
-  let i_sid = get_index s_header "stop_id" in
-  let i_sname = get_index s_header "stop_name" in
-  let i_lat = get_index s_header "stop_lat" in
-  let i_lon = get_index s_header "stop_lon" in
-  let i_parent_opt = get_index_opt s_header "parent_station" in
-
-  List.iter
-    (fun row ->
-      let raw_id = List.nth row i_sid in
-      (* On cherche si cet arrêt a une Area parent *)
-      let parent_id =
-        match i_parent_opt with
-        | Some idx ->
-            let p = try String.trim (List.nth row idx) with _ -> "" in
-            if p = "" then raw_id else p
-        | None -> raw_id
-      in
-      Hashtbl.replace stop_to_area raw_id parent_id;
-      let station =
-        {
-          Network.id = parent_id;
-          name = List.nth row i_sname;
-          latitude = float_of_string (List.nth row i_lat);
-          longitude = float_of_string (List.nth row i_lon);
-          pmr = false;
-        }
-      in
-      if raw_id = parent_id then Hashtbl.replace area_nodes parent_id station
-      else if not (Hashtbl.mem area_nodes parent_id) then
-        Hashtbl.add area_nodes parent_id station)
-    (List.tl s_csv);
+    Csv.iter
+      ~f:(fun row ->
+        try
+          let raw_id = List.nth row i_sid in
+          let parent_id =
+            match i_parent_opt with
+            | Some idx ->
+                let p = try String.trim (List.nth row idx) with _ -> "" in
+                if p = "" then raw_id else p
+            | None -> raw_id
+          in
+          Hashtbl.replace stop_to_area raw_id parent_id;
+          let station =
+            {
+              Network.id = parent_id;
+              name = List.nth row i_sname;
+              latitude = float_of_string (List.nth row i_lat);
+              longitude = float_of_string (List.nth row i_lon);
+              pmr = false;
+            }
+          in
+          if raw_id = parent_id then Hashtbl.replace area_nodes parent_id station
+          else if not (Hashtbl.mem area_nodes parent_id) then
+            Hashtbl.add area_nodes parent_id station
+        with _ -> ()
+      )
+      s_csv;
+    close_in s_ic
+  end;
   Hashtbl.iter (fun _ st -> Network.TransportGraph.add_node graph st) area_nodes;
 
   (* E. Stop Times *)
