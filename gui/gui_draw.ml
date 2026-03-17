@@ -37,9 +37,11 @@ let calcule_bornes noeuds =
 let to_screen bornes x y =
   log_crash_hint "to_screen";
   let (min_x, max_x, min_y, max_y) = bornes in
+  let dx = max 1e-9 (max_x -. min_x) in
+  let dy = max 1e-9 (max_y -. min_y) in
   let echelle = min 
-    (float (!canvas_w - 2*marge) /. (max_x -. min_x)) 
-                    (float (!canvas_h - 2*marge) /. (max_y -. min_y)) in
+    (float (max 1 (!canvas_w - 2*marge)) /. dx)
+    (float (max 1 (!canvas_h - 2*marge)) /. dy) in
   (float marge +. (x -. min_x) *. echelle,
    float marge +. (y -. min_y) *. echelle)
 
@@ -204,9 +206,24 @@ let draw_arete positions (arete : arete) i n =
         (nx *. shift, ny *. shift)
   in
   let color = rgb_to_bogue (hex_to_rgb arete.couleur) in
-  Sdl_area.draw_line (get_canvas ()) ~color ~thick:3
-    (int_of_float (x1 +. ox), int_of_float (y1 +. oy))
-    (int_of_float (x2 +. ox), int_of_float (y2 +. oy))
+  let clamp_int_coord f =
+    if Float.is_nan f || Float.is_infinite f then begin 
+
+      print_endline ("Warning: coordonnée invalide (" ^ string_of_float f ^ ") pour l'arête " ^ arete.source ^ " -> " ^ arete.destination);
+      0;
+    end
+    else
+      let v = int_of_float f in
+      max (-50000) (min 50000 v)
+  in
+  let x1i = clamp_int_coord (x1 +. ox) in
+  let y1i = clamp_int_coord (y1 +. oy) in
+  let x2i = clamp_int_coord (x2 +. ox) in
+  let y2i = clamp_int_coord (y2 +. oy) in
+  if x1i = x2i && y1i = y2i then
+    ()
+  else
+    Sdl_area.draw_line (get_canvas ()) ~color ~thick:3 (x1i, y1i) (x2i, y2i)
 
 (*dessine un noeud*)
 let draw_noeud etat noeud =
