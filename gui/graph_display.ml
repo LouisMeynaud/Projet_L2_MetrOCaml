@@ -562,7 +562,7 @@ let run noeuds aretes algos poids_list on_search =
     let old_w = max 1 !canvas_w in
     let old_h = max 1 !canvas_h in
     let new_w, new_h = Layout.get_physical_size layout_carte in
-    let size_changed = new_w > 0 && new_h > 0 && (new_w <> old_w || new_h <> old_h) in
+    let size_changed = new_w > 50 && new_h > 50 && (new_w <> old_w || new_h <> old_h) in
     if size_changed then begin
       canvas_w := new_w;
       canvas_h := new_h;
