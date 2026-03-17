@@ -2,6 +2,9 @@
 open Bogue
 open Gui_types
 
+let log_crash_hint nom_fonction =
+  print_endline ("c'est \"" ^ nom_fonction ^ "\" qui plante")
+
 (*---------------FONCTION UTILITAIRE---------------*)
 
 (* recherche une valeur dans une liste associative
@@ -9,6 +12,7 @@ open Gui_types
   @param liste la liste associative
   @param defaut la valeur par défaut si la clé n'est pas trouvée *)
   let cherche cle liste defaut =
+  log_crash_hint "cherche";
   match List.assoc_opt cle liste with
   | Some valeur -> valeur
   | None -> defaut
@@ -17,6 +21,7 @@ open Gui_types
   @param noeuds la liste des noeuds 
   return un tuple (min_x,max_x,min_y,max_y)*)
 let calcule_bornes noeuds =
+  log_crash_hint "calcule_bornes";
   let xs = List.map (fun n -> n.x) noeuds in
   let ys = List.map (fun n -> n.y) noeuds in
   (List.fold_left min max_float xs, 
@@ -30,6 +35,7 @@ let calcule_bornes noeuds =
 @param x la coordonnée x réelle
 @param y la coordonnée y réelle *)
 let to_screen bornes x y =
+  log_crash_hint "to_screen";
   let (min_x, max_x, min_y, max_y) = bornes in
   let echelle = min 
     (float (!canvas_w - 2*marge) /. (max_x -. min_x)) 
@@ -42,6 +48,7 @@ let to_screen bornes x y =
   @param bornes les bornes de l'ensemble des noeuds
   @param noeuds la liste des noeuds*)
 let calcule_positions bornes noeuds =
+  log_crash_hint "calcule_positions";
   List.map (fun n -> (n.id, to_screen bornes n.x n.y)) noeuds
 
 (* applique un deplacement a toute les positions
@@ -50,6 +57,7 @@ let calcule_positions bornes noeuds =
   @param dy le deplacement en
   return une liste associative (id,(x_pixel,y_pixel)) *)
 let move positions dx dy =
+  log_crash_hint "move";
   List.map (fun (id, (x, y)) -> (id, (x +. float dx, y +. float dy))) positions
 
 (* applique un zoom
@@ -59,6 +67,7 @@ let move positions dx dy =
    @param facteur facteur de zoom (>1 = zoom in, <1 = zoom out)
    return nouvelle liste de positions *)
 let zoom_positions positions cx cy facteur =
+  log_crash_hint "zoom_positions";
   List.map (fun (id, (x, y)) ->
     let nx = (float cx) +. (x -. (float cx)) *. facteur in
     let ny = (float cy) +. (y -. (float cy)) *. facteur in
@@ -69,11 +78,13 @@ let zoom_positions positions cx cy facteur =
 
 
 let distance_carre px py mx my =
+  log_crash_hint "distance_carre";
   let dx = px -. float mx in
   let dy = py -. float my in
   dx *. dx +. dy *. dy
 
 let get_noeud_clique mx my etat =
+  log_crash_hint "get_noeud_clique";
   let arrete_visibles = List.filter (fun (a : arete) -> cherche a.categorie etat.categories true) etat.aretes in
   let noeuds_actifs = Hashtbl.create 5000 in
   List.iter (fun (a : arete) -> 
@@ -90,21 +101,27 @@ let get_noeud_clique mx my etat =
 
 
 let mon_canvas = ref None
-let get_canvas () = match !mon_canvas with Some c -> c | None -> failwith "Canvas non initialisé"
+let get_canvas () =
+  log_crash_hint "get_canvas";
+  match !mon_canvas with Some c -> c | None -> failwith "Canvas non initialisé"
 
 
 let hex_to_rgb hexa = 
+  log_crash_hint "hex_to_rgb";
   let rouge = (hexa lsr 16) land 255 in (* lsr : décalage vers la droite et land coupe les deux derniers bits *)
   let vert  = (hexa lsr 8) land 255 in
   let bleu  = hexa land 255 in
   (rouge, vert, bleu)
 
-let rgb_to_bogue (r, g, b) = Draw.opaque (r, g, b)
+let rgb_to_bogue (r, g, b) =
+  log_crash_hint "rgb_to_bogue";
+  Draw.opaque (r, g, b)
 
 
 let police_actuelle = ref None
 
 let charger_police () =
+  log_crash_hint "charger_police";
   if !police_actuelle = None then begin
     let liste_candidats = ["FreeSans.otf"; "LiberationSans-Regular.ttf"; "DejaVuSans.ttf"] in
     
@@ -128,6 +145,7 @@ let charger_police () =
 
 (* 3. Le dessin du texte *)
 let dessiner_texte x y texte (r, g, b) =
+  log_crash_hint "dessiner_texte";
   charger_police ();
   
   match !police_actuelle with
@@ -171,6 +189,7 @@ let dessiner_texte x y texte (r, g, b) =
   @param i l'index de la ligne parmi les lignes parallèles
   @param n le nombre total de lignes parallèles *)
 let draw_arete positions (arete : arete) i n =
+  log_crash_hint "draw_arete";
   let (x1, y1) = cherche arete.source positions (0., 0.) in
   let (x2, y2) = cherche arete.destination positions (0., 0.) in
   let (ox, oy) =
@@ -191,6 +210,7 @@ let draw_arete positions (arete : arete) i n =
 
 (*dessine un noeud*)
 let draw_noeud etat noeud =
+  log_crash_hint "draw_noeud";
   let (x, y) = cherche noeud.id etat.positions (0., 0.) in
   let (color_ext, r_ext, r_int) =
     if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 9, 8)
@@ -206,6 +226,7 @@ let draw_noeud etat noeud =
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
 *)
 let draw_graph etat =
+  log_crash_hint "draw_graph";
   let categories = etat.categories in
   let aretes = etat.aretes in
   let noeuds = etat.noeuds in
@@ -257,6 +278,7 @@ let cache_h = ref 0 (* hauteur de la "photo" du graphe *)
 
 (* détruit la texture de cache si elle existe *)
 let destroy_cache_texture () =
+  log_crash_hint "destroy_cache_texture";
   match !cache_photo with
   | Some t ->
       Tsdl.Sdl.destroy_texture t;
@@ -267,6 +289,7 @@ let destroy_cache_texture () =
 
   (* rafraichit l'écran en dessinant le graphe, en utilisant une   "photo" pour éviter de redessiner tout le graphe pendant les glissements *)
 let rafraichir_ecran etat =
+  log_crash_hint "rafraichir_ecran";
   (* Si on affiche les noms, on ne peut pas utiliser la "photo" du graphe car les positions des textes changent à chaque zoom ou déplacement (et le texte deviendrai flou), donc on redessine tout à chaque fois *)
   if etat.show_names then begin
     destroy_cache_texture ();
@@ -294,6 +317,7 @@ let rafraichir_ecran etat =
     (* si doit etre redessinée , on la recrée *)
     if must_recreate then begin
       destroy_cache_texture ();
+      log_crash_hint "deuxieme partie de rafraichir_ecran";
       match Tsdl.Sdl.create_texture renderer Tsdl.Sdl.Pixel.format_argb8888 Tsdl.Sdl.Texture.access_target ~w:wanted_w ~h:wanted_h with
       | Ok texture ->
           cache_photo := Some texture;
@@ -302,13 +326,28 @@ let rafraichir_ecran etat =
       | Error _ -> ()
     end;
 
+    (* ##################################################################################*)
+    (* ##################################################################################*)
+                                (* ZONE DE CRASH *)
+    (* ##################################################################################*)
+    (* ##################################################################################*)
+    (* ##################################################################################*)
     match !cache_photo with
     | Some texture ->
         ignore (Tsdl.Sdl.set_render_target renderer (Some texture)); 
         ignore (Tsdl.Sdl.set_render_draw_color renderer 255 255 255 255);
-        ignore (Tsdl.Sdl.render_clear renderer)
+        ignore (Tsdl.Sdl.render_clear renderer);
+        log_crash_hint "4   eme ligne du match somme";
     | None -> ()
-  );
+  );log_crash_hint "apres le match somme";
+
+    (* ##################################################################################*)
+    (* ##################################################################################*)
+    (* ##################################################################################*)
+    (* ##################################################################################*)
+    (* ##################################################################################*)
+    (* ##################################################################################*)
+
 
   draw_graph etat;
   Sdl_area.add (get_canvas ()) (fun renderer ->
@@ -324,6 +363,7 @@ let rafraichir_ecran etat =
 
 (* Utilisé uniquement pendant qu'on glisse la souris *)
 let rafraichir dx dy etat =
+  log_crash_hint "rafraichir";
   Sdl_area.clear (get_canvas ());
   Sdl_area.add (get_canvas ()) (fun renderer ->
     ignore (Tsdl.Sdl.set_render_draw_color renderer 255 255 255 255); 
