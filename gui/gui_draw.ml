@@ -275,6 +275,7 @@ let cache_photo = ref None
 let cible_originale = ref None
 let cache_w = ref 0 (* largeur de la "photo" du graphe *)
 let cache_h = ref 0 (* hauteur de la "photo" du graphe *)
+let cache_capture_wait_s = 0.2 (* délai pour éviter une capture de texture incomplète sur certains PC *)
 
 (* détruit la texture de cache si elle existe *)
 let destroy_cache_texture () =
@@ -350,6 +351,8 @@ let rafraichir_ecran etat =
 
 
   draw_graph etat;
+  (* Laisse un court délai pour éviter une capture de texture incomplète sur certains PC. *)
+  Unix.sleepf cache_capture_wait_s;
   Sdl_area.add (get_canvas ()) (fun renderer ->
     ignore (Tsdl.Sdl.set_render_target renderer !cible_originale);
     match !cache_photo with
