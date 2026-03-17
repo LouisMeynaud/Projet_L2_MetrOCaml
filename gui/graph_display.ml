@@ -429,6 +429,9 @@ let run noeuds aretes algos poids_list on_search =
   let debut_y = ref 0 in
   let dx_glisse = ref 0 in
   let dy_glisse = ref 0 in
+  let zoom_level = ref 1.0 in
+  let min_zoom = 0.5 in
+  let max_zoom = 7.0 in
   let pos_initiales = ref [] in
   let needs_redraw = ref false in
   let action_courante = ref "Rien" in 
@@ -443,11 +446,15 @@ let run noeuds aretes algos poids_list on_search =
       let wheel_delta = Tsdl.Sdl.Event.(get ev mouse_wheel_y) in
       if wheel_delta <> 0 then begin
         let zoom = if wheel_delta > 0 then zoom_in_factor else zoom_out_factor in
-        let mx, my = !canvas_w / 2, !canvas_h / 2 in
-        let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
-        current_etat := etat';
-        action_courante := "Zoom";
-        needs_redraw := true
+        let next_zoom = !zoom_level *. zoom in
+        if next_zoom >= min_zoom && next_zoom <= max_zoom then begin
+          zoom_level := next_zoom;
+          let mx, my = !canvas_w / 2, !canvas_h / 2 in
+          let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
+          current_etat := etat';
+          action_courante := "Zoom";
+          needs_redraw := true
+        end
       end
 
     | `Mouse_button_down | `Finger_down ->
