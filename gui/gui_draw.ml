@@ -3,7 +3,8 @@ open Bogue
 open Gui_types
 
 let log_crash_hint nom_fonction =
-  print_endline ("c'est \"" ^ nom_fonction ^ "\" qui plante")
+  (*print_endline ("c'est \"" ^ nom_fonction ^ "\" qui plante")*)
+  ()
 
 (*---------------FONCTION UTILITAIRE---------------*)
 

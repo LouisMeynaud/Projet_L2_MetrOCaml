@@ -71,14 +71,20 @@ let run_console graphe search_callback =
   (* il faudra ici traiter les coefficients pour le poids combiné *)
   search_callback source_id dest_id algo poids [0.5; 0.5; 0.5; 0.5]
 
+let today_yyyymmdd () =
+  let tm = Unix.localtime (Unix.time ()) in
+  Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1)
+    tm.Unix.tm_mday
+
 let () =
   (*let montpellier = "https://www.data.gouv.fr/api/1/datasets/r/85ef3b33-2289-4d19-b479-276e5b1c5a52" in*)
-  let toulouse = "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77" in
+  let toulouse = "https://eu.ftp.opendatasoft.com/stif/GTFS/IDFM-gtfs.zip" in
   (*let marseille = "https://www.data.gouv.fr/api/1/datasets/r/ab931edc-0bc1-4c66-960a-dc546b46df03" in *) (* test jour fériée*)
-  let date_cible = "20260315" in 
+  let date_cible = today_yyyymmdd () in
   let heure_min = 8 * 3600 in  
 
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
+  Printf.printf "Date GTFS cible: %s\n%!" date_cible;
 
   try
     let graphe = Gtfs_adapter.load_network_from_url toulouse  date_cible heure_min in
