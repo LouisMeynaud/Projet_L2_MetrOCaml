@@ -8,7 +8,10 @@ type arete = { source : string;destination : string;couleur : int;categorie : st
 type etat = {
   noeuds : noeud list;
   aretes : arete list;
-  positions : (string * (float * float)) list;
+  positions : (string, (float * float)) Hashtbl.t;
+  noeuds_visibles : noeud list;
+  aretes_groupees : ((string * string), arete list) Hashtbl.t;
+  noeuds_actifs : (string, bool) Hashtbl.t;
   categories : (string * bool) list;
   source : string option;
   dest : string option;
@@ -17,6 +20,9 @@ type etat = {
   algo_actif : string;
   poids_list : string list;
   poids_actif : string;
+  camera_x : float;
+  camera_y : float;
+  zoom : float;
 }
 let largeur = ref 1200
 let hauteur = ref 800

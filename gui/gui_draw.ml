@@ -2,9 +2,6 @@
 open Bogue
 open Gui_types
 
-let log_crash_hint nom_fonction =
-  (*print_endline ("c'est \"" ^ nom_fonction ^ "\" qui plante")*)
-  ()
 
 (*---------------FONCTION UTILITAIRE---------------*)
 
@@ -13,7 +10,6 @@ let log_crash_hint nom_fonction =
   @param liste la liste associative
   @param defaut la valeur par défaut si la clé n'est pas trouvée *)
   let cherche cle liste defaut =
-  log_crash_hint "cherche";
   match List.assoc_opt cle liste with
   | Some valeur -> valeur
   | None -> defaut
@@ -22,7 +18,6 @@ let log_crash_hint nom_fonction =
   @param noeuds la liste des noeuds 
   return un tuple (min_x,max_x,min_y,max_y)*)
 let calcule_bornes noeuds =
-  log_crash_hint "calcule_bornes";
   let xs = List.map (fun n -> n.x) noeuds in
   let ys = List.map (fun n -> n.y) noeuds in
   (List.fold_left min max_float xs, 
@@ -36,7 +31,6 @@ let calcule_bornes noeuds =
 @param x la coordonnée x réelle
 @param y la coordonnée y réelle *)
 let to_screen bornes x y =
-  log_crash_hint "to_screen";
   let (min_x, max_x, min_y, max_y) = bornes in
   let dx = max 1e-9 (max_x -. min_x) in
   let dy = max 1e-9 (max_y -. min_y) in
@@ -51,80 +45,115 @@ let to_screen bornes x y =
   @param bornes les bornes de l'ensemble des noeuds
   @param noeuds la liste des noeuds*)
 let calcule_positions bornes noeuds =
-  log_crash_hint "calcule_positions";
-  List.map (fun n -> (n.id, to_screen bornes n.x n.y)) noeuds
+  let positions = Hashtbl.create (max 1024 (List.length noeuds * 2)) in
+  List.iter (fun n -> Hashtbl.replace positions n.id (to_screen bornes n.x n.y)) noeuds;
+  positions
 
 (* applique un deplacement a toute les positions
-  @param positions la liste associative (id,(x_pixel,y_pixel));..
+  @param src positions de reference
+  @param dst table de positions a mettre a jour
   @param dx le deplacement en
   @param dy le deplacement en
-  return une liste associative (id,(x_pixel,y_pixel)) *)
-let move positions dx dy =
-  log_crash_hint "move";
-  List.map (fun (id, (x, y)) -> (id, (x +. float dx, y +. float dy))) positions
+   *)
+let move_from_snapshot src dst dx dy =
+  Hashtbl.iter (fun id (x, y) ->
+    Hashtbl.replace dst id (x +. float dx, y +. float dy)
+  ) src
 
 (* applique un zoom
-   @param positions la liste associative (id,(x_pixel,y_pixel))
+   @param positions table associative (id,(x_pixel,y_pixel))
    @param cx centre x du zoom (position souris)
    @param cy centre y du zoom
-   @param facteur facteur de zoom (>1 = zoom in, <1 = zoom out)
-   return nouvelle liste de positions *)
+   @param facteur facteur de zoom (>1 = zoom in, <1 = zoom out) *)
 let zoom_positions positions cx cy facteur =
-  log_crash_hint "zoom_positions";
-  List.map (fun (id, (x, y)) ->
+  Hashtbl.iter (fun id (x, y) ->
     let nx = (float cx) +. (x -. (float cx)) *. facteur in
     let ny = (float cy) +. (y -. (float cy)) *. facteur in
-    (id, (nx, ny))
+    Hashtbl.replace positions id (nx, ny)
   ) positions
 
 
 
 
 let distance_carre px py mx my =
-  log_crash_hint "distance_carre";
   let dx = px -. float mx in
   let dy = py -. float my in
   dx *. dx +. dy *. dy
 
 let get_noeud_clique mx my etat =
-  log_crash_hint "get_noeud_clique";
-  let arrete_visibles = List.filter (fun (a : arete) -> cherche a.categorie etat.categories true) etat.aretes in
-  let noeuds_actifs = Hashtbl.create 5000 in
-  List.iter (fun (a : arete) -> 
-  Hashtbl.replace noeuds_actifs a.source true; 
-  Hashtbl.replace noeuds_actifs a.destination true
-) arrete_visibles;
-  
-  let (best_id, _) = List.fold_left (fun (best, min_d) (id, (px, py)) ->
+  let (best_id, _) = Hashtbl.fold (fun id (wx, wy) (best, min_d) ->
+      let px = wx *. etat.zoom +. etat.camera_x in
+      let py = wy *. etat.zoom +. etat.camera_y in
       let d = distance_carre px py mx my in
-      if d <= 400.0 && d < min_d && Hashtbl.mem noeuds_actifs id then (Some id, d) else (best, min_d)
-    ) (None, max_float) etat.positions
+      if d <= 400.0 && d < min_d && Hashtbl.mem etat.noeuds_actifs id then (Some id, d) else (best, min_d)
+    ) etat.positions (None, max_float)
   in best_id
+
+let rebuild_render etat =
+
+  let arrete_visibles =
+    List.filter (fun (a : arete) -> cherche a.categorie etat.categories true) etat.aretes
+  in
+
+  let aretes_uniques =
+    let table = Hashtbl.create 15000 in
+    List.filter (fun (a : arete) ->
+      let cle =
+        if a.source < a.destination
+        then (a.source, a.destination, a.groupe)
+        else (a.destination, a.source, a.groupe)
+      in
+      if Hashtbl.mem table cle then false
+      else begin
+        Hashtbl.add table cle true;
+        true
+      end
+    ) arrete_visibles
+  in
+
+  let aretes_groupees = Hashtbl.create 15000 in
+  let noeuds_actifs = Hashtbl.create 15000 in
+  List.iter (fun (a : arete) ->
+    let cle =
+      if a.source < a.destination
+      then (a.source, a.destination)
+      else (a.destination, a.source)
+    in
+    let existantes = match Hashtbl.find_opt aretes_groupees cle with Some l -> l | None -> [] in
+    Hashtbl.replace aretes_groupees cle (a :: existantes);
+    Hashtbl.replace noeuds_actifs a.source true;
+    Hashtbl.replace noeuds_actifs a.destination true
+  ) aretes_uniques;
+
+  Hashtbl.iter (fun cle groupe ->
+    let groupe_trie = List.sort (fun a b -> String.compare a.groupe b.groupe) groupe in
+    Hashtbl.replace aretes_groupees cle groupe_trie
+  ) aretes_groupees;
+
+  let noeuds_visibles = List.filter (fun n -> Hashtbl.mem noeuds_actifs n.id) etat.noeuds in
+
+  { etat with aretes_groupees; noeuds_visibles; noeuds_actifs }
 
 
 
 let mon_canvas = ref None
 let get_canvas () =
-  log_crash_hint "get_canvas";
   match !mon_canvas with Some c -> c | None -> failwith "Canvas non initialisé"
 
 
 let hex_to_rgb hexa = 
-  log_crash_hint "hex_to_rgb";
   let rouge = (hexa lsr 16) land 255 in (* lsr : décalage vers la droite et land coupe les deux derniers bits *)
   let vert  = (hexa lsr 8) land 255 in
   let bleu  = hexa land 255 in
   (rouge, vert, bleu)
 
 let rgb_to_bogue (r, g, b) =
-  log_crash_hint "rgb_to_bogue";
   Draw.opaque (r, g, b)
 
 
 let police_actuelle = ref None
 
 let charger_police () =
-  log_crash_hint "charger_police";
   if !police_actuelle = None then begin
     let liste_candidats = ["FreeSans.otf"; "LiberationSans-Regular.ttf"; "DejaVuSans.ttf"] in
     
@@ -148,7 +177,6 @@ let charger_police () =
 
 (* 3. Le dessin du texte *)
 let dessiner_texte x y texte (r, g, b) =
-  log_crash_hint "dessiner_texte";
   charger_police ();
   
   match !police_actuelle with
@@ -191,16 +219,19 @@ let dessiner_texte x y texte (r, g, b) =
   @param arete l'arrete à dessiner 
   @param i l'index de la ligne parmi les lignes parallèles
   @param n le nombre total de lignes parallèles *)
-let draw_arete positions (arete : arete) i n =
-  log_crash_hint "draw_arete";
+let draw_arete etat (arete : arete) i n =
 
   let get_pos id =
-    match Hashtbl.find_opt positions id with
+    match Hashtbl.find_opt etat.positions id with
     | Some p -> p
     | None -> (0., 0.)
   in
-  let (x1, y1) = get_pos arete.source in
-  let (x2, y2) = get_pos arete.destination in
+  let (wx1, wy1) = get_pos arete.source in
+  let (wx2, wy2) = get_pos arete.destination in
+  let x1 = wx1 *. etat.zoom +. etat.camera_x in
+  let y1 = wy1 *. etat.zoom +. etat.camera_y in
+  let x2 = wx2 *. etat.zoom +. etat.camera_x in
+  let y2 = wy2 *. etat.zoom +. etat.camera_y in
 
   (* on ignore ce qui est hors de l'écran *)
   let pad = 32.0 in
@@ -237,13 +268,14 @@ let draw_arete positions (arete : arete) i n =
       Sdl_area.draw_line (get_canvas ()) ~color ~thick:3 (x1i, y1i) (x2i, y2i)
 
 (*dessine un noeud*)
-let draw_noeud positions_tbl etat noeud =
-  log_crash_hint "draw_noeud";
-  let (x, y) =
-    match Hashtbl.find_opt positions_tbl noeud.id with
+let draw_noeud etat noeud =
+  let (wx, wy) =
+    match Hashtbl.find_opt etat.positions noeud.id with
     | Some p -> p
     | None -> (0., 0.)
   in
+  let x = wx *. etat.zoom +. etat.camera_x in
+  let y = wy *. etat.zoom +. etat.camera_y in
 
   let pad = 20.0 in
   if x < -.pad || y < -.pad || x > float !canvas_w +. pad || y > float !canvas_h +. pad then
@@ -263,54 +295,15 @@ let draw_noeud positions_tbl etat noeud =
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
 *)
 let draw_graph etat =
-  log_crash_hint "draw_graph";
-  let categories = etat.categories in
-  let aretes = etat.aretes in
-  let noeuds = etat.noeuds in
-  let positions_tbl = Hashtbl.create (max 1024 (List.length etat.positions * 2)) in
-  List.iter (fun (id, p) -> Hashtbl.replace positions_tbl id p) etat.positions;
-
-  (*Filtrage des arêtes selon les catégories actives *)
-  let arrete_visibles = List.filter (fun (a : arete) -> cherche a.categorie categories true) aretes in
-  
-  (*Identification des noeuds qui ont au moins une arête visible *)
-  let noeuds_actifs = Hashtbl.create 15000 in
-  List.iter (fun (a : arete) -> 
-    Hashtbl.replace noeuds_actifs a.source true;
-    Hashtbl.replace noeuds_actifs a.destination true
-  ) arrete_visibles;
-
-  let noeuds_visibles = List.filter (fun n -> Hashtbl.mem noeuds_actifs n.id) noeuds in
-
-    (* suppresion des doublons*)
-  let aretes_uniques = 
-    let table = Hashtbl.create 15000 in
-    List.filter (fun (a : arete) ->
-      let cle = if a.source < a.destination then (a.source, a.destination, a.groupe) else (a.destination, a.source, a.groupe) in
-      if Hashtbl.mem table cle then false else begin Hashtbl.add table cle true; true end
-    ) arrete_visibles
-  in
-
-  (* creation de groupe*)
-  let aretes_groupees = Hashtbl.create 15000 in
-  List.iter (fun (a : arete) ->
-    let cle = if a.source < a.destination then (a.source, a.destination) else (a.destination, a.source) in
-    let existantes = try Hashtbl.find aretes_groupees cle with Not_found -> [] in
-    Hashtbl.replace aretes_groupees cle (a :: existantes)
-  ) aretes_uniques;
-
-  (* appel du dessins sur chaque groupe*)
   Hashtbl.iter (fun _ groupe ->
     let n = List.length groupe in
-    let groupe_trie = List.sort (fun a b -> String.compare a.groupe b.groupe) groupe in
-    List.iteri (fun i a -> draw_arete positions_tbl a i n) groupe_trie
-  ) aretes_groupees;
+    List.iteri (fun i a -> draw_arete etat a i n) groupe
+  ) etat.aretes_groupees;
   
   (*Dessin des noeuds *)
-  List.iter (draw_noeud positions_tbl etat) noeuds_visibles
+  List.iter (draw_noeud etat) etat.noeuds_visibles
 
 let rafraichir_ecran etat =
-  log_crash_hint "rafraichir_ecran";
   Sdl_area.clear (get_canvas ());
   draw_graph etat;
   Sdl_area.update (get_canvas ())

@@ -43,11 +43,17 @@ let run noeuds aretes algos poids_list on_search =
   let etat_initial = {
     noeuds; aretes;
     positions = calcule_positions bornes noeuds;
-    categories = List.map (fun c -> (c, true)) cats;
+    noeuds_visibles = [];
+    aretes_groupees = Hashtbl.create 1;
+    noeuds_actifs = Hashtbl.create 1;
+    categories = List.map (fun c -> (c, String.lowercase_ascii c <> "bus")) cats;
     source = None; dest = None; show_names = false;
     algos; algo_actif = List.hd algos;
     poids_list; poids_actif = List.hd poids_list;
-  } in
+    camera_x = 0.;
+    camera_y = 0.;
+    zoom = 1.0;
+  } |> rebuild_render in
   
 
   let current_etat = ref etat_initial in
@@ -385,7 +391,7 @@ let run noeuds aretes algos poids_list on_search =
   let conn_cats = List.map (fun (nom, w) ->
     Widget.connect w w (fun _ _ _ ->
       let new_cats = List.map (fun (c, v) -> if c = nom then (c, not v) else (c, v)) !current_etat.categories in
-      current_etat := { !current_etat with categories = new_cats };
+      current_etat := rebuild_render{ !current_etat with categories = new_cats };
       update_ui_buttons ();
       rafraichir_ecran !current_etat
     ) Trigger.buttons_down
@@ -416,10 +422,10 @@ let run noeuds aretes algos poids_list on_search =
   let debut_y = ref 0 in
   let dx_glisse = ref 0 in
   let dy_glisse = ref 0 in
-  let zoom_level = ref 1.0 in
+  let start_camera_x = ref 0.0 in
+  let start_camera_y = ref 0.0 in
   let min_zoom = 0.5 in
-  let max_zoom = 7.0 in
-  let pos_initiales = ref [] in
+  let max_zoom = 10.0 in
   let needs_redraw = ref false in
 
   let boucle _w _target ev =
@@ -430,44 +436,51 @@ let run noeuds aretes algos poids_list on_search =
     | `Mouse_wheel ->
       let wheel_delta = Tsdl.Sdl.Event.(get ev mouse_wheel_y) in
       if wheel_delta <> 0 then begin
-        let zoom = if wheel_delta > 0 then zoom_in_factor else zoom_out_factor in
-        let next_zoom = !zoom_level *. zoom in
+        let etat = !current_etat in
+        let facteur = if wheel_delta > 0 then zoom_in_factor else zoom_out_factor in
+        let next_zoom = etat.zoom *. facteur in
         if next_zoom >= min_zoom && next_zoom <= max_zoom then begin
-          zoom_level := next_zoom;
-          let mx, my = !canvas_w / 2, !canvas_h / 2 in
-          let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
-          current_etat := etat';
+          let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
+          let mx_f = float mx and my_f = float my in
+          let world_x = (mx_f -. etat.camera_x) /. etat.zoom in
+          let world_y = (my_f -. etat.camera_y) /. etat.zoom in
+          let new_camera_x = mx_f -. world_x *. next_zoom in
+          let new_camera_y = my_f -. world_y *. next_zoom in
+          current_etat := { etat with zoom = next_zoom; camera_x = new_camera_x; camera_y = new_camera_y };
           needs_redraw := true
         end
       end
 
     | `Mouse_button_down | `Finger_down ->
       let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
-      let etat' =
+      let selection =
         match !mode_selection_carte, get_noeud_clique mx my etat with
         | `Depart, Some id ->
           Widget.set_text input_depart (station_name_of_id id);
           Widget.set_text btn_select_depart "Selection carte";
           mode_selection_carte := `Aucun;
-          { etat with source = Some id }
+          current_etat := { etat with source = Some id };
+          true
         | `Arrivee, Some id ->
           Widget.set_text input_arrivee (station_name_of_id id);
           Widget.set_text btn_select_arrivee "Selection carte";
           mode_selection_carte := `Aucun;
-          { etat with dest = Some id }
-        | (`Depart | `Arrivee), None -> etat
-        | `Aucun, _ -> etat
+          current_etat := { etat with dest = Some id };
+          true
+        | (`Depart | `Arrivee), None -> false
+        | `Aucun, _ -> false
       in
       
-      if etat' = etat then begin
+      if not selection then begin
         is_dragging := true;
         debut_x := mx;
         debut_y := my;
         dx_glisse := 0;
         dy_glisse := 0;
-        pos_initiales := etat.positions
+        start_camera_x := etat.camera_x;
+        start_camera_y := etat.camera_y
       end else begin
-        current_etat := etat';
+        update_ui_buttons ();
         needs_redraw := true
       end
 
@@ -482,7 +495,11 @@ let run noeuds aretes algos poids_list on_search =
         let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
         dx_glisse := mx - !debut_x;
         dy_glisse := my - !debut_y;
-        current_etat := { etat with positions = move !pos_initiales !dx_glisse !dy_glisse };
+        current_etat := {
+          etat with
+          camera_x = !start_camera_x +. float !dx_glisse;
+          camera_y = !start_camera_y +. float !dy_glisse;
+        };
         needs_redraw := true 
       end
     | _ -> ()
@@ -525,14 +542,15 @@ let run noeuds aretes algos poids_list on_search =
   let scale_positions ~from_w ~from_h ~to_w ~to_h positions =
     let sx = float_of_int to_w /. float_of_int from_w in (* facteur de mise à l'échelle en x *)
     let sy = float_of_int to_h /. float_of_int from_h in (* facteur de mise à l'échelle en y *)
-    List.map (fun (id, (x, y)) -> (id, (x *. sx, y *. sy))) positions
+    Hashtbl.iter (fun id (x, y) ->
+      Hashtbl.replace positions id (x *. sx, y *. sy)
+    ) positions
   in
   (* Fonction pour réinitialiser l'état de glissement après un zoom ou un resize *)
   let reset_drag_state () =
     is_dragging := false;
     dx_glisse := 0;
-    dy_glisse := 0;
-    pos_initiales := !current_etat.positions
+    dy_glisse := 0
   in
 
   (* Lors d'un resize de la fenêtre, on doit redimensionner les positions des noeuds pour qu'ils restent à la bonne place sur la carte *)
@@ -544,9 +562,13 @@ let run noeuds aretes algos poids_list on_search =
     if size_changed then begin
       canvas_w := new_w;
       canvas_h := new_h;
+      scale_positions ~from_w:old_w ~from_h:old_h ~to_w:new_w ~to_h:new_h !current_etat.positions;
+      let sx = float_of_int new_w /. float_of_int old_w in
+      let sy = float_of_int new_h /. float_of_int old_h in
       current_etat := {
         !current_etat with
-        positions = scale_positions ~from_w:old_w ~from_h:old_h ~to_w:new_w ~to_h:new_h !current_etat.positions
+        camera_x = !current_etat.camera_x *. sx;
+        camera_y = !current_etat.camera_y *. sy;
       };
       reset_drag_state ();
       needs_redraw := true
@@ -570,4 +592,5 @@ let run noeuds aretes algos poids_list on_search =
     end
   in
 
-  Main.run ~before_display:rafraichissement fenetre
+  Main.run ~before_display:rafraichissement fenetre;
+  clear_label_cache ()
