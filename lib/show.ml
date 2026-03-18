@@ -18,8 +18,7 @@ let hex_to_rgb hex =
   let hex =
     if String.length hex > 0 && hex.[0] = '#' then
       String.sub hex 1 (String.length hex - 1)
-    else if hex = "" then 
-      "000000"
+    else if hex = "" then "000000"
     else hex
   in
   let r = int_of_string ("0x" ^ String.sub hex 0 2) in
