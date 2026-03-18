@@ -3,14 +3,11 @@ open Bogue
 open Gui_types
 open Gui_draw
 
-let log_crash_hint nom_fonction =
-  print_endline ("c'est \"" ^ nom_fonction ^ "\" qui plante")
 
 (* ================================================== *)
 (*                       RUN                          *)
 (* ================================================== *)
 let run noeuds aretes algos poids_list on_search =
-  log_crash_hint "run";
 
   (* -------------------- Initialisation  -------------------- *)
   ignore (Tsdl.Sdl.init Tsdl.Sdl.Init.video);
@@ -60,12 +57,10 @@ let run noeuds aretes algos poids_list on_search =
   (* ================================================== *)
 
   let text_toggle nom actif =
-    log_crash_hint "text_toggle";
     if actif then "[ON] " ^ nom else "[OFF] " ^ nom
   in
 
   let text_select nom actif =
-    log_crash_hint "text_select";
     if actif then "[*] " ^ nom else "[ ] " ^ nom
   in
 
@@ -105,7 +100,6 @@ let run noeuds aretes algos poids_list on_search =
   let btn_m_plus = Widget.button "+" in
 
   let update_time_display () =
-    log_crash_hint "update_time_display";
     Widget.set_text lbl_h (str_h ());
     Widget.set_text lbl_m (str_m ())
   in
@@ -175,14 +169,12 @@ let run noeuds aretes algos poids_list on_search =
   let barre_arrivee = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_arrivee in
 
   let station_name_of_id id =
-    log_crash_hint "station_name_of_id";
     match List.find_opt (fun (n : noeud) -> n.id = id) noeuds with
     | Some n -> n.nom
     | None -> id
   in
 
   let station_id_of_name nom =
-    log_crash_hint "station_id_of_name";
     let cible = String.lowercase_ascii (String.trim nom) in
     if cible = "" then None
     else
@@ -251,7 +243,6 @@ let run noeuds aretes algos poids_list on_search =
   (* ================================================== *)
 
   let update_ui_buttons () =
-    log_crash_hint "update_ui_buttons";
     let etat = !current_etat in
     Widget.set_text btn_noms (if etat.show_names then "Noms des stations : ON" else "Noms des stations : OFF");
     
@@ -281,14 +272,12 @@ let run noeuds aretes algos poids_list on_search =
   (* ================================================== *)
 
   let reset_selection_mode () =
-    log_crash_hint "reset_selection_mode";
     mode_selection_carte := `Aucun;
     Widget.set_text btn_select_depart "Selection carte";
     Widget.set_text btn_select_arrivee "Selection carte"
   in
 
   let switch_tab ~show_itineraire ~show_recherche =
-    log_crash_hint "switch_tab";
     Layout.set_show contenu_itineraire show_itineraire;
     Layout.set_show contenu_recherche show_recherche;
     reset_selection_mode ();
@@ -296,7 +285,6 @@ let run noeuds aretes algos poids_list on_search =
   in
 
   let begin_map_selection mode =
-    log_crash_hint "begin_map_selection";
     mode_selection_carte := mode;
     match mode with
     | `Depart ->
@@ -312,7 +300,6 @@ let run noeuds aretes algos poids_list on_search =
 
   (* Fonction pour lancer la recherche depuis l'onglet itinéraire ou après sélection sur la carte *)
   let launch_search source dest =
-    log_crash_hint "launch_search";
     (* preparation de la recuperation du bool depart et de l'heure de depart , suprimer les ignore et les passer a on_search une fois les algo de temps fini*)
     let depart = !is_depart in
     let time_in_secondes = (!curr_heure * 3600) + (!curr_minute * 60) in
@@ -434,10 +421,8 @@ let run noeuds aretes algos poids_list on_search =
   let max_zoom = 7.0 in
   let pos_initiales = ref [] in
   let needs_redraw = ref false in
-  let action_courante = ref "Rien" in 
 
   let boucle _w _target ev =
-    log_crash_hint "boucle";
     let etat = !current_etat in
 
     match Trigger.event_kind ev with
@@ -452,7 +437,6 @@ let run noeuds aretes algos poids_list on_search =
           let mx, my = !canvas_w / 2, !canvas_h / 2 in
           let etat' = { etat with positions = zoom_positions etat.positions mx my zoom } in
           current_etat := etat';
-          action_courante := "Zoom";
           needs_redraw := true
         end
       end
@@ -484,14 +468,12 @@ let run noeuds aretes algos poids_list on_search =
         pos_initiales := etat.positions
       end else begin
         current_etat := etat';
-        action_courante := "Clic";
         needs_redraw := true
       end
 
     | `Mouse_button_up | `Finger_up ->
       if !is_dragging then begin
          is_dragging := false;
-         action_courante := "FinDrag";
          needs_redraw := true
       end
 
@@ -501,7 +483,6 @@ let run noeuds aretes algos poids_list on_search =
         dx_glisse := mx - !debut_x;
         dy_glisse := my - !debut_y;
         current_etat := { etat with positions = move !pos_initiales !dx_glisse !dy_glisse };
-        action_courante := "Drag";
         needs_redraw := true 
       end
     | _ -> ()
@@ -542,14 +523,12 @@ let run noeuds aretes algos poids_list on_search =
 
   (* Fonction pour redimensionner les positions des noeuds lors d'un resize de la fenêtre *)
   let scale_positions ~from_w ~from_h ~to_w ~to_h positions =
-    log_crash_hint "scale_positions";
     let sx = float_of_int to_w /. float_of_int from_w in (* facteur de mise à l'échelle en x *)
     let sy = float_of_int to_h /. float_of_int from_h in (* facteur de mise à l'échelle en y *)
     List.map (fun (id, (x, y)) -> (id, (x *. sx, y *. sy))) positions
   in
   (* Fonction pour réinitialiser l'état de glissement après un zoom ou un resize *)
   let reset_drag_state () =
-    log_crash_hint "reset_drag_state";
     is_dragging := false;
     dx_glisse := 0;
     dy_glisse := 0;
@@ -558,7 +537,6 @@ let run noeuds aretes algos poids_list on_search =
 
   (* Lors d'un resize de la fenêtre, on doit redimensionner les positions des noeuds pour qu'ils restent à la bonne place sur la carte *)
   let apply_map_resize () =
-    log_crash_hint "apply_map_resize";
     let old_w = max 1 !canvas_w in
     let old_h = max 1 !canvas_h in
     let new_w, new_h = Layout.get_physical_size layout_carte in
@@ -571,7 +549,6 @@ let run noeuds aretes algos poids_list on_search =
         positions = scale_positions ~from_w:old_w ~from_h:old_h ~to_w:new_w ~to_h:new_h !current_etat.positions
       };
       reset_drag_state ();
-      action_courante := "Resize";
       needs_redraw := true
     end
   in
@@ -587,14 +564,9 @@ let run noeuds aretes algos poids_list on_search =
   rafraichir_ecran !current_etat;
 
   let rafraichissement () =
-    log_crash_hint "rafraichissement";
     if !needs_redraw then begin
       needs_redraw := false;
-      if (not !current_etat.show_names) && !action_courante = "Drag" && !cache_photo <> None then begin
-        rafraichir !dx_glisse !dy_glisse !current_etat
-      end else begin
-        rafraichir_ecran !current_etat
-      end
+      rafraichir_ecran !current_etat
     end
   in
 

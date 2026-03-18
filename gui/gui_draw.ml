@@ -193,43 +193,62 @@ let dessiner_texte x y texte (r, g, b) =
   @param n le nombre total de lignes parallèles *)
 let draw_arete positions (arete : arete) i n =
   log_crash_hint "draw_arete";
-  let (x1, y1) = cherche arete.source positions (0., 0.) in
-  let (x2, y2) = cherche arete.destination positions (0., 0.) in
-  let (ox, oy) =
-    if n <= 1 then (0., 0.) (* une station : on decalle pas*)
-    else 
-      let (dx, dy) = if arete.source < arete.destination then (x2 -. x1, y2 -. y1) else (x1 -. x2, y1 -. y2) in
-      let len = sqrt (dx *. dx +. dy *. dy) in
-      if len = 0. then (0., 0.) 
-      else
-        let nx, ny = -.dy /. len, dx /. len in
-        let shift = (float i -. (float (n - 1) /. 2.0)) *. 4.0 in (* decalle pour centré le paquet*)
-        (nx *. shift, ny *. shift)
-  in
-  let color = rgb_to_bogue (hex_to_rgb arete.couleur) in
-  let clamp_int_coord f =
-    if Float.is_nan f || Float.is_infinite f then begin 
 
-      print_endline ("Warning: coordonnée invalide (" ^ string_of_float f ^ ") pour l'arête " ^ arete.source ^ " -> " ^ arete.destination);
-      0;
-    end
-    else
-      let v = int_of_float f in
-      max (-50000) (min 50000 v)
+  let get_pos id =
+    match Hashtbl.find_opt positions id with
+    | Some p -> p
+    | None -> (0., 0.)
   in
-  let x1i = clamp_int_coord (x1 +. ox) in
-  let y1i = clamp_int_coord (y1 +. oy) in
-  let x2i = clamp_int_coord (x2 +. ox) in
-  let y2i = clamp_int_coord (y2 +. oy) in
-  if x1i = x2i && y1i = y2i then
-    ()
+  let (x1, y1) = get_pos arete.source in
+  let (x2, y2) = get_pos arete.destination in
+
+  (* on ignore ce qui est hors de l'écran *)
+  let pad = 32.0 in
+  let min_x = -.pad and min_y = -.pad in
+  let max_x = float !canvas_w +. pad and max_y = float !canvas_h +. pad in
+
+  if (x1 < min_x && x2 < min_x) || (x1 > max_x && x2 > max_x) ||
+     (y1 < min_y && y2 < min_y) || (y1 > max_y && y2 > max_y) then
+    () (* On ne dessine rien *)
   else
-    Sdl_area.draw_line (get_canvas ()) ~color ~thick:3 (x1i, y1i) (x2i, y2i)
+    let (ox, oy) =
+      if n <= 1 then (0., 0.) (* une station : on decalle pas*)
+      else 
+        let (dx, dy) = if arete.source < arete.destination then (x2 -. x1, y2 -. y1) else (x1 -. x2, y1 -. y2) in
+        let len = sqrt (dx *. dx +. dy *. dy) in
+        if len = 0. then (0., 0.) 
+        else
+          let nx, ny = -.dy /. len, dx /. len in
+          let shift = (float i -. (float (n - 1) /. 2.0)) *. 4.0 in (* decalle pour centré le paquet*)
+          (nx *. shift, ny *. shift)
+    in
+    let color = rgb_to_bogue (hex_to_rgb arete.couleur) in
+    let clamp_int_coord f =
+      if Float.is_nan f || Float.is_infinite f then 0
+      else max (-50000) (min 50000 (int_of_float f))
+    in
+    let x1i = clamp_int_coord (x1 +. ox) in
+    let y1i = clamp_int_coord (y1 +. oy) in
+    let x2i = clamp_int_coord (x2 +. ox) in
+    let y2i = clamp_int_coord (y2 +. oy) in
+    if x1i = x2i && y1i = y2i then 
+      ()
+    else 
+      Sdl_area.draw_line (get_canvas ()) ~color ~thick:3 (x1i, y1i) (x2i, y2i)
 
 (*dessine un noeud*)
-let draw_noeud etat noeud =
+let draw_noeud positions_tbl etat noeud =
   log_crash_hint "draw_noeud";
-  let (x, y) = cherche noeud.id etat.positions (0., 0.) in
+  let (x, y) =
+    match Hashtbl.find_opt positions_tbl noeud.id with
+    | Some p -> p
+    | None -> (0., 0.)
+  in
+
+  let pad = 20.0 in
+  if x < -.pad || y < -.pad || x > float !canvas_w +. pad || y > float !canvas_h +. pad then
+    ()
+  else
   let (color_ext, r_ext, r_int) =
     if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 9, 8)
     else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 9, 8)
@@ -248,6 +267,8 @@ let draw_graph etat =
   let categories = etat.categories in
   let aretes = etat.aretes in
   let noeuds = etat.noeuds in
+  let positions_tbl = Hashtbl.create (max 1024 (List.length etat.positions * 2)) in
+  List.iter (fun (id, p) -> Hashtbl.replace positions_tbl id p) etat.positions;
 
   (*Filtrage des arêtes selon les catégories actives *)
   let arrete_visibles = List.filter (fun (a : arete) -> cherche a.categorie categories true) aretes in
@@ -282,122 +303,15 @@ let draw_graph etat =
   Hashtbl.iter (fun _ groupe ->
     let n = List.length groupe in
     let groupe_trie = List.sort (fun a b -> String.compare a.groupe b.groupe) groupe in
-    List.iteri (fun i a -> draw_arete etat.positions a i n) groupe_trie
+    List.iteri (fun i a -> draw_arete positions_tbl a i n) groupe_trie
   ) aretes_groupees;
   
   (*Dessin des noeuds *)
-  List.iter (draw_noeud etat) noeuds_visibles
+  List.iter (draw_noeud positions_tbl etat) noeuds_visibles
 
-  (* rafraichit l'écran en dessinant le graphe *)
-let cache_photo = ref None
-let cible_originale = ref None
-let cache_w = ref 0 (* largeur de la "photo" du graphe *)
-let cache_h = ref 0 (* hauteur de la "photo" du graphe *)
-let cache_capture_wait_s = 0.2 (* délai pour éviter une capture de texture incomplète sur certains PC *)
-
-(* détruit la texture de cache si elle existe *)
-let destroy_cache_texture () =
-  log_crash_hint "destroy_cache_texture";
-  match !cache_photo with
-  | Some t ->
-      Tsdl.Sdl.destroy_texture t;
-      cache_photo := None;
-      cache_w := 0;
-      cache_h := 0
-  | None -> ()
-
-  (* rafraichit l'écran en dessinant le graphe, en utilisant une   "photo" pour éviter de redessiner tout le graphe pendant les glissements *)
 let rafraichir_ecran etat =
   log_crash_hint "rafraichir_ecran";
-  (* Si on affiche les noms, on ne peut pas utiliser la "photo" du graphe car les positions des textes changent à chaque zoom ou déplacement (et le texte deviendrai flou), donc on redessine tout à chaque fois *)
-  if etat.show_names then begin
-    destroy_cache_texture ();
-    Sdl_area.clear (get_canvas ());
-    draw_graph etat;
-    Sdl_area.update (get_canvas ())
-  end else begin
-    (* Si on n'affiche pas les noms, on peut utiliser la "photo" du graphe pour faire un glissement fluide sans redessiner tout le graphe à chaque fois *)
   Sdl_area.clear (get_canvas ());
-
-  (*On prépare une image invisible et on dit à Bogue de dessiner dessus *)
-  Sdl_area.add (get_canvas ()) (fun renderer ->
-    cible_originale := Tsdl.Sdl.get_render_target renderer; (* On sauvegarde l'écran normal *)
-
-    
-    let wanted_w = max 1 !canvas_w in
-    let wanted_h = max 1 !canvas_h in
-    let must_recreate =
-      (* Vérifie si la texture de cache doit être recréée *)
-      match !cache_photo with
-      | None -> true
-      | Some _ -> !cache_w <> wanted_w || !cache_h <> wanted_h
-    in
-
-    (* si doit etre redessinée , on la recrée *)
-    if must_recreate then begin
-      destroy_cache_texture ();
-      log_crash_hint "deuxieme partie de rafraichir_ecran";
-      match Tsdl.Sdl.create_texture renderer Tsdl.Sdl.Pixel.format_argb8888 Tsdl.Sdl.Texture.access_target ~w:wanted_w ~h:wanted_h with
-      | Ok texture ->
-          cache_photo := Some texture;
-          cache_w := wanted_w;
-          cache_h := wanted_h
-      | Error _ -> ()
-    end;
-
-    (* ##################################################################################*)
-    (* ##################################################################################*)
-                                (* ZONE DE CRASH *)
-    (* ##################################################################################*)
-    (* ##################################################################################*)
-    (* ##################################################################################*)
-    match !cache_photo with
-    | Some texture ->
-        ignore (Tsdl.Sdl.set_render_target renderer (Some texture)); 
-        ignore (Tsdl.Sdl.set_render_draw_color renderer 255 255 255 255);
-        ignore (Tsdl.Sdl.render_clear renderer);
-        log_crash_hint "4   eme ligne du match somme";
-    | None -> ()
-  );log_crash_hint "apres le match somme";
-
-    (* ##################################################################################*)
-    (* ##################################################################################*)
-    (* ##################################################################################*)
-    (* ##################################################################################*)
-    (* ##################################################################################*)
-    (* ##################################################################################*)
-
-
   draw_graph etat;
-  (* Laisse un court délai pour éviter une capture de texture incomplète sur certains PC. *)
-  Unix.sleepf cache_capture_wait_s;
-  Sdl_area.add (get_canvas ()) (fun renderer ->
-    ignore (Tsdl.Sdl.set_render_target renderer !cible_originale);
-    match !cache_photo with
-    | Some tex -> ignore (Tsdl.Sdl.render_copy renderer tex)
-    | None -> ()
-  );
-
-  Sdl_area.update (get_canvas ())
-  end
-
-
-(* Utilisé uniquement pendant qu'on glisse la souris *)
-let rafraichir dx dy etat =
-  log_crash_hint "rafraichir";
-  Sdl_area.clear (get_canvas ());
-  Sdl_area.add (get_canvas ()) (fun renderer ->
-    ignore (Tsdl.Sdl.set_render_draw_color renderer 255 255 255 255); 
-    ignore (Tsdl.Sdl.render_fill_rect renderer None);
-    
-    (* On déplace la "photo" du graphe de dx et dy *)
-    match !cache_photo with 
-    | None -> () 
-    | Some tex ->
-      let w = if !cache_w > 0 then !cache_w else !canvas_w in
-      let h = if !cache_h > 0 then !cache_h else !canvas_h in
-      ignore (Tsdl.Sdl.render_copy ~dst:(Tsdl.Sdl.Rect.create ~x:dx ~y:dy ~w ~h) renderer tex)
-  );
-  
   Sdl_area.update (get_canvas ())
 
