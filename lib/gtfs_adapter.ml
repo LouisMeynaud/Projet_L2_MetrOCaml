@@ -67,6 +67,22 @@ let next_day_str yyyymmdd =
     else Printf.sprintf "%04d0101" (y + 1)
   with _ -> yyyymmdd
 
+(** Convertit des degrés en radians *)
+let to_radians deg = deg *. (4.0 *. atan 1.0) /. 180.0
+
+(** Calcule la distance en mètres entre deux coordonnées GPS (Formule de Haversine) *)
+let haversine_distance lat1 lon1 lat2 lon2 =
+  let r = 6371000.0 in 
+  let phi1 = to_radians lat1 in
+  let phi2 = to_radians lat2 in
+  let delta_phi = to_radians (lat2 -. lat1) in
+  let delta_lambda = to_radians (lon2 -. lon1) in
+
+  let a = (sin (delta_phi /. 2.0) ** 2.0) +.
+          cos phi1 *. cos phi2 *. (sin (delta_lambda /. 2.0) ** 2.0) in
+  let c = 2.0 *. atan2 (sqrt a) (sqrt (1.0 -. a)) in
+  r *. c
+
 (* --- 2. Chargement --- *)
 let load_network_gtfs directory target_date target_time_seconds =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
@@ -281,7 +297,7 @@ let load_network_gtfs directory target_date target_time_seconds =
   let i_st_arr = get_index st_header "arrival_time" in
   let i_st_dep = get_index st_header "departure_time" in
   let i_st_id = get_index st_header "stop_id" in
-
+  let i_st_dist_opt = get_index_opt st_header "shape_dist_traveled" in
   let last_trip_state = ref None in
   let edges_acc = Hashtbl.create 10000 in
   Csv.iter
@@ -295,27 +311,38 @@ let load_network_gtfs directory target_date target_time_seconds =
         in
         let arr_time = time_to_seconds (List.nth row i_st_arr) in
         let dep_time = time_to_seconds (List.nth row i_st_dep) in
+        let current_dist_opt = 
+          match i_st_dist_opt with
+          | Some idx -> (try Some (float_of_string (List.nth row idx)) with _ -> None)
+          | None -> None
+        in
         let line_obj, m, sid = Hashtbl.find valid_trips tid in
         match !last_trip_state with
-        | Some (prev_tid, prev_area, prev_dep) when prev_tid = tid ->
+        | Some (prev_tid, prev_area, prev_dep, prev_dist_opt) when prev_tid = tid ->
             if prev_area <> area_id then begin
               match
-                ( Hashtbl.find_opt area_nodes prev_area,
+                ( Hashtbl.find_opt area_nodes prev_area ,
                   Hashtbl.find_opt area_nodes area_id )
               with
               | Some f, Some t -> (
                   let key = (f.id, t.id, line_obj.name) in
                   let duration = max (arr_time - prev_dep) 0 in
+                  let edge_gtfs_dist = 
+                    match prev_dist_opt, current_dist_opt with
+                    | Some d1, Some d2 when d2 > d1 -> Some (d2 -. d1)
+                    | _ -> None
+                  in
                   let active_offsets =
                     try Hashtbl.find valid_services sid
                     with Not_found -> [ 0 ]
                   in
                   match Hashtbl.find_opt edges_acc key with
-                  | Some (_, _, _, _, _, schedules_ref) ->
+                  | Some (_, _, _, _, _, schedules_ref,dist_ref) ->
                       List.iter
                         (fun offset ->
                           schedules_ref := (prev_dep + offset) :: !schedules_ref)
-                        active_offsets
+                        active_offsets;
+                        if !dist_ref = None then dist_ref := edge_gtfs_dist
                   | None ->
                       let initial_schedules =
                         List.map
@@ -323,11 +350,11 @@ let load_network_gtfs directory target_date target_time_seconds =
                           active_offsets
                       in
                       Hashtbl.add edges_acc key
-                        (f, t, line_obj, duration, m, ref initial_schedules))
+                        (f, t, line_obj, duration, m, ref initial_schedules, ref edge_gtfs_dist))
               | _ -> ()
             end;
-            last_trip_state := Some (tid, area_id, dep_time)
-        | _ -> last_trip_state := Some (tid, area_id, dep_time)
+            last_trip_state := Some (tid, area_id, dep_time,current_dist_opt)
+        | _ -> last_trip_state := Some (tid, area_id, dep_time,current_dist_opt)
       end)
     st_csv;
 
@@ -335,14 +362,19 @@ let load_network_gtfs directory target_date target_time_seconds =
 
   (* F. Construction finale des arêtes avec listes triées *)
   Hashtbl.iter
-    (fun _ (f, t, line_obj, duration, m, schedules_ref) ->
+    (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref) ->
       let sorted_schedules = List.sort compare !schedules_ref in
+      let dist_meters = 
+      match !dist_ref with
+      | Some d -> d 
+      | None -> haversine_distance f.latitude f.longitude t.latitude t.longitude
+    in
       let conn =
         {
           Network.line = line_obj;
           Network.duration;
           Network.schedules = sorted_schedules;
-          Network.distance = 0.;
+          Network.distance = dist_meters;
           Network.mode = m;
         }
       in
