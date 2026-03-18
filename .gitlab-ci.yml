@@ -1,27 +1,59 @@
 image: ocaml/opam:debian-12-opam
 
 stages:
+  - setup
+  - lint 
   - build
   - test
   - release
+
+setup:
+  stage: setup
+
+  cache:
+    key:
+      files:
+        - metrocaml.opam
+    paths:
+      - _opam
+
+  script:
+    - | 
+      if [ -d _opam ]; then
+        echo "Reusing previous _opam directory, nothing to do."
+      else
+        echo "No _opam directory found, creating opam switch"
+        opam switch create --yes --no-install . 5.3.0
+        opam update
+      fi
+
+      eval $(opam env)
+      opam install . --deps-only --with-test --with-doc --yes
+      
+
+
+lint:
+  stage: lint
+
+  cache:
+    key:
+      files:
+        - metrocaml.opam
+    paths:
+      - _opam
+
+  script:
+    - | 
+      opam exec -- dune build @fmt
+
+
+
 
 build:
   stage: build
 
   script:
     - |
-      if [ -d _opam ]; then
-        echo "Reusing previous _opam directory, nothing to do."
-      fi
-
-      if [ ! -d _opam ]; then
-        echo "No _opam directory found, creating opam switch"
-        opam switch create --yes --no-install . 5.3.0
-      fi
-
-      eval $(opam env)
-      opam update
-      opam install . --deps-only --with-test --with-doc --yes
       opam exec -- dune build @runtest
 
   cache:

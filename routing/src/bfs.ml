@@ -1,13 +1,13 @@
 (** Breadth-First Search algorithm.
 
-Generic implementation that works with any graph and weight type.
-Explores the graph level by level, useful for unweighted or uniform-cost graphs. *)
+    Generic implementation that works with any graph and weight type. Explores
+    the graph level by level, useful for unweighted or uniform-cost graphs. *)
 
 open Graph_intf
 open Weight_intf
 
 module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
-  module P = Path.Make(G)(W)
+  module P = Path.Make (G) (W)
 
   type path = P.t
 
@@ -28,25 +28,24 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
         if Queue.is_empty queue then None
         else
           let current = Queue.take queue in
-          if G.Node.equal current destination then
-            reconstruct_path ()
+          if G.Node.equal current destination then reconstruct_path ()
           else begin
             let neighbors = G.neighbors graph current in
-            List.iter (fun (neighbor, edge) ->
-              if not (Hashtbl.mem visited neighbor) then begin
-                Hashtbl.add visited neighbor ();
-                let edge_weight = W.of_edge edge in
-                Hashtbl.add prev neighbor (current, edge, edge_weight);
-                Queue.add neighbor queue
-              end
-            ) neighbors;
+            List.iter
+              (fun (neighbor, edge) ->
+                if not (Hashtbl.mem visited neighbor) then begin
+                  Hashtbl.add visited neighbor ();
+                  let edge_weight = W.of_edge edge in
+                  Hashtbl.add prev neighbor (current, edge, edge_weight);
+                  Queue.add neighbor queue
+                end)
+              neighbors;
             bfs ()
           end
-
       and reconstruct_path () =
         let rec build_steps acc node =
           try
-            let (pred, edge, weight) = Hashtbl.find prev node in
+            let pred, edge, weight = Hashtbl.find prev node in
             let step = { P.from = pred; to_node = node; edge; weight } in
             build_steps (step :: acc) pred
           with Not_found -> acc

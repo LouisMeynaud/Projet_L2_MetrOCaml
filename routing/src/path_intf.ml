@@ -1,27 +1,25 @@
 (**Path module signature *)
 
-module type PATH = sig 
-  type node
-  type edge
-  type weight
+open Graph_intf
+open Weight_intf
 
-  type step = {
-    (** Source node of this step*)
-    from : node;
+module type PATH = sig
+  module Node : NODE
 
-    (** Destination node of this step*)
-    to_node : node;
+  type node = Node.t
 
-    (** The edge for this traversak*)
-    edge : edge;
+  module Edge : EDGE
 
-    (** The cost of this step proportional to the weight*)
-    weight : weight;
-  }
+  type edge = Edge.t
 
-  type t = {
-    (** List of all steps from source to destination*)
-    steps : step list;
-    total_weight : weight;
-  }
-end 
+  module Weight : WEIGHT
+
+  type weight = Weight.t
+
+  type step = { from : node; to_node : node; edge : edge; weight : weight }
+  (** A single step in a path, representing a traversal from one node to another
+      containing a source, destination edge and weight*)
+
+  type t = { steps : step list; total_weight : weight }
+  (** List of all steps from source to destination*)
+end
