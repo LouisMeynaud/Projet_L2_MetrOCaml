@@ -38,7 +38,7 @@ let to_screen bornes x y =
     (float (max 1 (!canvas_w - 2*marge)) /. dx)
     (float (max 1 (!canvas_h - 2*marge)) /. dy) in
   (float marge +. (x -. min_x) *. echelle,
-   float marge +. (y -. min_y) *. echelle)
+   float marge +. (max_y -. y) *. echelle)
 
 (*calcule les position initiales pour tout les noeud
   return une linste associative (id,(x_pixel,y_pixel));..
@@ -153,6 +153,19 @@ let rgb_to_bogue (r, g, b) =
 
 let police_actuelle = ref None
 
+type label_cache_entry = {
+  texture : Tsdl.Sdl.texture;
+  largeur : int;
+  hauteur : int;
+}
+
+let label_cache : ((string * int * int * int), label_cache_entry) Hashtbl.t =
+  Hashtbl.create 2048
+
+let clear_label_cache () =
+  Hashtbl.iter (fun _ entry -> Tsdl.Sdl.destroy_texture entry.texture) label_cache;
+  Hashtbl.clear label_cache
+
 let charger_police () =
   if !police_actuelle = None then begin
     let liste_candidats = ["FreeSans.otf"; "LiberationSans-Regular.ttf"; "DejaVuSans.ttf"] in
@@ -183,33 +196,32 @@ let dessiner_texte x y texte (r, g, b) =
   | None -> () (* Si on n'a pas de police, on abandonne *)
   | Some ma_police ->
       Sdl_area.add (get_canvas ()) (fun pinceau_sdl ->
-        let couleur_texte = Tsdl.Sdl.Color.create ~r ~g ~b ~a:255 in
-        
-        (*  Dessiner le texte sur une image en mémoire (Surface) *)
-        match Tsdl_ttf.Ttf.render_utf8_blended ma_police texte couleur_texte with
-        | Error _ -> ()
-        | Ok image_texte ->
-            
-            (* Envoyer l'image à la carte graphique (Texture) *)
-            (match Tsdl.Sdl.create_texture_from_surface pinceau_sdl image_texte with
-             | Error _ -> ()
-             | Ok image_carte_graphique ->
-                 
-                 (*  Récupérer la taille du texte et le coller à l'écran *)
-                 (match Tsdl.Sdl.query_texture image_carte_graphique with
-                  | Error _ -> ()
-                  | Ok (_, _, (largeur, hauteur)) -> 
-                      let zone_ecran = Tsdl.Sdl.Rect.create ~x ~y ~w:largeur ~h:hauteur in
-                      let _ = Tsdl.Sdl.render_copy ~dst:zone_ecran pinceau_sdl image_carte_graphique in
-                      ()
-                 );
-                 
-                 (*  Nettoyer la mémoire de la carte graphique *)
-                 Tsdl.Sdl.destroy_texture image_carte_graphique
-            );
-            
-            (*  Nettoyer la mémoire de l'ordinateur *)
-            Tsdl.Sdl.free_surface image_texte
+    let key = (texte, r, g, b) in
+    let draw_entry entry =
+      let zone_ecran = Tsdl.Sdl.Rect.create ~x ~y ~w:entry.largeur ~h:entry.hauteur in
+      let _ = Tsdl.Sdl.render_copy ~dst:zone_ecran pinceau_sdl entry.texture in
+      ()
+    in
+    match Hashtbl.find_opt label_cache key with
+    | Some entry -> draw_entry entry
+    | None ->
+      let couleur_texte = Tsdl.Sdl.Color.create ~r ~g ~b ~a:255 in
+      match Tsdl_ttf.Ttf.render_utf8_blended ma_police texte couleur_texte with
+      | Error _ -> ()
+      | Ok image_texte ->
+        (match Tsdl.Sdl.create_texture_from_surface pinceau_sdl image_texte with
+         | Error _ -> Tsdl.Sdl.free_surface image_texte
+         | Ok texture ->
+           (match Tsdl.Sdl.query_texture texture with
+            | Error _ ->
+              Tsdl.Sdl.destroy_texture texture;
+              Tsdl.Sdl.free_surface image_texte
+            | Ok (_, _, (largeur, hauteur)) ->
+              let entry = { texture; largeur; hauteur } in
+              Hashtbl.add label_cache key entry;
+              Tsdl.Sdl.free_surface image_texte;
+              draw_entry entry)
+        )
       )
 
 (*---------------FONCTION DE DESSIN----------------*)
