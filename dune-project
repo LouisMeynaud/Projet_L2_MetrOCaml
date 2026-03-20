@@ -1,7 +1,7 @@
 (lang dune 3.21)
 
 (name metrocaml)
-(version 0.1.0)
+(version 0.1.1)
 
 (formatting
  (enabled_for ocaml reason))
