@@ -109,14 +109,12 @@ let () =
   in
   (* test jour fériée*)
   let date_cible = "20260501" in
-  let heure_min = 8 * 3600 in
 
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
 
   try
     let graphe =
-      Gtfs_adapter.load_network_from_url marseille date_cible heure_min
-    in
+      Gtfs_adapter.load_network_from_url marseille date_cible in
 
     flush stdout;
 

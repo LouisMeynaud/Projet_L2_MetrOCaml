@@ -87,7 +87,7 @@ let haversine_distance lat1 lon1 lat2 lon2 =
   r *. c
 
 (* --- 2. Chargement --- *)
-let load_network_gtfs directory target_date target_time_seconds =
+let load_network_gtfs directory target_date =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
@@ -450,12 +450,12 @@ let download_and_extract_gtfs url dest_dir =
 
   Printf.printf "Donnees pretes dans le dossier : %s\n\n" dest_dir
 
-let load_network_from_url url target_date target_time =
+let load_network_from_url url target_date =
   let temp_base = Filename.get_temp_dir_name () in
   let temp_dir = Filename.concat temp_base "metrocaml_gtfs" in
   try
     download_and_extract_gtfs url temp_dir;
-    let graph = load_network_gtfs temp_dir target_date target_time in
+    let graph = load_network_gtfs temp_dir target_date in
     let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
     let cmd_cleanup =
       if is_win then Printf.sprintf "rmdir /S /Q \"%s\"" temp_dir
