@@ -113,8 +113,7 @@ let () =
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
 
   try
-    let graphe =
-      Gtfs_adapter.load_network_from_url marseille date_cible in
+    let graphe = Gtfs_adapter.load_network_from_url marseille date_cible in
 
     flush stdout;
 
