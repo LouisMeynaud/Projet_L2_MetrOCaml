@@ -2,12 +2,13 @@
 open Bogue
 open Gui_types
 open Gui_draw
+open Gui_utils
 
 
 (* ================================================== *)
 (*                       RUN                          *)
 (* ================================================== *)
-let run noeuds aretes algos poids_list on_search =
+let run noeuds aretes algos poids_list schedule_items on_search =
 
   (* -------------------- Initialisation  -------------------- *)
   ignore (Tsdl.Sdl.init Tsdl.Sdl.Init.video);
@@ -191,6 +192,245 @@ let run noeuds aretes algos poids_list on_search =
   in
 
   let mode_selection_carte = ref `Aucun in
+
+  (* ================================================== *)
+  (*                 ONGLET HORRAIRE                    *)
+  (* ================================================== *)
+
+  let label_horaires = Widget.label "Recherche d'horraires" in
+  let label_ligne_h = Widget.label "Ligne" in
+  let label_arret_h = Widget.label "Arret" in
+  let input_ligne_h = Widget.text_input ~prompt:"Ex : 3" () in
+  let input_arret_h = Widget.text_input ~prompt:"Ex : Republique" () in
+  let label_h_info = Widget.label "Saisissez une ligne ou un arret ou les deux" in
+  let label_dir = Widget.label "Direction" in
+  let label_table = Widget.label "Horraires" in
+
+  let barre_ligne_h = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_ligne_h in
+  let barre_arret_h = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_arret_h in
+
+  let horaires_row_w = max 150 (panel_width - 26) in
+  let horaires_row_h = 30 in
+  let color_cell_w = 16 in
+  let max_search_results = 60 in
+
+  (* Création des 24 cases de résultats (invisibles par défaut) *)
+  let result_keys = Array.make max_search_results None in (* stocke les clés des résultats *)
+  let result_buttons = Array.init max_search_results (fun _ -> Widget.button "") in (*les boutons vide au depart*)
+  let color_cells = Array.init max_search_results (fun _ -> (* les petit carrée de couleur*)
+    Layout.empty ~w:color_cell_w ~h:horaires_row_h ()
+  ) in
+  (* Chaque ligne de résultat est un Layout combinant une cellule de couleur et un bouton *)
+  let result_rows = Array.init max_search_results (fun i ->
+    let text_cell_w = max 90 (horaires_row_w - color_cell_w - 4) in
+    let btn_cell = Layout.resident ~w:text_cell_w ~h:horaires_row_h result_buttons.(i) in
+    let row = Layout.flat ~sep:4 ~align:Draw.Center [color_cells.(i); btn_cell] in
+    Layout.set_show row false; (* Caché au démarrage *)
+    row
+  ) in
+
+  let max_direction_buttons = 6 in
+  let max_table_rows = 24 in
+
+  (* Création des boutons de direction (invisibles par défaut) *)
+  let direction_buttons = Array.init max_direction_buttons (fun _ -> Widget.button "") in
+  let direction_rows = Array.init max_direction_buttons (fun i ->
+    let row = Layout.resident ~w:horaires_row_w ~h:horaires_row_h direction_buttons.(i) in
+    Layout.set_show row false;
+    row
+  ) in
+
+  (* Création des lignes d'horaires (invisibles par défaut) *)
+  let table_labels = Array.init max_table_rows (fun _ -> Widget.label "") in
+  let bg_table_next = Layout.color_bg (rgb_to_bogue (214, 214, 214)) in
+  let table_rows = Array.init max_table_rows (fun i ->
+    let row =
+      if i = 0 then Layout.resident ~w:horaires_row_w ~h:26 ~background:bg_table_next table_labels.(i)
+      else Layout.resident ~w:horaires_row_w ~h:26 table_labels.(i)
+    in
+    Layout.set_show row false;
+    row
+  ) in
+
+
+  let direction_box = Layout.tower (Array.to_list direction_rows) in
+  let table_box = Layout.tower (Array.to_list table_rows) in
+
+  (* Variables pour retenir ce qu'on a cliqué *)
+  let selected_choices = ref ([] : schedule_item list) in
+  let selected_direction_idx = ref 0 in
+
+  let result_box = Layout.tower (Array.to_list result_rows) in
+  let result_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:220 result_box in
+  let direction_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:110 direction_box in
+  let table_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:250 table_box in
+
+  (* ------suppression des résultats---- *)
+  
+  let clear_result_rows () =
+    for i = 0 to max_search_results - 1 do
+      result_keys.(i) <- None;
+      Layout.set_background color_cells.(i) None;
+      Layout.set_show result_rows.(i) false
+    done
+  in
+
+  let clear_direction_rows () =
+    for i = 0 to max_direction_buttons - 1 do
+      Layout.set_show direction_rows.(i) false
+    done
+  in
+
+  let clear_table_rows () =
+    for i = 0 to max_table_rows - 1 do
+      Widget.set_text table_labels.(i) "";
+      Layout.set_show table_rows.(i) false
+    done
+  in
+
+  (* ------suppression des résultats---- *)
+
+  (* Fonction pour enlever les doublons de ligne+station dans les résultats de recherche d'horaires *)
+  let dedupe_line_station items =
+    let resultat = Hashtbl.create 128 in
+    List.filter (fun (elt : schedule_item) ->
+      let key = normalize elt.mode_name ^ "|" ^ normalize elt.line_name ^ "|" ^ elt.station_id in
+      if Hashtbl.mem resultat key then false else (Hashtbl.add resultat key true; true)
+    ) items
+  in
+
+  let choices_for mode_name line_name station_id =
+    List.filter
+      (fun (it : schedule_item) ->
+        normalize it.mode_name = normalize mode_name
+        && normalize it.line_name = normalize line_name
+        && it.station_id = station_id)
+      schedule_items
+  in
+
+  let closest_next_index times =
+    let now_s = now_seconds_of_day () in
+    let rec find i = function
+      | [] -> 0
+      | t :: _ when t >= now_s -> i
+      | _ :: tl -> find (i + 1) tl
+    in
+    if times = [] then None else Some (find 0 times)
+  in
+
+  
+  let set_table_for_choice (choice : schedule_item) =
+    Widget.set_text label_table (Printf.sprintf "Horaires - %s|%s - %s - vers %s" choice.mode_name choice.line_name choice.station_name choice.direction);(* let a jour le titre de la categorie*)
+    clear_table_rows ();
+    
+    let times = List.sort_uniq compare choice.times in
+    let ordered_times =
+      match closest_next_index times with
+      | None -> []
+      | Some idx ->
+          let futures = List.filteri (fun i _ -> i >= idx) times in
+          let passees = List.filteri (fun i _ -> i < idx) times in
+          futures @ passees
+    in
+    
+    (*selectionne les 12 premier horraire et les affiches*)
+    if ordered_times = [] then begin
+      Widget.set_text table_labels.(0) "Aucun passage disponible";
+      Layout.set_show table_rows.(0) true
+    end else begin
+      let limited_times = List.filteri (fun i _ -> i < max_table_rows) ordered_times in
+      List.iteri (fun i t ->
+        Widget.set_text table_labels.(i) (format_seconds t);
+        Layout.set_show table_rows.(i) true
+      ) limited_times
+    end
+  in
+
+  (* Fonction pour afficher les directions disponibles pour une ligne+station donnée *)
+  let update_direction_buttons () =
+    clear_direction_rows ();
+    let limited_choices = List.filteri (fun i _ -> i < max_direction_buttons) !selected_choices in(* on garde les premier*)
+    List.iteri (fun i choice ->
+      let marker = if i = !selected_direction_idx then "[*]" else "[ ]" in
+      Widget.set_text direction_buttons.(i) (Printf.sprintf "%s vers %s" marker choice.direction);
+      Layout.set_show direction_rows.(i) true
+    ) limited_choices
+  in
+
+
+  let open_choice mode_name line_name station_id =
+    let choices = choices_for mode_name line_name station_id in
+    match choices with
+    | [] ->
+      selected_choices := [];
+      clear_direction_rows ();
+      clear_table_rows ();
+      Widget.set_text label_h_info "Aucun horaire trouve pour cette selection."
+    | _ ->
+      selected_choices := choices;
+      selected_direction_idx := 0;
+      update_direction_buttons ();
+      set_table_for_choice (List.hd choices)
+  in
+
+  (* Fonction pour afficher les résultats de recherche d'horaires *)
+  let set_result_rows entries =
+    let limited = List.filteri (fun i _ -> i < max_search_results) entries in (*on garde que les premeier*)
+    List.iteri (fun i (elt : schedule_item) ->
+      result_keys.(i) <- Some (elt.mode_name, elt.line_name, elt.station_id);
+      let r, g, b = hex_to_rgb elt.line_color in
+      Layout.set_background color_cells.(i) (Some (Layout.color_bg (rgb_to_bogue (r, g, b)))); (*transforme en couleur bogue*)
+      Widget.set_text result_buttons.(i) (Printf.sprintf "%s|%s | %s" elt.mode_name elt.line_name elt.station_name);
+      Layout.set_show result_rows.(i) true 
+    ) limited
+  in
+
+  (* Fonction pour lancer la recherche d'horaires à partir des champs de saisie *)
+  let launch_horaire_search () =
+    clear_result_rows (); 
+
+    let q_line = normalize (Widget.get_text input_ligne_h) in
+    let q_stop = normalize (Widget.get_text input_arret_h) in
+    
+    if q_line = "" && q_stop = "" then 
+      Widget.set_text label_h_info "Saisissez une ligne, un arret, ou les deux."
+    else begin
+      (* On filtre les horaires selon la ligne et/ou l'arrêt saisis, en supprimant les doublons de ligne+station *)
+      let filtered =
+        schedule_items
+        |> List.filter (fun elt -> Gui_utils.contains_ci elt.line_name q_line && Gui_utils.contains_ci elt.station_name q_stop)
+        |> dedupe_line_station
+      in
+      let count = List.length filtered in (*le nombre de station a affichée*)
+      
+      if count = 0 then 
+        Widget.set_text label_h_info "Aucun resultat."
+      else begin
+        Widget.set_text label_h_info (Printf.sprintf "%d resultat(s) trouve(s)." count);
+        set_result_rows filtered (*on affiche les résultats*)
+      end
+    end
+  in
+
+  let contenu_horaires = Layout.tower ~align:Draw.Center [
+    Layout.resident ~w:horaires_row_w label_horaires;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:horaires_row_w label_ligne_h;
+    barre_ligne_h;
+    Layout.empty ~w:1 ~h:6 ();
+    Layout.resident ~w:horaires_row_w label_arret_h;
+    barre_arret_h;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:horaires_row_w label_h_info;
+    Layout.empty ~w:1 ~h:8 ();
+    result_box_clip;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:horaires_row_w label_dir;
+    direction_box_clip;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:horaires_row_w label_table;
+    table_box_clip;
+  ] in
   
   (* -------------------- Contenu des onglets -------------------- *)
 
@@ -226,9 +466,10 @@ let run noeuds aretes algos poids_list on_search =
 
   (* On cache la recherche au démarrage *)
   Layout.set_show contenu_recherche false;
+  Layout.set_show contenu_horaires false;
 
   (* Les contenus d'onglets se superposent pour conserver la meme position visuelle. *)
-  let zone_onglet = Layout.superpose [contenu_itineraire; contenu_recherche] in
+  let zone_onglet = Layout.superpose [contenu_itineraire; contenu_recherche; contenu_horaires] in
   let h_zone_onglet = max 220 (!hauteur - 70) in
   let zone_onglet_scroll = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:h_zone_onglet zone_onglet in
 
@@ -243,6 +484,8 @@ let run noeuds aretes algos poids_list on_search =
     Layout.resident tab_recherche;
     Layout.resident tab_horaires;
   ] in
+
+
 
   (* ================================================== *)
   (*                 LOGIQUE UI / ETAT                 *)
@@ -283,9 +526,10 @@ let run noeuds aretes algos poids_list on_search =
     Widget.set_text btn_select_arrivee "Selection carte"
   in
 
-  let switch_tab ~show_itineraire ~show_recherche =
+  let switch_tab ~show_itineraire ~show_recherche ~show_horaires =
     Layout.set_show contenu_itineraire show_itineraire;
     Layout.set_show contenu_recherche show_recherche;
+    Layout.set_show contenu_horaires show_horaires;
     reset_selection_mode ();
     rafraichir_ecran !current_etat
   in
@@ -320,12 +564,19 @@ let run noeuds aretes algos poids_list on_search =
 
   (* Connexions des Onglets *)
   let conn_tab_iti = Widget.connect tab_itineraire tab_itineraire (fun _ _ _ ->
-    switch_tab ~show_itineraire:true ~show_recherche:false
+    switch_tab ~show_itineraire:true ~show_recherche:false ~show_horaires:false
   ) Trigger.buttons_down in
 
   let conn_tab_rech = Widget.connect tab_recherche tab_recherche (fun _ _ _ ->
-    switch_tab ~show_itineraire:false ~show_recherche:true
+    switch_tab ~show_itineraire:false ~show_recherche:true ~show_horaires:false
   ) Trigger.buttons_down in
+
+  let conn_tab_hor = Widget.connect tab_horaires tab_horaires (fun _ _ _ ->
+    switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:true
+  ) Trigger.buttons_down in
+
+  let conn_input_ligne_h = Widget.connect input_ligne_h input_ligne_h (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
+  let conn_input_arret_h = Widget.connect input_arret_h input_arret_h (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
 
   let conn_select_depart = Widget.connect btn_select_depart btn_select_depart (fun _ _ _ ->
     begin_map_selection `Depart
@@ -412,6 +663,32 @@ let run noeuds aretes algos poids_list on_search =
       rafraichir_ecran !current_etat
     ) Trigger.buttons_down
   ) boutons_poids in
+  
+
+  let conn_result_rows =
+    Array.to_list (Array.mapi (fun i btn ->
+      Widget.connect btn btn (fun _ _ _ ->
+        match result_keys.(i) with
+        | Some (mode_name, line_name, station_id) ->
+          open_choice mode_name line_name station_id;
+          Widget.set_text label_h_info (Printf.sprintf "Selection: %s|%s" mode_name line_name)
+        | None -> ()
+      ) Trigger.buttons_down
+    ) result_buttons)
+  in
+
+  let conn_direction_rows =
+    Array.to_list (Array.mapi (fun i btn ->
+      Widget.connect btn btn (fun _ _ _ ->
+        match List.nth_opt !selected_choices i with
+        | Some choice ->
+          selected_direction_idx := i;
+          update_direction_buttons ();
+          set_table_for_choice choice
+        | None -> ()
+      ) Trigger.buttons_down
+    ) direction_buttons)
+  in
 
   (* ================================================== *)
   (*                 EVENEMENTS CARTE                  *)
@@ -578,7 +855,7 @@ let run noeuds aretes algos poids_list on_search =
   Layout.on_resize layout_carte apply_map_resize;
 
   (* On rassemble toutes les connexions pour les passer à la fenêtre *)
-  let connexions = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids) in
+  let connexions = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows) in
   let fenetre = Main.of_layout ~connections:connexions interface in
 
   (* -------------------- Boucle de rendu -------------------- *)
