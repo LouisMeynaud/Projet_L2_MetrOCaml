@@ -1,4 +1,5 @@
 open Graph_display
+open Gui_types
 open Metrocaml.Network
 
 let color_of_string s =
