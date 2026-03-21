@@ -7,7 +7,7 @@ open Gui_draw
 (* ================================================== *)
 (*                       RUN                          *)
 (* ================================================== *)
-let run noeuds aretes algos poids_list on_search =
+let run noeuds aretes algos poids_list schedule_items on_search =
 
   (* -------------------- Initialisation  -------------------- *)
   ignore (Tsdl.Sdl.init Tsdl.Sdl.Init.video);
