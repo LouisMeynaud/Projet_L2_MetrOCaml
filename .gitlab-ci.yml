@@ -2,100 +2,58 @@ image: ocaml/opam:debian-12-opam
 
 stages:
   - setup
-  - lint 
-  - build
+  - lint
   - test
   - release
+  - docs
+#  - deploy
 
+# --- Cache template ---
+.opam_cache: &opam_cache
+  cache:
+    key:
+      files:
+        - metrocaml.opam
+    paths:
+      - _opam
+
+# --- Setup ---
 setup:
   stage: setup
-
-  cache:
-    key:
-      files:
-        - metrocaml.opam
-    paths:
-      - _opam
-
+  <<: *opam_cache
   script:
-    - | 
-      if [ -d _opam ]; then
-        echo "Reusing previous _opam directory, nothing to do."
-      else
-        echo "No _opam directory found, creating opam switch"
-        opam switch create --yes --no-install . 5.3.0
-        opam update
-      fi
+    - opam switch create --yes --no-install . 5.3.0 || true
+    - opam update
+    - eval $(opam env)
+    - opam install . --deps-only --with-test --with-doc --yes
 
-      eval $(opam env)
-      opam install . --deps-only --with-test --with-doc --yes
-      
-
-
+# --- Lint ---
 lint:
   stage: lint
-
-  cache:
-    key:
-      files:
-        - metrocaml.opam
-    paths:
-      - _opam
-
+  <<: *opam_cache
   script:
-    - | 
-      opam exec -- dune build @fmt
+    - opam exec -- dune build @fmt
 
-
-
-
-build:
-  stage: build
-
-  script:
-    - |
-      opam exec -- dune build @runtest
-
-  cache:
-    key:
-      files:
-        - metrocaml.opam
-    paths:
-      - _opam
-
-  artifacts:
-    name: "$CI_JOB_NAME"
-    when: on_success
-    paths:
-      - _build
-
+# --- Test ---
 test:
   stage: test
-  
-  dependencies:
-    - build
-  
+  <<: *opam_cache
   script:
-    - eval $(opam env)
     - opam exec -- dune test --instrument-with bisect_ppx -f
     - opam exec -- bisect-ppx-report summary
+    - opam exec -- bisect-ppx-report html -o _coverage/html
     - opam exec -- bisect-ppx-report cobertura _coverage/cobertura-coverage.xml
-
   coverage: '/Coverage: \d+\/\d+ \((\d+\.\d+%)\)/'
-
-  cache:
-    key:
-      files:
-        - metrocaml.opam
-    paths:
-      - _opam
-
   artifacts:
+    paths:
+      - _build
+      - _coverage/html
     reports:
       coverage_report:
         coverage_format: cobertura
         path: _coverage/cobertura-coverage.xml
 
+# --- Release ---
 release:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
@@ -108,3 +66,32 @@ release:
         --name "Release v${VERSION}" \
         --tag-name "$CI_COMMIT_TAG" \
         --description "$(cat CHANGELOG.md)"
+
+# --- Docs ---
+docs:
+  stage: docs
+  <<: *opam_cache
+  dependencies:
+    - test
+  script:
+    - opam exec -- dune build @doc
+    - mkdir -p public
+    - cp -r _build/default/_doc/_html public/docs
+    - cp -r _coverage/html public/coverage
+  artifacts:
+    paths:
+      - public
+
+# --- Deploy (GitLab Pages) ---   ## Désactivé sur le serveur Moule
+# pages:
+#   stage: deploy
+#   dependencies:
+#     - docs
+#   script:
+#     - echo "Deploying docs and coverage to GitLab Pages"
+#   pages: true
+#   artifacts:
+#     paths:
+#       - public
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "main"
