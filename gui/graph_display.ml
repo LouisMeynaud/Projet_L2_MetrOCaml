@@ -2,6 +2,7 @@
 open Bogue
 open Gui_types
 open Gui_draw
+open Gui_utils
 
 
 (* ================================================== *)
@@ -208,17 +209,90 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let barre_ligne_h = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_ligne_h in
   let barre_arret_h = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_arret_h in
 
-  let horaires_row_w = max 150 (panel_width - 20) in
+  let horaires_row_w = max 150 (panel_width - 26) in
+  let horaires_row_h = 30 in
+  let color_cell_w = 16 in
+  let max_search_results = 24 in
 
-  let result_box = Layout.tower [] in
+  (* Création des 24 cases de résultats (invisibles par défaut) *)
+  let result_keys = Array.make max_search_results None in (* stocke les clés des résultats *)
+  let result_buttons = Array.init max_search_results (fun _ -> Widget.button "") in (*les boutons vide au depart*)
+  let color_cells = Array.init max_search_results (fun _ -> (* les petit carrée de couleur*)
+    Layout.empty ~w:color_cell_w ~h:horaires_row_h ()
+  ) in
+  (* Chaque ligne de résultat est un Layout combinant une cellule de couleur et un bouton *)
+  let result_rows = Array.init max_search_results (fun i ->
+    let text_cell_w = max 90 (horaires_row_w - color_cell_w - 4) in
+    let btn_cell = Layout.resident ~w:text_cell_w ~h:horaires_row_h result_buttons.(i) in
+    let row = Layout.flat ~sep:4 ~align:Draw.Center [color_cells.(i); btn_cell] in
+    Layout.set_show row false; (* Caché au démarrage *)
+    row
+  ) in
+
   let direction_box = Layout.tower [] in
   let table_box = Layout.tower [] in
 
+  let result_box = Layout.tower (Array.to_list result_rows) in
   let result_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:220 result_box in
   let direction_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:110 direction_box in
   let table_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:250 table_box in
 
-  let launch_horaire_search () = () in
+  (* suppression des résultats *)
+  let clear_result_rows () =
+    for i = 0 to max_search_results - 1 do
+      result_keys.(i) <- None;
+      Layout.set_background color_cells.(i) None;
+      Layout.set_show result_rows.(i) false
+    done
+  in
+
+  (* Fonction pour enlever les doublons de ligne+station dans les résultats de recherche d'horaires *)
+  let dedupe_line_station items =
+    let resultat = Hashtbl.create 128 in
+    List.filter (fun (elt : schedule_item) ->
+      let key = normalize elt.mode_name ^ "|" ^ normalize elt.line_name ^ "|" ^ elt.station_id in
+      if Hashtbl.mem resultat key then false else (Hashtbl.add resultat key true; true)
+    ) items
+  in
+
+  (* Fonction pour afficher les résultats de recherche d'horaires *)
+  let set_result_rows entries =
+    let limited = List.filteri (fun i _ -> i < max_search_results) entries in (*on garde que les premeier*)
+    List.iteri (fun i (elt : schedule_item) ->
+      result_keys.(i) <- Some (elt.mode_name, elt.line_name, elt.station_id);
+      let r, g, b = hex_to_rgb elt.line_color in
+      Layout.set_background color_cells.(i) (Some (Layout.color_bg (rgb_to_bogue (r, g, b)))); (*transforme en couleur bogue*)
+      Widget.set_text result_buttons.(i) (Printf.sprintf "%s|%s | %s" elt.mode_name elt.line_name elt.station_name);
+      Layout.set_show result_rows.(i) true 
+    ) limited
+  in
+
+  (* Fonction pour lancer la recherche d'horaires à partir des champs de saisie *)
+  let launch_horaire_search () =
+    clear_result_rows (); 
+
+    let q_line = normalize (Widget.get_text input_ligne_h) in
+    let q_stop = normalize (Widget.get_text input_arret_h) in
+    
+    if q_line = "" && q_stop = "" then 
+      Widget.set_text label_h_info "Saisissez une ligne, un arret, ou les deux."
+    else begin
+      (* On filtre les horaires selon la ligne et/ou l'arrêt saisis, en supprimant les doublons de ligne+station *)
+      let filtered =
+        schedule_items
+        |> List.filter (fun elt -> Gui_utils.contains_ci elt.line_name q_line && Gui_utils.contains_ci elt.station_name q_stop)
+        |> dedupe_line_station
+      in
+      let count = List.length filtered in (*le nombre de station a affichée*)
+      
+      if count = 0 then 
+        Widget.set_text label_h_info "Aucun resultat."
+      else begin
+        Widget.set_text label_h_info (Printf.sprintf "%d resultat(s) trouve(s)." count);
+        set_result_rows filtered (*on affiche les résultats*)
+      end
+    end
+  in
 
   let contenu_horaires = Layout.tower ~align:Draw.Center [
     Layout.resident ~w:horaires_row_w label_horaires;
