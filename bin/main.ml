@@ -109,6 +109,7 @@ let () =
     | "Ile-de-France" -> "https://eu.ftp.opendatasoft.com/stif/GTFS/IDFM-gtfs.zip"
     | _ -> failwith "Ville inconnue"
   in
+
   let date_cible = today_yyyymmdd () in
   let heure_min = 8 * 3600 in  
 
