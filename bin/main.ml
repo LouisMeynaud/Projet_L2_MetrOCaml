@@ -61,7 +61,6 @@ let () =
           let (module Routeur : ALGO) =
             if algo = "BFS" then (module BFS_HopWeight)
             else
-<<<<<<< bin/main.ml
               match poids with
                 | "Distance"        -> (module DIJKSTRA_DistanceWeight)
                 | "Arrets"          -> (module DIJKSTRA_HopWeight)
