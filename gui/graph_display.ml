@@ -191,6 +191,54 @@ let run noeuds aretes algos poids_list on_search =
   in
 
   let mode_selection_carte = ref `Aucun in
+
+  (* ================================================== *)
+  (*                 ONGLET HORRAIRE                    *)
+  (* ================================================== *)
+
+  let label_horaires = Widget.label "Recherche d'horraires" in
+  let label_ligne_h = Widget.label "Ligne" in
+  let label_arret_h = Widget.label "Arret" in
+  let input_ligne_h = Widget.text_input ~prompt:"Ex : 3" () in
+  let input_arret_h = Widget.text_input ~prompt:"Ex : Republique" () in
+  let label_h_info = Widget.label "Saisissez une ligne ou un arret ou les deux" in
+  let label_dir = Widget.label "Direction" in
+  let label_table = Widget.label "Horraires" in
+
+  let barre_ligne_h = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_ligne_h in
+  let barre_arret_h = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_arret_h in
+
+  let horaires_row_w = max 150 (panel_width - 20) in
+
+  let result_box = Layout.tower [] in
+  let direction_box = Layout.tower [] in
+  let table_box = Layout.tower [] in
+
+  let result_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:220 result_box in
+  let direction_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:110 direction_box in
+  let table_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:250 table_box in
+
+  let launch_horaire_search () = () in
+
+  let contenu_horaires = Layout.tower ~align:Draw.Center [
+    Layout.resident ~w:horaires_row_w label_horaires;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:horaires_row_w label_ligne_h;
+    barre_ligne_h;
+    Layout.empty ~w:1 ~h:6 ();
+    Layout.resident ~w:horaires_row_w label_arret_h;
+    barre_arret_h;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:horaires_row_w label_h_info;
+    Layout.empty ~w:1 ~h:8 ();
+    result_box_clip;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:horaires_row_w label_dir;
+    direction_box_clip;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:horaires_row_w label_table;
+    table_box_clip;
+  ] in
   
   (* -------------------- Contenu des onglets -------------------- *)
 
@@ -226,9 +274,10 @@ let run noeuds aretes algos poids_list on_search =
 
   (* On cache la recherche au démarrage *)
   Layout.set_show contenu_recherche false;
+  Layout.set_show contenu_horaires false;
 
   (* Les contenus d'onglets se superposent pour conserver la meme position visuelle. *)
-  let zone_onglet = Layout.superpose [contenu_itineraire; contenu_recherche] in
+  let zone_onglet = Layout.superpose [contenu_itineraire; contenu_recherche; contenu_horaires] in
   let h_zone_onglet = max 220 (!hauteur - 70) in
   let zone_onglet_scroll = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:h_zone_onglet zone_onglet in
 
@@ -243,6 +292,8 @@ let run noeuds aretes algos poids_list on_search =
     Layout.resident tab_recherche;
     Layout.resident tab_horaires;
   ] in
+
+
 
   (* ================================================== *)
   (*                 LOGIQUE UI / ETAT                 *)
@@ -283,9 +334,10 @@ let run noeuds aretes algos poids_list on_search =
     Widget.set_text btn_select_arrivee "Selection carte"
   in
 
-  let switch_tab ~show_itineraire ~show_recherche =
+  let switch_tab ~show_itineraire ~show_recherche ~show_horaires =
     Layout.set_show contenu_itineraire show_itineraire;
     Layout.set_show contenu_recherche show_recherche;
+    Layout.set_show contenu_horaires show_horaires;
     reset_selection_mode ();
     rafraichir_ecran !current_etat
   in
@@ -320,12 +372,19 @@ let run noeuds aretes algos poids_list on_search =
 
   (* Connexions des Onglets *)
   let conn_tab_iti = Widget.connect tab_itineraire tab_itineraire (fun _ _ _ ->
-    switch_tab ~show_itineraire:true ~show_recherche:false
+    switch_tab ~show_itineraire:true ~show_recherche:false ~show_horaires:false
   ) Trigger.buttons_down in
 
   let conn_tab_rech = Widget.connect tab_recherche tab_recherche (fun _ _ _ ->
-    switch_tab ~show_itineraire:false ~show_recherche:true
+    switch_tab ~show_itineraire:false ~show_recherche:true ~show_horaires:false
   ) Trigger.buttons_down in
+
+  let conn_tab_hor = Widget.connect tab_horaires tab_horaires (fun _ _ _ ->
+    switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:true
+  ) Trigger.buttons_down in
+
+  let conn_input_ligne_h = Widget.connect input_ligne_h input_ligne_h (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
+  let conn_input_arret_h = Widget.connect input_arret_h input_arret_h (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
 
   let conn_select_depart = Widget.connect btn_select_depart btn_select_depart (fun _ _ _ ->
     begin_map_selection `Depart
@@ -578,7 +637,7 @@ let run noeuds aretes algos poids_list on_search =
   Layout.on_resize layout_carte apply_map_resize;
 
   (* On rassemble toutes les connexions pour les passer à la fenêtre *)
-  let connexions = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids) in
+  let connexions = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids) in
   let fenetre = Main.of_layout ~connections:connexions interface in
 
   (* -------------------- Boucle de rendu -------------------- *)
