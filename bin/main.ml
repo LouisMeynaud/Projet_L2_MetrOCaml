@@ -34,7 +34,7 @@ let today_yyyymmdd () =
     tm.Unix.tm_mday
 
 let () =
-  let town = raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France" ] in
+  let town = Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France" ] in
   let url =
     match town with
     | "Toulouse" -> "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77"
@@ -45,14 +45,12 @@ let () =
   in
 
   let date_cible = today_yyyymmdd () in
-  let heure_min = 8 * 3600 in  
-
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
 
   try
-    let graphe = Gtfs_adapter.load_network_from_url url date_cible heure_min in
-    
+    let graphe = Gtfs_adapter.load_network_from_url url date_cible in
+
     flush stdout;
     
     let search_callback source_id dest_id algo poids coeffs =
