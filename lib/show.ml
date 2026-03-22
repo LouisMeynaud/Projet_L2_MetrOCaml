@@ -35,68 +35,101 @@ let colorize_hex hex text =
 
 let change_arrow node_name line nb_stops color =
   let arrow = Printf.sprintf " --[%s | %d arrets] --> " line nb_stops in
-    let colored_arrow = colorize_hex color arrow in
-        let final_arrow = Printf.sprintf "%s%s\n" colored_arrow node_name
-in final_arrow
-
+  let colored_arrow = colorize_hex color arrow in
+  let final_arrow = Printf.sprintf "%s%s\n" colored_arrow node_name in
+  final_arrow
 
 let simple_arrow node_name color =
-    let arrow = Printf.sprintf " ---> " in
-      let colored_arrow = colorize_hex color arrow in
-        let final_arrow = Printf.sprintf "%s%s" colored_arrow node_name
-in final_arrow
-
+  let arrow = Printf.sprintf " ---> " in
+  let colored_arrow = colorize_hex color arrow in
+  let final_arrow = Printf.sprintf "%s%s" colored_arrow node_name in
+  final_arrow
 
 module Make (P : Routing.PATH) = struct
+  let calcul_temps_distance edge_to_duration edge_to_distance steps =
+    List.fold_left
+      (fun (t, d) (step : P.step) ->
+        (t + edge_to_duration step.edge, d +. edge_to_distance step.edge))
+      (0, 0.0) steps
 
-  let calcul_temps_distance edge_to_duration edge_to_distance steps = 
-  List.fold_left (fun (t, d) (step : P.step) ->
-    (t + edge_to_duration step.edge, d +. edge_to_distance step.edge)) (0, 0.0) steps
+  let init node_to_string (steps : P.step list) =
+    ( node_to_string (List.hd steps).from,
+      node_to_string (List.hd (List.rev steps)).to_node )
 
-  let init node_to_string (steps : P.step list) = (node_to_string (List.hd (steps)).from, node_to_string (List.hd (List.rev steps)).to_node )
-
-  let print_path node_to_string edge_to_string weight_to_string edge_to_color edge_to_duration edge_to_distance details (path : P.t) =
+  let print_path node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance details (path : P.t) =
     match path.steps with
     | [] -> Printf.printf "Chemin vide\n"
     | first_step :: _ ->
-      let start, stop = init node_to_string path.steps  in
+        let start, stop = init node_to_string path.steps in
         let _, _, _, stops, transferts, segments =
           List.fold_left
-            (fun (prev_line, prev_step_to, prev_color, stops, transferts, acc) (step : P.step) ->
+            (fun (prev_line, prev_step_to, prev_color, stops, transferts, acc)
+                 (step : P.step) ->
               let current_line = edge_to_string step.edge in
               let color = edge_to_color step.edge in
-              let step_to = node_to_string step.to_node in 
+              let step_to = node_to_string step.to_node in
               match prev_line with
               (* premier arrêt *)
-              | None -> (Some current_line, step_to , color, 1, transferts, acc)
+              | None -> (Some current_line, step_to, color, 1, transferts, acc)
               (* Dernier arrêt *)
-              | Some prev_l when (stop = node_to_string step.to_node) ->
-                  let from_arrow, arret= if details then 
-                    if prev_l = current_line then 
-                      simple_arrow (node_to_string step.from) color, stops
-                    else 
-                      (change_arrow prev_step_to prev_l stops prev_color) ^ (node_to_string step.from), 0
-                    else 
-                      ("", stops)
-                  in 
-                  let to_arrow = change_arrow (node_to_string step.to_node) current_line (arret+1) color in 
+              | Some prev_l when stop = node_to_string step.to_node ->
+                  let from_arrow, arret =
+                    if details then
+                      if prev_l = current_line then
+                        (simple_arrow (node_to_string step.from) color, stops)
+                      else
+                        ( change_arrow prev_step_to prev_l stops prev_color
+                          ^ node_to_string step.from,
+                          0 )
+                    else ("", stops)
+                  in
+                  let to_arrow =
+                    change_arrow
+                      (node_to_string step.to_node)
+                      current_line (arret + 1) color
+                  in
 
-                    (Some current_line, step_to , color, 1, transferts,  (from_arrow ^ to_arrow) :: acc)
+                  ( Some current_line,
+                    step_to,
+                    color,
+                    1,
+                    transferts,
+                    (from_arrow ^ to_arrow) :: acc )
               (*même ligne donc on accumule les arrêts *)
               | Some prev_l when prev_l = current_line ->
-                  if details then 
+                  if details then
                     let arrow = simple_arrow (node_to_string step.from) color in
-                      (Some current_line, step_to , color, stops + 1, transferts, arrow :: acc)
+                    ( Some current_line,
+                      step_to,
+                      color,
+                      stops + 1,
+                      transferts,
+                      arrow :: acc )
                   else
-                    (Some current_line,step_to , color, stops + 1, transferts, acc)
+                    ( Some current_line,
+                      step_to,
+                      color,
+                      stops + 1,
+                      transferts,
+                      acc )
               (* changement de ligne *)
               | Some prev_l ->
-                  let arrow = change_arrow (prev_step_to) prev_l stops prev_color in
-                    (Some current_line, step_to , color, 1, transferts + 1, (arrow ^ (node_to_string step.from)) :: acc))
-            (None,"", "", 0, 0, []) path.steps
+                  let arrow =
+                    change_arrow prev_step_to prev_l stops prev_color
+                  in
+                  ( Some current_line,
+                    step_to,
+                    color,
+                    1,
+                    transferts + 1,
+                    (arrow ^ node_to_string step.from) :: acc ))
+            (None, "", "", 0, 0, []) path.steps
         in
         (* Temps et Distance *)
-        let total_time, total_distance = calcul_temps_distance edge_to_duration edge_to_distance path.steps in
+        let total_time, total_distance =
+          calcul_temps_distance edge_to_duration edge_to_distance path.steps
+        in
         (*Affichage*)
         let route = "\n" ^ start ^ String.concat "" (List.rev segments) in
         Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
@@ -106,5 +139,5 @@ module Make (P : Routing.PATH) = struct
         Printf.printf "Temps total : %dh %dmin %ds\n" (total_time / 3600)
           (total_time / 60 mod 60)
           (total_time mod 60);
-        Printf.printf "Distance totale : %f km\n" (total_distance /. 1000.);
+        Printf.printf "Distance totale : %f km\n" (total_distance /. 1000.)
 end
