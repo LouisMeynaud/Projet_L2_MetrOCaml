@@ -67,8 +67,27 @@ let next_day_str yyyymmdd =
     else Printf.sprintf "%04d0101" (y + 1)
   with _ -> yyyymmdd
 
+(** Convertit des degrés en radians *)
+let to_radians deg = deg *. (4.0 *. atan 1.0) /. 180.0
+
+(** Calcule la distance en mètres entre deux coordonnées GPS (Formule de
+    Haversine) *)
+let haversine_distance lat1 lon1 lat2 lon2 =
+  let r = 6371000.0 in
+  let phi1 = to_radians lat1 in
+  let phi2 = to_radians lat2 in
+  let delta_phi = to_radians (lat2 -. lat1) in
+  let delta_lambda = to_radians (lon2 -. lon1) in
+
+  let a =
+    (sin (delta_phi /. 2.0) ** 2.0)
+    +. (cos phi1 *. cos phi2 *. (sin (delta_lambda /. 2.0) ** 2.0))
+  in
+  let c = 2.0 *. atan2 (sqrt a) (sqrt (1.0 -. a)) in
+  r *. c
+
 (* --- 2. Chargement --- *)
-let load_network_gtfs directory target_date target_time_seconds =
+let load_network_gtfs directory target_date =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
@@ -205,60 +224,72 @@ let load_network_gtfs directory target_date target_time_seconds =
 
   (* C. Trips *)
   let valid_trips = Hashtbl.create 5000 in
-  let t_csv = Csv.load (Filename.concat directory "trips.txt") in
-  let t_header = List.hd t_csv in
-  let i_tid = get_index t_header "trip_id" in
-  let i_tsid = get_index t_header "service_id" in
-  let i_trid = get_index t_header "route_id" in
+  let t_path = Filename.concat directory "trips.txt" in
+  if Sys.file_exists t_path then begin
+    let t_ic = open_in t_path in
+    let t_csv = Csv.of_channel t_ic in
+    let t_header = Csv.next t_csv in
+    let i_tid = get_index t_header "trip_id" in
+    let i_tsid = get_index t_header "service_id" in
+    let i_trid = get_index t_header "route_id" in
 
-  List.iter
-    (fun row ->
-      let sid = List.nth row i_tsid in
-      if Hashtbl.mem valid_services sid then
-        let line_obj, mode =
-          try Hashtbl.find route_info (List.nth row i_trid)
-          with Not_found -> ({ name = "?"; color = "000000" }, Bus)
-        in
-        Hashtbl.add valid_trips (List.nth row i_tid) (line_obj, mode, sid))
-    (List.tl t_csv);
+    Csv.iter
+      ~f:(fun row ->
+        let sid = try List.nth row i_tsid with _ -> "" in
+        if Hashtbl.mem valid_services sid then
+          let line_obj, mode =
+            try Hashtbl.find route_info (List.nth row i_trid)
+            with Not_found ->
+              ({ Network.name = "?"; color = "000000" }, Network.Bus)
+          in
+          Hashtbl.add valid_trips (List.nth row i_tid) (line_obj, mode, sid))
+      t_csv;
+    close_in t_ic
+  end;
 
-  (* D. Stops (FUSION DES AREAS) *)
+  (* D. Stops *)
   let stop_to_area = Hashtbl.create 5000 in
   let area_nodes = Hashtbl.create 1000 in
+  let s_path = Filename.concat directory "stops.txt" in
+  if Sys.file_exists s_path then begin
+    let s_ic = open_in s_path in
+    let s_csv = Csv.of_channel s_ic in
+    let s_header = Csv.next s_csv in
+    let i_sid = get_index s_header "stop_id" in
+    let i_sname = get_index s_header "stop_name" in
+    let i_lat = get_index s_header "stop_lat" in
+    let i_lon = get_index s_header "stop_lon" in
+    let i_parent_opt = get_index_opt s_header "parent_station" in
 
-  let s_csv = Csv.load (Filename.concat directory "stops.txt") in
-  let s_header = List.hd s_csv in
-  let i_sid = get_index s_header "stop_id" in
-  let i_sname = get_index s_header "stop_name" in
-  let i_lat = get_index s_header "stop_lat" in
-  let i_lon = get_index s_header "stop_lon" in
-  let i_parent_opt = get_index_opt s_header "parent_station" in
-
-  List.iter
-    (fun row ->
-      let raw_id = List.nth row i_sid in
-      (* On cherche si cet arrêt a une Area parent *)
-      let parent_id =
-        match i_parent_opt with
-        | Some idx ->
-            let p = try String.trim (List.nth row idx) with _ -> "" in
-            if p = "" then raw_id else p
-        | None -> raw_id
-      in
-      Hashtbl.replace stop_to_area raw_id parent_id;
-      let station =
-        {
-          Network.id = parent_id;
-          name = List.nth row i_sname;
-          latitude = float_of_string (List.nth row i_lat);
-          longitude = float_of_string (List.nth row i_lon);
-          pmr = false;
-        }
-      in
-      if raw_id = parent_id then Hashtbl.replace area_nodes parent_id station
-      else if not (Hashtbl.mem area_nodes parent_id) then
-        Hashtbl.add area_nodes parent_id station)
-    (List.tl s_csv);
+    Csv.iter
+      ~f:(fun row ->
+        try
+          let raw_id = List.nth row i_sid in
+          let parent_id =
+            match i_parent_opt with
+            | Some idx ->
+                let p = try String.trim (List.nth row idx) with _ -> "" in
+                if p = "" then raw_id else p
+            | None -> raw_id
+          in
+          Hashtbl.replace stop_to_area raw_id parent_id;
+          let station =
+            {
+              Network.id = parent_id;
+              name = List.nth row i_sname;
+              latitude = float_of_string (List.nth row i_lat);
+              longitude = float_of_string (List.nth row i_lon);
+              pmr = false;
+            }
+          in
+          if raw_id = parent_id then
+            Hashtbl.replace area_nodes parent_id station
+          else if not (Hashtbl.mem area_nodes parent_id) then
+            Hashtbl.add area_nodes parent_id station
+        with _ -> ())
+      s_csv;
+    close_in s_ic
+  end;
   Hashtbl.iter (fun _ st -> Network.TransportGraph.add_node graph st) area_nodes;
 
   (* E. Stop Times *)
@@ -269,7 +300,7 @@ let load_network_gtfs directory target_date target_time_seconds =
   let i_st_arr = get_index st_header "arrival_time" in
   let i_st_dep = get_index st_header "departure_time" in
   let i_st_id = get_index st_header "stop_id" in
-
+  let i_st_dist_opt = get_index_opt st_header "shape_dist_traveled" in
   let last_trip_state = ref None in
   let edges_acc = Hashtbl.create 10000 in
   Csv.iter
@@ -283,9 +314,16 @@ let load_network_gtfs directory target_date target_time_seconds =
         in
         let arr_time = time_to_seconds (List.nth row i_st_arr) in
         let dep_time = time_to_seconds (List.nth row i_st_dep) in
+        let current_dist_opt =
+          match i_st_dist_opt with
+          | Some idx -> (
+              try Some (float_of_string (List.nth row idx)) with _ -> None)
+          | None -> None
+        in
         let line_obj, m, sid = Hashtbl.find valid_trips tid in
         match !last_trip_state with
-        | Some (prev_tid, prev_area, prev_dep) when prev_tid = tid ->
+        | Some (prev_tid, prev_area, prev_dep, prev_dist_opt)
+          when prev_tid = tid ->
             if prev_area <> area_id then begin
               match
                 ( Hashtbl.find_opt area_nodes prev_area,
@@ -294,16 +332,22 @@ let load_network_gtfs directory target_date target_time_seconds =
               | Some f, Some t -> (
                   let key = (f.id, t.id, line_obj.name) in
                   let duration = max (arr_time - prev_dep) 0 in
+                  let edge_gtfs_dist =
+                    match (prev_dist_opt, current_dist_opt) with
+                    | Some d1, Some d2 when d2 > d1 -> Some (d2 -. d1)
+                    | _ -> None
+                  in
                   let active_offsets =
                     try Hashtbl.find valid_services sid
                     with Not_found -> [ 0 ]
                   in
                   match Hashtbl.find_opt edges_acc key with
-                  | Some (_, _, _, _, _, schedules_ref) ->
+                  | Some (_, _, _, _, _, schedules_ref, dist_ref) ->
                       List.iter
                         (fun offset ->
                           schedules_ref := (prev_dep + offset) :: !schedules_ref)
-                        active_offsets
+                        active_offsets;
+                      if !dist_ref = None then dist_ref := edge_gtfs_dist
                   | None ->
                       let initial_schedules =
                         List.map
@@ -311,11 +355,17 @@ let load_network_gtfs directory target_date target_time_seconds =
                           active_offsets
                       in
                       Hashtbl.add edges_acc key
-                        (f, t, line_obj, duration, m, ref initial_schedules))
+                        ( f,
+                          t,
+                          line_obj,
+                          duration,
+                          m,
+                          ref initial_schedules,
+                          ref edge_gtfs_dist ))
               | _ -> ()
             end;
-            last_trip_state := Some (tid, area_id, dep_time)
-        | _ -> last_trip_state := Some (tid, area_id, dep_time)
+            last_trip_state := Some (tid, area_id, dep_time, current_dist_opt)
+        | _ -> last_trip_state := Some (tid, area_id, dep_time, current_dist_opt)
       end)
     st_csv;
 
@@ -323,14 +373,20 @@ let load_network_gtfs directory target_date target_time_seconds =
 
   (* F. Construction finale des arêtes avec listes triées *)
   Hashtbl.iter
-    (fun _ (f, t, line_obj, duration, m, schedules_ref) ->
+    (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref) ->
       let sorted_schedules = List.sort compare !schedules_ref in
+      let dist_meters =
+        match !dist_ref with
+        | Some d -> d
+        | None ->
+            haversine_distance f.latitude f.longitude t.latitude t.longitude
+      in
       let conn =
         {
           Network.line = line_obj;
           Network.duration;
           Network.schedules = sorted_schedules;
-          Network.distance = 0.;
+          Network.distance = dist_meters;
           Network.mode = m;
         }
       in
@@ -394,12 +450,12 @@ let download_and_extract_gtfs url dest_dir =
 
   Printf.printf "Donnees pretes dans le dossier : %s\n\n" dest_dir
 
-let load_network_from_url url target_date target_time =
+let load_network_from_url url target_date =
   let temp_base = Filename.get_temp_dir_name () in
   let temp_dir = Filename.concat temp_base "metrocaml_gtfs" in
   try
     download_and_extract_gtfs url temp_dir;
-    let graph = load_network_gtfs temp_dir target_date target_time in
+    let graph = load_network_gtfs temp_dir target_date in
     let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
     let cmd_cleanup =
       if is_win then Printf.sprintf "rmdir /S /Q \"%s\"" temp_dir

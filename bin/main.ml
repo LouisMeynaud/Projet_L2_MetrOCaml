@@ -34,7 +34,7 @@ let today_yyyymmdd () =
     tm.Unix.tm_mday
 
 let () =
-  let town = raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France" ] in
+  let town = Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France" ] in
   let url =
     match town with
     | "Toulouse" -> "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77"
@@ -45,13 +45,11 @@ let () =
   in
 
   let date_cible = today_yyyymmdd () in
-  let heure_min = 8 * 3600 in  
-
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
 
   try
-    let graphe = Gtfs_adapter.load_network_from_url url date_cible heure_min in
+    let graphe = Gtfs_adapter.load_network_from_url url date_cible in
     flush stdout;
     
     let search_callback source_id dest_id algo poids coeffs =
@@ -83,25 +81,27 @@ let () =
                 | _                 -> (module DIJKSTRA_TimeWeight)
               in
           let module ShowPath = Show.Make (Routeur.P) in
-          match Routeur.find_path ~graph:graphe ~source ~destination with
-          | Some p ->
-              ShowPath.print_path
-                (fun s -> s.name)
-                (fun (c : Network.connection) -> c.line.name)
-                Routeur.P.Weight.to_string
-                (fun (c : Network.connection) -> c.line.color)
-                (fun (c : Network.connection) -> c.duration)
-                (fun (c : Network.connection) -> c.distance)
-                (Printf.printf
-                   "Choisissez l'affichage que vous voulez (1 : Normal) (2 : \
-                    Détaillés) \n\
-                    %!";
-                 match raw_select "" [ "1"; "2" ] with
-                 | "1" -> false
-                 | _ -> true)
-                p;
-              flush stdout
-          | None -> Printf.printf "Aucun chemin trouvé.\n%!")
+          begin
+            match Routeur.find_path ~graph:graphe ~source ~destination with
+            | Some p ->
+                ShowPath.print_path
+                  (fun s -> s.name)
+                  (fun (c : Network.connection) -> c.line.name)
+                  Routeur.P.Weight.to_string
+                  (fun (c : Network.connection) -> c.line.color)
+                  (fun (c : Network.connection) -> c.duration)
+                  (fun (c : Network.connection) -> c.distance)
+                  (Printf.printf
+                     "Choisissez l'affichage que vous voulez (1 : Normal) (2 : \
+                      Détaillés) \n\
+                      %!";
+                   match Cli.Console.raw_select "" [ "1"; "2" ] with
+                   | "1" -> false
+                   | _ -> true)
+                  p;
+                flush stdout
+            | None -> Printf.printf "Aucun chemin trouvé.\n%!"
+          end
       | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
     in
 
