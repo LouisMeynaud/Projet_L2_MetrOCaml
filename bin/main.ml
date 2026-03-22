@@ -50,7 +50,6 @@ let () =
 
   try
     let graphe = Gtfs_adapter.load_network_from_url url date_cible in
-
     flush stdout;
     
     let search_callback source_id dest_id algo poids coeffs =
@@ -60,7 +59,7 @@ let () =
           let (module Routeur : ALGO) =
             if algo = "BFS" then (module BFS_HopWeight)
             else
-                match poids with
+              match poids with
                 | "Distance"        -> (module DIJKSTRA_DistanceWeight)
                 | "Arrets"          -> (module DIJKSTRA_HopWeight)
                 | "Temps"           -> (module DIJKSTRA_TimeWeight)
@@ -81,16 +80,28 @@ let () =
                      (module DIJKSTRA_CombinedWeight)
                 | _                 -> (module DIJKSTRA_TimeWeight)
               in
-          let module ShowPath = Show.Make(Routeur.P) in
-          (match Routeur.find_path ~graph:graphe ~source ~destination with
-                  | Some p -> ShowPath.print_path 
-                        (fun s -> s.name) 
-                        (fun (c : Network.connection) -> c.line.name)
-                        Routeur.P.Weight.to_string
-                        (fun (c : Network.connection) -> c.line.color)
-                        p;
-                    flush stdout;
-        | None -> Printf.printf "Aucun chemin trouvé.\n%!")
+          let module ShowPath = Show.Make (Routeur.P) in
+          begin
+            match Routeur.find_path ~graph:graphe ~source ~destination with
+            | Some p ->
+                ShowPath.print_path
+                  (fun s -> s.name)
+                  (fun (c : Network.connection) -> c.line.name)
+                  Routeur.P.Weight.to_string
+                  (fun (c : Network.connection) -> c.line.color)
+                  (fun (c : Network.connection) -> c.duration)
+                  (fun (c : Network.connection) -> c.distance)
+                  (Printf.printf
+                     "Choisissez l'affichage que vous voulez (1 : Normal) (2 : \
+                      Détaillés) \n\
+                      %!";
+                   match Cli.Console.raw_select "" [ "1"; "2" ] with
+                   | "1" -> false
+                   | _ -> true)
+                  p;
+                flush stdout
+            | None -> Printf.printf "Aucun chemin trouvé.\n%!"
+          end
       | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
     in
 
