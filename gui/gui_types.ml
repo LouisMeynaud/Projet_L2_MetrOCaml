@@ -24,6 +24,18 @@ type etat = {
   camera_y : float;
   zoom : float;
 }
+
+type schedule_item = {
+  mode_name : string;
+  line_name : string;
+  line_color : int;
+  station_id : string;
+  station_name : string;
+  direction : string;
+  times : int list;
+}
+
+
 let largeur = ref 1200
 let hauteur = ref 800
 let panel_w = 250 (* Largeur du panneau gauche *)
