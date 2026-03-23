@@ -37,7 +37,7 @@ let run_console graphe search_callback =
 
   let poids =
     if algo = "Dijkstra" then begin
-      raw_select "Choisissez le poids : " ["Temps"; "Distance"; "Arrets"; "Correspondances"; "Combinaison"];
+      raw_select "Choisissez le poids : " [ "Temps"; "Distance"; "Arrets"; "Correspondances"; "Rapide"; "Confort"; "Court chemin"; "Équilibré"; "Explorateur"; "Combinaison" ];
     end else ""
   in
 
