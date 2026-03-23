@@ -1,5 +1,3 @@
-(* bin/main.ml *)
-
 open Metrocaml
 open Weight
 open Routing
@@ -11,17 +9,13 @@ module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Wei
 module BFS_HopWeight                 = Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
 
 let find_station graphe id =
-  List.find_opt
-    (fun (s : Network.station) -> s.id = id)
-    (Network.TransportGraph.nodes graphe)
+  List.find_opt (fun (s : Network.station) -> s.id = id) (Network.TransportGraph.nodes graphe)
 
 module type ALGO = sig
-  module P :
-    Routing.PATH
-      with type Node.t = Network.station
-       and type Edge.t = Network.connection
+  module P : Routing.PATH with type Node.t = Network.station and type Edge.t = Network.connection
 
   val find_path :
+    start_time:int ->
     graph:Network.TransportGraph.t ->
     source:Network.station ->
     destination:Network.station ->
@@ -30,8 +24,7 @@ end
 
 let today_yyyymmdd () =
   let tm = Unix.localtime (Unix.time ()) in
-  Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1)
-    tm.Unix.tm_mday
+  Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 
 let () =
   let town = Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France" ] in
@@ -52,10 +45,9 @@ let () =
     let graphe = Gtfs_adapter.load_network_from_url url date_cible in
     flush stdout;
     
-    let search_callback source_id dest_id algo poids coeffs =
+    let search_callback source_id dest_id algo poids coeffs start_time =
       match find_station graphe source_id, find_station graphe dest_id with
       | Some source, Some destination ->
-
           let (module Routeur : ALGO) =
             if algo = "BFS" then
               (module struct

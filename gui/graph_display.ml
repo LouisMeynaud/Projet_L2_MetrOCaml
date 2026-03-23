@@ -550,16 +550,14 @@ let run noeuds aretes algos poids_list schedule_items on_search =
 
   (* Fonction pour lancer la recherche depuis l'onglet itinéraire ou après sélection sur la carte *)
   let launch_search source dest =
-    (* preparation de la recuperation du bool depart et de l'heure de depart , suprimer les ignore et les passer a on_search une fois les algo de temps fini*)
     let depart = !is_depart in
     let time_in_secondes = (!curr_heure * 3600) + (!curr_minute * 60) in
-    ignore(time_in_secondes); (* pour l'instant on ne l'utilise pas, mais ça permet d'éviter un warning *)
-    ignore depart; (* même chose pour le mode départ/arrivée *)
+    ignore depart;
     let c_temps = float_of_int (Slider.value (Widget.get_slider s_temps)) /. 100.0 in
     let c_dist = float_of_int (Slider.value (Widget.get_slider s_dist)) /. 100.0 in
     let c_arrets = float_of_int (Slider.value (Widget.get_slider s_arrets)) /. 100.0 in
     let c_corresp = float_of_int (Slider.value (Widget.get_slider s_corresp)) /. 100.0 in
-    on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp]
+    on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp] time_in_secondes
   in
 
   (* Connexions des Onglets *)
