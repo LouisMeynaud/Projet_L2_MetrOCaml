@@ -9,6 +9,14 @@ module HW = Metrocaml.Weight.HopWeight
 let hop_weight_t =
   Alcotest.testable (fun ppf w -> Fmt.string ppf (HW.to_string w)) HW.( = )
 
+let dummy_station : Metrocaml.Network.station ={
+  id = "La Station crée par Thomas(il est trop beau)";
+  name = "StationTest";
+  latitude = 3.14159;
+  longitude = 1.41421;
+  pmr = true; 
+}
+
 let test_hop_of_edge () =
   let dummy_line : Metrocaml.Network.line =
     { name = "Ligne 1"; color = "#FFBE00" }
@@ -20,6 +28,7 @@ let test_hop_of_edge () =
       distance = 500.0;
       mode = Metro;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let expected = HW.of_edge dummy_conn in
@@ -34,6 +43,7 @@ let test_hop_arithmetic () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let one = of_edge dummy_conn in
@@ -50,6 +60,7 @@ let test_hop_infinity () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let one = of_edge dummy_conn in
@@ -79,6 +90,7 @@ let test_time_of_edge () =
       distance = 500.0;
       mode = Metro;
       schedules = [];
+      terminus =dummy_station
     }
   in
   (* On vérifie via le texte pour contourner le type abstrait *)
@@ -96,6 +108,7 @@ let test_time_arithmetic () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let c2 =
@@ -105,6 +118,7 @@ let test_time_arithmetic () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let c_100 =
@@ -114,6 +128,7 @@ let test_time_arithmetic () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let w1 = of_edge c1 in
@@ -133,6 +148,7 @@ let test_time_compare () =
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   in
   let w_120 =
@@ -143,6 +159,7 @@ let test_time_compare () =
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   in
   Alcotest.(check bool) "Moins de temps gagne (<)" true (w_60 < w_120);
@@ -160,6 +177,7 @@ let test_time_infinity () =
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   in
   Alcotest.(check bool)
@@ -177,6 +195,7 @@ let test_time_to_string () =
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   in
   Alcotest.(check string) "Formatage 0s" "0s" (TimeW.to_string (make_w 0));
@@ -213,6 +232,7 @@ let test_distance_of_edge () =
       distance = 1500.0;
       mode = Metro;
       schedules = [];
+      terminus = dummy_station
     }
   in
   Alcotest.(check string)
@@ -229,6 +249,7 @@ let test_distance_arithmetic () =
       distance = 500.0;
       mode = Walk;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let c2 =
@@ -238,6 +259,7 @@ let test_distance_arithmetic () =
       distance = 750.0;
       mode = Walk;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let c_1250 =
@@ -247,6 +269,7 @@ let test_distance_arithmetic () =
       distance = 1250.0;
       mode = Walk;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let w1 = of_edge c1 in
@@ -268,6 +291,7 @@ let test_distance_compare () =
         distance = 500.0;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   in
   let w_750 =
@@ -278,6 +302,7 @@ let test_distance_compare () =
         distance = 750.0;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   in
   Alcotest.(check bool) "Moins de distance gagne (<)" true (w_500 < w_750);
@@ -295,6 +320,7 @@ let test_distance_infinity () =
         distance = 500.0;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   in
   Alcotest.(check distance_weight_t)
@@ -312,6 +338,7 @@ let test_distance_to_string () =
         distance = dist;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   in
   Alcotest.(check string) "Formatage 0 m" "0 m" (DW.to_string (make_w 0.0));
@@ -346,6 +373,7 @@ let test_cw_of_edge () =
       distance = 500.0;
       mode = Metro;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let weight = CW.of_edge conn in
@@ -363,6 +391,7 @@ let test_cw_arithmetic_same_line () =
       distance = 100.;
       mode = Metro;
       schedules = [];
+      terminus =dummy_station
     }
   in
   let w1 = CW.of_edge conn in
@@ -382,6 +411,7 @@ let test_cw_transfer_penalty () =
         distance = 100.;
         mode = Metro;
         schedules = [];
+        terminus =dummy_station
       }
   in
   let w_b =
@@ -392,6 +422,7 @@ let test_cw_transfer_penalty () =
         distance = 100.;
         mode = Metro;
         schedules = [];
+        terminus =dummy_station
       }
   in
 
@@ -409,6 +440,7 @@ let test_cw_transfer_penalty () =
            distance = 0.;
            mode = Metro;
            schedules = [];
+           terminus =dummy_station
          })
   in
   Alcotest.(check string)
@@ -425,6 +457,7 @@ let test_cw_neutral_and_inf () =
         distance = 100.;
         mode = Metro;
         schedules = [];
+        terminus =dummy_station
       }
   in
 
@@ -449,6 +482,7 @@ let test_cw_compare () =
            distance = 0.;
            mode = Metro;
            schedules = [];
+           terminus =dummy_station
          })
       (CW.of_edge
          {
@@ -457,6 +491,7 @@ let test_cw_compare () =
            distance = 0.;
            mode = Metro;
            schedules = [];
+           terminus =dummy_station
          })
   in
   let w_one_transfer =
@@ -468,6 +503,7 @@ let test_cw_compare () =
            distance = 0.;
            mode = Metro;
            schedules = [];
+           terminus =dummy_station
          })
       (CW.of_edge
          {
@@ -476,6 +512,7 @@ let test_cw_compare () =
            distance = 0.;
            mode = Metro;
            schedules = [];
+           terminus =dummy_station
          })
   in
 
@@ -512,6 +549,7 @@ module BFS_Tests = struct
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   end
 
@@ -529,6 +567,7 @@ module BFS_Tests = struct
       distance = 1000.0;
       mode = Metro;
       schedules = [];
+      terminus =dummy_station
     }
 
   (* Tests *)
@@ -624,6 +663,7 @@ module Dijkstra_Tests = struct
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus =dummy_station
       }
   end
 
@@ -641,6 +681,7 @@ module Dijkstra_Tests = struct
       distance = 0.;
       mode = Metro;
       schedules = [];
+      terminus =dummy_station
     }
 
   (* --- Tests --- *)

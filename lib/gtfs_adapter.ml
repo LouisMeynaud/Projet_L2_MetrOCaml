@@ -292,7 +292,28 @@ let load_network_gtfs directory target_date =
   end;
   Hashtbl.iter (fun _ st -> Network.TransportGraph.add_node graph st) area_nodes;
 
-  (* E. Stop Times *)
+(* E. Terminus *)
+let trip_terminus = Hashtbl.create 5000 in
+let st_path = Filename.concat directory "stop_times.txt" in
+if Sys.file_exists st_path then begin
+  let st_ic1 = open_in st_path in
+  let st_csv1 = Csv.of_channel st_ic1 in
+  let st_header1 = Csv.next st_csv1 in
+  let i_st_trip1 = get_index st_header1 "trip_id" in
+  let i_st_id1 = get_index st_header1 "stop_id" in
+
+  Csv.iter ~f:(fun row ->
+    let tid = try List.nth row i_st_trip1 with _ -> "" in
+    if Hashtbl.mem valid_trips tid then begin
+      let raw_stop_id = try List.nth row i_st_id1 with _ -> "" in
+      let area_id = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
+      Hashtbl.replace trip_terminus tid area_id
+    end
+  ) st_csv1;
+  close_in st_ic1
+end;
+
+  (* F. Stop Times *)
   let st_ic = open_in (Filename.concat directory "stop_times.txt") in
   let st_csv = Csv.of_channel st_ic in
   let st_header = Csv.next st_csv in
@@ -321,6 +342,10 @@ let load_network_gtfs directory target_date =
           | None -> None
         in
         let line_obj, m, sid = Hashtbl.find valid_trips tid in
+        let term_area_id = try Hashtbl.find trip_terminus tid with Not_found -> area_id in
+        let term_station = try Hashtbl.find area_nodes term_area_id with Not_found -> 
+           { Network.id = term_area_id; name = "Inconnu"; latitude = 0.; longitude = 0.; pmr = false } 
+        in
         match !last_trip_state with
         | Some (prev_tid, prev_area, prev_dep, prev_dist_opt)
           when prev_tid = tid ->
@@ -330,7 +355,7 @@ let load_network_gtfs directory target_date =
                   Hashtbl.find_opt area_nodes area_id )
               with
               | Some f, Some t -> (
-                  let key = (f.id, t.id, line_obj.name) in
+                  let key = (f.id, t.id, line_obj.name, term_station) in
                   let duration = max (arr_time - prev_dep) 0 in
                   let edge_gtfs_dist =
                     match (prev_dist_opt, current_dist_opt) with
@@ -342,7 +367,7 @@ let load_network_gtfs directory target_date =
                     with Not_found -> [ 0 ]
                   in
                   match Hashtbl.find_opt edges_acc key with
-                  | Some (_, _, _, _, _, schedules_ref, dist_ref) ->
+                  | Some (_, _, _, _, _, schedules_ref, dist_ref,_) ->
                       List.iter
                         (fun offset ->
                           schedules_ref := (prev_dep + offset) :: !schedules_ref)
@@ -361,7 +386,7 @@ let load_network_gtfs directory target_date =
                           duration,
                           m,
                           ref initial_schedules,
-                          ref edge_gtfs_dist ))
+                          ref edge_gtfs_dist, term_station ))
               | _ -> ()
             end;
             last_trip_state := Some (tid, area_id, dep_time, current_dist_opt)
@@ -371,9 +396,9 @@ let load_network_gtfs directory target_date =
 
   close_in st_ic;
 
-  (* F. Construction finale des arêtes avec listes triées *)
+  (* G. Construction finale des arêtes avec listes triées *)
   Hashtbl.iter
-    (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref) ->
+    (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref, term_station) ->
       let sorted_schedules = List.sort compare !schedules_ref in
       let dist_meters =
         match !dist_ref with
@@ -388,12 +413,13 @@ let load_network_gtfs directory target_date =
           Network.schedules = sorted_schedules;
           Network.distance = dist_meters;
           Network.mode = m;
+          Network.terminus = term_station;
         }
       in
       Network.TransportGraph.add_edge graph f t conn)
     edges_acc;
     
-  (* G. Transfers (Correspondances à pied) *)
+  (* H. Transfers (Correspondances à pied) *)
   let tr_path = Filename.concat directory "transfers.txt" in
   if Sys.file_exists tr_path then begin
     let tr_ic = open_in tr_path in
@@ -427,7 +453,8 @@ let load_network_gtfs directory target_date =
                 Network.duration = walk_time;
                 Network.schedules = []; 
                 Network.distance = walk_dist;
-                Network.mode = Network.Walk;
+                Network.mode = Network.Transfert;
+                Network.terminus = t;
               } in
               Network.TransportGraph.add_edge graph f t walk_conn;
               Network.TransportGraph.add_edge graph t f walk_conn
