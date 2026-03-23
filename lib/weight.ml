@@ -63,6 +63,8 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
 
+  let get_time w = w.time
+
   let to_string w = time_to_string w.time
 end
 
@@ -90,6 +92,8 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
+
+  let get_time w = w.time
 
   let to_string w =
     if is_inf w then "∞"
@@ -121,6 +125,8 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
 
+  let get_time w = w.time
+
   let to_string w =
     if is_inf w then "∞" else Printf.sprintf "%d arrêts (%s)" w.hops (time_to_string w.time)
 end
@@ -150,6 +156,8 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection = struc
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
+
+  let get_time w = w.time
 
   let to_string w =
     if is_inf w then "∞" else Printf.sprintf "%d correspondances (%s)" w.transfers (time_to_string w.time)

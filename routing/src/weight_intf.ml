@@ -23,5 +23,7 @@ module type WEIGHT = sig
   val ( > ) : t -> t -> bool
   val ( = ) : t -> t -> bool
 
+  val get_time : t -> int
+
   val to_string : t -> string
 end

@@ -72,6 +72,12 @@ let combine (type e) (criteria : e criterion list) : (module WEIGHT with type ed
         let ( > ) a b = compare a b > 0.0
         let ( = ) a b = compare a b = 0.0
 
+        let get_time (t : t) : int =
+          match t.(0) with 
+          | Entry (c, v) -> 
+              let module W = (val c.weight) in 
+              W.get_time (Obj.magic v)
+
         let entry_to_string : type w. (edge, w) criterion_t -> w -> string =
          fun c value ->
           let module W = (val c.weight : WEIGHT with type edge = edge and type t = w) in

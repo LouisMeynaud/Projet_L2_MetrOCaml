@@ -8,8 +8,16 @@ module DIJKSTRA_TimeWeight           = Dijkstra.Make(Network.TransportGraph)(Wei
 module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
 module BFS_HopWeight                 = Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
 
-let find_station graphe id =
-  List.find_opt (fun (s : Network.station) -> s.id = id) (Network.TransportGraph.nodes graphe)
+let find_station graphe id_or_name =
+  let nodes = Network.TransportGraph.nodes graphe in
+  let target = String.lowercase_ascii (String.trim id_or_name) in
+  
+  match List.find_opt (fun (s : Network.station) -> s.id = id_or_name) nodes with
+  | Some s -> Some s
+  | None ->
+      List.find_opt (fun (s : Network.station) -> 
+        String.lowercase_ascii s.name = target
+      ) nodes
 
 module type ALGO = sig
   module P : Routing.PATH with type Node.t = Network.station and type Edge.t = Network.connection
@@ -45,16 +53,15 @@ let () =
     let graphe = Gtfs_adapter.load_network_from_url url date_cible in
     flush stdout;
     
-    let search_callback source_id dest_id algo poids coeffs start_time =
+    let search_callback source_id dest_id algo poids coeffs start_time details_mode =
       match find_station graphe source_id, find_station graphe dest_id with
       | Some source, Some destination ->
           let (module Routeur : ALGO) =
             if algo = "BFS" then
               (module struct
                 module P = BFS_HopWeight.P
-
-                let find_path ~graph ~source ~destination =
-                  BFS_HopWeight.find_path ~graph ~source ~destination
+                let find_path ~start_time ~graph ~source ~destination =
+                  BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
               end)
             else
               match poids with
@@ -63,7 +70,6 @@ let () =
                 | "Temps"           -> (module DIJKSTRA_TimeWeight)
                 | "Correspondances" -> (module DIJKSTRA_CorrespondenceWeight)
                 | "Combinaison"     -> 
-                     (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
                      let ct, cd, ca, cc = match coeffs with 
                      |[a;b;c;d] -> a,b,c,d 
                      | _ -> 1.0,1.0,1.0,1.0 in
@@ -80,22 +86,18 @@ let () =
               in
           let module ShowPath = Show.Make (Routeur.P) in
           begin
-            match Routeur.find_path ~graph:graphe ~source ~destination with
+            match Routeur.find_path ~start_time ~graph:graphe ~source ~destination with
             | Some p ->
                 ShowPath.print_path
                   (fun s -> s.name)
                   (fun (c : Network.connection) -> c.line.name)
                   Routeur.P.Weight.to_string
+                  Routeur.P.Weight.get_time
                   (fun (c : Network.connection) -> c.line.color)
                   (fun (c : Network.connection) -> c.duration)
                   (fun (c : Network.connection) -> c.distance)
-                  (Printf.printf
-                     "Choisissez l'affichage que vous voulez (1 : Normal) (2 : \
-                      Détaillés) \n\
-                      %!";
-                   match Cli.Console.raw_select "" [ "1"; "2" ] with
-                   | "1" -> false
-                   | _ -> true)
+                  start_time
+                  details_mode
                   p;
                 flush stdout
             | None -> Printf.printf "Aucun chemin trouvé.\n%!"
@@ -109,13 +111,36 @@ let () =
     Printf.printf "  2 - Interface Ligne de Commande (CLI)\n%!";
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
-    | "2" -> Cli.Console.run_console graphe search_callback
+    | "2" -> 
+        (* Adaptateur pour le CLI : on demande l'heure et le mode d'affichage détaillé ici *)
+        let cli_callback src dest algo poids coeffs =
+          Printf.printf "Entrez l'heure de départ (format HH:MM, ex: 08:30) : %!";
+          let time_input = read_line () in
+          let start_time =
+            try
+              match String.split_on_char ':' time_input with
+              | [h; m] -> (int_of_string h * 3600) + (int_of_string m * 60)
+              | _ -> 8 * 3600
+            with _ -> 8 * 3600
+          in
+          Printf.printf "Choisissez l'affichage que vous voulez (1 : Normal) (2 : Détaillés) \n%!";
+          let details_mode = match Cli.Console.raw_select "" [ "1"; "2" ] with
+            | "1" -> false
+            | _ -> true
+          in
+          search_callback src dest algo poids coeffs start_time details_mode
+        in
+        Cli.Console.run_console graphe cli_callback
+
     | _ ->
         Printf.printf "Lancement de l'interface graphique...\n%!";
-        Gui.Transport_view.affiche graphe search_callback;
+        (* Adaptateur pour le GUI : L'heure vient de Bogue, on fixe details_mode par défaut *)
+        let gui_callback src dest algo poids coeffs start_time =
+          search_callback src dest algo poids coeffs start_time false
+        in
+        Gui.Transport_view.affiche graphe gui_callback;
 
   with
   | Failure msg -> Printf.eprintf "ERREUR : %s\n" msg
   | Sys_error msg -> Printf.eprintf "ERREUR FICHIER : %s\n" msg
   | e -> Printf.eprintf "ERREUR INCONNUE : %s\n" (Printexc.to_string e)
-  
