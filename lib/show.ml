@@ -44,14 +44,12 @@ module Make (P : Routing.PATH) = struct
     | [] -> Printf.printf "Chemin vide\n"
     | first_step :: _ ->
         
-        (* 1. Initialisation de la toute première station avec l'attente du départ *)
         let first_arrival = weight_get_time first_step.weight in
         let first_duration = edge_to_duration first_step.edge in
         let first_wait = (first_arrival - first_duration) - start_time in
         let first_wait_str = if first_wait > 0 then Printf.sprintf " [attente %d min]" (first_wait / 60) else "" in
         let start = (node_to_string first_step.from) ^ first_wait_str in
 
-        (* 2. Boucle normale sur les étapes sans "cas spécial" pour la fin *)
         let _, final_step_to, final_color, final_stops, transferts, _, segments =
           List.fold_left
             (fun (prev_line, prev_step_to, prev_color, stops, transferts, prev_time, acc)
@@ -70,7 +68,6 @@ module Make (P : Routing.PATH) = struct
                   (Some current_line, step_to, color, 1, transferts, current_arrival, acc)
               
               | Some prev_l when prev_l = current_line ->
-                  (* On continue sur la MÊME ligne : PAS de temps d'attente affiché *)
                   let new_acc =
                     if details then
                       (simple_arrow (node_to_string step.from) color) :: acc
@@ -79,7 +76,6 @@ module Make (P : Routing.PATH) = struct
                   (Some current_line, step_to, color, stops + 1, transferts, current_arrival, new_acc)
               
               | Some prev_l ->
-                  (* On a CHANGÉ de ligne. On affiche le temps d'attente pour la correspondance. *)
                   let wait_str = if wait_time > 0 then Printf.sprintf " [attente %d min]" (wait_time / 60) else "" in
                   let arrow = change_arrow prev_step_to prev_l stops prev_color in
                   let transition = arrow ^ (node_to_string step.from) ^ wait_str in
@@ -88,7 +84,6 @@ module Make (P : Routing.PATH) = struct
             (None, "", "", 0, 0, start_time, []) path.steps
         in
         
-        (* 3. On ajoute manuellement la flèche pour la toute dernière ligne empruntée *)
         let final_line = edge_to_string (List.hd (List.rev path.steps)).edge in
         let final_segment = change_arrow final_step_to final_line final_stops final_color in
         
@@ -96,7 +91,6 @@ module Make (P : Routing.PATH) = struct
           calcul_temps_distance edge_to_duration edge_to_distance path.steps
         in
         
-        (* 4. Affichage du résultat *)
         let route = "\n" ^ start ^ String.concat "" (List.rev (final_segment :: segments)) in
         Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
           (List.length path.steps) transferts;
