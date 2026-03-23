@@ -5,4 +5,5 @@ gui/graph_display.ml
 gui/transport_view.ml
 gui/gui_utils.ml
 cli/console.ml
+lib/gtfs_adapter.ml
 
