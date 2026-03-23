@@ -122,3 +122,24 @@ let preset_explorateur =
           ~coefficient:0.10 ~label:"Correspondances";
       ];
   }
+
+(* Registre complet *)
+let all = [
+  preset_rapide;
+  preset_confort;
+  preset_court_chemin;
+  preset_equilibre;
+  preset_explorateur;
+]
+ 
+(** Construit le module WEIGHT prêt à passer à Dijkstra.Make *)
+let to_weight preset :
+    (module WEIGHT with type edge = Network.connection) =
+  Combinator.combine preset.criteria
+ 
+(** Recherche par nom, insensible à la casse *)
+let find_by_name name =
+  List.find_opt
+    (fun p -> String.lowercase_ascii p.name = String.lowercase_ascii name)
+    all
+ 
