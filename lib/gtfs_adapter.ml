@@ -392,7 +392,51 @@ let load_network_gtfs directory target_date =
       in
       Network.TransportGraph.add_edge graph f t conn)
     edges_acc;
+    
+  (* G. Transfers (Correspondances à pied) *)
+  let tr_path = Filename.concat directory "transfers.txt" in
+  if Sys.file_exists tr_path then begin
+    let tr_ic = open_in tr_path in
+    let tr_csv = Csv.of_channel tr_ic in
+    let tr_header = Csv.next tr_csv in
+    
+    let i_from = get_index tr_header "from_stop_id" in
+    let i_to = get_index tr_header "to_stop_id" in
+    let i_type = get_index tr_header "transfer_type" in
+    let i_time_opt = get_index_opt tr_header "min_transfer_time" in
 
+    Csv.iter ~f:(fun row ->
+      try
+        let raw_from = List.nth row i_from in
+        let raw_to = List.nth row i_to in
+        let t_type = String.trim (List.nth row i_type) in
+        let area_from = try Hashtbl.find stop_to_area raw_from with Not_found -> raw_from in
+        let area_to = try Hashtbl.find stop_to_area raw_to with Not_found -> raw_to in
+        if area_from <> area_to && (t_type = "0" || t_type = "2") then begin
+          match Hashtbl.find_opt area_nodes area_from, Hashtbl.find_opt area_nodes area_to with
+          | Some f, Some t ->
+              let walk_time = match i_time_opt with
+                | Some idx -> (try int_of_string (List.nth row idx) with _ -> 180)
+                | None -> 180
+              in
+              
+              let walk_dist = haversine_distance f.latitude f.longitude t.latitude t.longitude in
+              
+              let walk_conn = {
+                Network.line = { name = "Marche"; color = "AAAAAA" };
+                Network.duration = walk_time;
+                Network.schedules = []; 
+                Network.distance = walk_dist;
+                Network.mode = Network.Walk;
+              } in
+              Network.TransportGraph.add_edge graph f t walk_conn;
+              Network.TransportGraph.add_edge graph t f walk_conn
+          | _ -> ()
+        end
+      with _ -> ()
+    ) tr_csv;
+    close_in tr_ic
+  end; 
   graph
 
 exception Invalid_GTFS_URL of string
