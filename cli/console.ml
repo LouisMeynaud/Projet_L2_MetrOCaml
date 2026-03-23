@@ -2,18 +2,18 @@ open Metrocaml
 
 let find_station_by_name graphe name =
   List.find_opt
-    (fun (s : Network.station) -> s.name = name)
+    (fun (s : Network.station) -> String.lowercase_ascii (String.trim s.name) = String.lowercase_ascii (String.trim name))
     (Network.TransportGraph.nodes graphe)
 
 let rec raw_select prompt options =
   Printf.printf "%s (%s) : %!" prompt (String.concat " / " options);
   let choice = read_line () in
-  if List.mem choice options then choice
-  else begin
-    Printf.printf
-      "Choix invalide. Veuillez taper l'une des options exactement.\n%!";
-    raw_select prompt options
-  end
+  let choice2 = String.lowercase_ascii (String.trim choice) in
+    match List.find_opt (fun s -> String.lowercase_ascii (String.trim s) = choice2) options with
+      | Some c -> c 
+      | None -> 
+          Printf.printf "Choix invalide. Veuillez taper l'une des options exactement.\n%!";
+          raw_select prompt options
 
 let run_console graphe search_callback =
   Printf.printf "\n=== Mode Ligne de Commande ===\n%!";
