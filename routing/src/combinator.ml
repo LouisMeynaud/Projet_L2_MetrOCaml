@@ -22,6 +22,9 @@ let combine (type e) (criteria : e criterion list) :
   | _ ->
       let slots = Array.of_list criteria in
       let n = Array.length slots in
+
+      (* Normalise the coefficients to ensure they sum to 1
+         NB. Negative coefficients are treated as zero *)
       let total_coeff =
         Array.fold_left
           (fun acc slot ->
@@ -35,6 +38,7 @@ let combine (type e) (criteria : e criterion list) :
             | Criterion c -> Float.max 0.0 c.coefficient /. total_coeff)
           slots
       in
+
       (module struct
         type t = e entry array
         type edge = e
@@ -75,6 +79,12 @@ let combine (type e) (criteria : e criterion list) :
                   if W.is_inf va then Entry (c, W.infinity)
                   else Entry (c, W.add va e))
 
+        (* Process:
+          - For each criterion, compare the corresponding weights from a and b using that criterion's weight module.
+          - Multiply the comparison result by the criterion's normalised coefficient.
+          - Sum these weighted comparisons to get an overall score.
+          - The final comparison is based on this overall score.
+       *)
         let compare (a : t) (b : t) : float =
           if is_inf a && is_inf b then 0.0
           else if is_inf a then 1.0

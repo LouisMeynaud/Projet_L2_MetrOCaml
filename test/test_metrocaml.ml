@@ -28,7 +28,6 @@ let test_hop_of_edge () =
       duration = 120;
       distance = 500.0;
       mode = Walk;
-      (* Mode Walk pour ignorer l'absence de schedules dans le test *)
       schedules = [];
       terminus = dummy_station;
     }
@@ -54,7 +53,6 @@ let test_hop_arithmetic () =
   let two = add one dummy_conn in
   Alcotest.(check string)
     "1 + 1 = 2" "2 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string two);
-  (* "L'ajout d'une arête à 0 durée donne un arrêt supplémentaire" *)
   Alcotest.(check hop_weight_t)
     "Vérifie l'accumulation" two (add one dummy_conn)
 
@@ -303,6 +301,9 @@ let test_distance_compare () =
 let test_distance_infinity () =
   let open DW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
+  let dummy_station : Metrocaml.Network.station =
+    { id = ""; name = ""; latitude = 1.; longitude = 1.; pmr = true }
+  in
   let dummy_conn =
     {
       Metrocaml.Network.line = dummy_line;
@@ -310,6 +311,7 @@ let test_distance_infinity () =
       distance = 500.0;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let w_500 = add (start_at 0) dummy_conn in
@@ -356,6 +358,9 @@ let correspondence_weight_t =
 
 let test_cw_of_edge () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let dummy_station : Metrocaml.Network.station =
+    { id = ""; name = ""; latitude = 1.; longitude = 1.; pmr = true }
+  in
   let conn : Metrocaml.Network.connection =
     {
       line = line_a;
@@ -363,7 +368,7 @@ let test_cw_of_edge () =
       distance = 500.0;
       mode = Metro;
       schedules = [ 0; 120; 240 ];
-      (* Faux horaires pour que le train passe *)
+      terminus = dummy_station;
     }
   in
   let weight = CW.add (CW.start_at 0) conn in
@@ -373,6 +378,9 @@ let test_cw_of_edge () =
 
 let test_cw_arithmetic_same_line () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let dummy_station : Metrocaml.Network.station =
+    { id = ""; name = ""; latitude = 1.; longitude = 1.; pmr = true }
+  in
   let conn : Metrocaml.Network.connection =
     {
       line = line_a;
@@ -380,6 +388,7 @@ let test_cw_arithmetic_same_line () =
       distance = 100.;
       mode = Metro;
       schedules = [ 0; 60; 120; 180 ];
+      terminus = dummy_station;
     }
   in
   let w1 = CW.add (CW.start_at 0) conn in
@@ -391,6 +400,9 @@ let test_cw_arithmetic_same_line () =
 let test_cw_transfer_penalty () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
   let line_b = { Metrocaml.Network.name = "Ligne B"; color = "#0000FF" } in
+  let dummy_station : Metrocaml.Network.station =
+    { id = ""; name = ""; latitude = 1.; longitude = 1.; pmr = true }
+  in
   let conn_a : Metrocaml.Network.connection =
     {
       line = line_a;
@@ -398,6 +410,7 @@ let test_cw_transfer_penalty () =
       distance = 100.;
       mode = Metro;
       schedules = [ 0; 60; 120 ];
+      terminus = dummy_station;
     }
   in
   let conn_b : Metrocaml.Network.connection =
@@ -407,15 +420,12 @@ let test_cw_transfer_penalty () =
       distance = 100.;
       mode = Metro;
       schedules = [ 0; 60; 120; 180; 240; 300 ];
+      terminus = dummy_station;
     }
   in
 
   let w_a = CW.add (CW.start_at 0) conn_a in
   let total = CW.add w_a conn_b in
-  (* Explication du temps:
-     Train A pris à 0s, arrive à 60s.
-     Pénalité de transfert : 180s. Prêt sur le quai B à 240s.
-     Prochain train B à 240s. Durée 60s. Arrivée à 300s (5min). *)
   Alcotest.(check string)
     "Changement de ligne : +1 correspondance"
     "1 correspondances (Aujourd'hui à 00h05m00s)" (CW.to_string total);
@@ -427,10 +437,10 @@ let test_cw_transfer_penalty () =
       distance = 0.;
       mode = Metro;
       schedules = [ 300; 480; 600 ];
+      terminus = dummy_station;
     }
   in
   let total_3_lines = CW.add total conn_c in
-  (* Prêt sur le quai C à 300s + 180s = 480s. Arrivée à 480s (8min). *)
   Alcotest.(check string)
     "Deux changements : 2 correspondances"
     "2 correspondances (Aujourd'hui à 00h08m00s)"
@@ -438,6 +448,9 @@ let test_cw_transfer_penalty () =
 
 let test_cw_neutral_and_inf () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let dummy_station : Metrocaml.Network.station =
+    { id = ""; name = ""; latitude = 1.; longitude = 1.; pmr = true }
+  in
   let conn_a : Metrocaml.Network.connection =
     {
       line = line_a;
@@ -445,6 +458,7 @@ let test_cw_neutral_and_inf () =
       distance = 100.;
       mode = Metro;
       schedules = [ 0; 60; 120 ];
+      terminus = dummy_station;
     }
   in
   Alcotest.(check string)
@@ -454,6 +468,9 @@ let test_cw_neutral_and_inf () =
 let test_cw_compare () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "" } in
   let line_b = { Metrocaml.Network.name = "Ligne B"; color = "" } in
+  let dummy_station : Metrocaml.Network.station =
+    { id = ""; name = ""; latitude = 1.; longitude = 1.; pmr = true }
+  in
 
   let conn_a : Metrocaml.Network.connection =
     {
@@ -462,6 +479,7 @@ let test_cw_compare () =
       distance = 0.;
       mode = Metro;
       schedules = [ 0; 100; 200; 500 ];
+      terminus = dummy_station;
     }
   in
   let conn_b : Metrocaml.Network.connection =
@@ -471,6 +489,7 @@ let test_cw_compare () =
       distance = 0.;
       mode = Metro;
       schedules = [ 0; 100; 200; 500 ];
+      terminus = dummy_station;
     }
   in
 
@@ -489,7 +508,6 @@ let test_cw_compare () =
 (* ========================================================== *)
 
 module BFS_Tests = struct
-  (* Définition des nœuds et arêtes pour le foncteur Graph *)
   module TestNode = struct
     type t = string
 
@@ -514,20 +532,15 @@ module BFS_Tests = struct
       }
   end
 
-  (* Utilisation du VRAI module Graph de la librairie *)
   module TestGraph = Routing.Graph.Make (TestNode) (TestEdge)
-
-  (* Création du BFS spécialisé pour ce graphe et HopWeight *)
   module BFS = Routing.Bfs.Make (TestGraph) (HW)
 
-  (* Données de test *)
   let dummy_conn : Metrocaml.Network.connection =
     {
       line = { name = "Test"; color = "#000000" };
       duration = 60;
       distance = 1000.0;
       mode = Walk;
-      (* Mode Walk pour éviter les bugs d'horaires vides dans les tests graph *)
       schedules = [];
       terminus = dummy_station;
     }
@@ -574,7 +587,6 @@ module BFS_Tests = struct
   let test_bfs_longer_path () =
     let g = TestGraph.create () in
     List.iter (TestGraph.add_node g) [ "A"; "B"; "C"; "D" ];
-    (* Chaîne A -> B -> C -> D *)
     TestGraph.add_edge g "A" "B" dummy_conn;
     TestGraph.add_edge g "B" "C" dummy_conn;
     TestGraph.add_edge g "C" "D" dummy_conn;
@@ -589,7 +601,6 @@ module BFS_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_node g "A";
     TestGraph.add_node g "B";
-    (* Cycle A <-> B *)
     TestGraph.add_edge g "A" "B" dummy_conn;
     TestGraph.add_edge g "B" "A" dummy_conn;
 
@@ -642,7 +653,6 @@ module Dijkstra_Tests = struct
       duration = dur;
       distance = 0.;
       mode = Walk;
-      (* Walk pour esquiver la nécessité de schedules valides *)
       schedules = [];
       terminus = dummy_station;
     }
@@ -728,10 +738,8 @@ module Dijkstra_Tests = struct
   let test_weighted_optimal () =
     let g = TestGraph.create () in
     TestGraph.add_edge g "A" "C" (conn 100);
-    (* chemin direct, coûteux *)
     TestGraph.add_edge g "A" "B" (conn 10);
     TestGraph.add_edge g "B" "C" (conn 10);
-    (* chemin indirect, moins coûteux *)
     match
       Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"C"
     with
