@@ -56,6 +56,18 @@ module Make (P : Routing.PATH) = struct
     ( node_to_string (List.hd steps).from,
       node_to_string (List.hd (List.rev steps)).to_node )
 
+  let affichage start chemin length transferts total_time total_distance total_weight =
+        (*Affichage*)
+        let route = "\n" ^ start ^ String.concat "" (List.rev chemin) in
+        Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
+          length transferts;
+        Printf.printf "%s\n" route;
+        Printf.printf "Poids total : %s\n" total_weight;
+        Printf.printf "Temps total : %dh %dmin %ds\n" (total_time / 3600)
+          (total_time / 60 mod 60)
+          (total_time mod 60);
+        Printf.printf "Distance totale : %f km\n" (total_distance /. 1000.)
+
   let print_path node_to_string edge_to_string weight_to_string edge_to_color
       edge_to_duration edge_to_distance details (path : P.t) =
     match path.steps with
@@ -131,13 +143,11 @@ module Make (P : Routing.PATH) = struct
           calcul_temps_distance edge_to_duration edge_to_distance path.steps
         in
         (*Affichage*)
-        let route = "\n" ^ start ^ String.concat "" (List.rev segments) in
-        Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
-          (List.length path.steps) transferts;
-        Printf.printf "%s\n" route;
-        Printf.printf "Poids total : %s\n" (weight_to_string path.total_weight);
-        Printf.printf "Temps total : %dh %dmin %ds\n" (total_time / 3600)
-          (total_time / 60 mod 60)
-          (total_time mod 60);
-        Printf.printf "Distance totale : %f km\n" (total_distance /. 1000.)
+        affichage start segments (List.length path.steps) transferts total_time
+          total_distance (weight_to_string path.total_weight)
+
+  let print_path_detail node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance (path : P.t) =
+    print_path node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance true path
 end

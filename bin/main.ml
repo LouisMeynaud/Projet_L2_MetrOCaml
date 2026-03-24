@@ -56,21 +56,27 @@ let () =
       match find_station graphe source_id, find_station graphe dest_id with
       | Some source, Some destination ->
 
-          let (module Routeur : ALGO) =
-            if algo = "BFS" then (module BFS_HopWeight)
+          let routeurs : (string * (module ALGO)) list =
+            if algo = "BFS" then 
+              [("BFS", (module BFS_HopWeight))]
             else
               match poids with
-                | "Distance"        -> (module DIJKSTRA_DistanceWeight)
-                | "Arrets"          -> (module DIJKSTRA_HopWeight)
-                | "Temps"           -> (module DIJKSTRA_TimeWeight)
-                | "Correspondances" -> (module DIJKSTRA_CorrespondenceWeight)
+                | "Default" -> List.map (fun (preset : Presets.preset) -> 
+                    let module W = (val Presets.to_weight preset) in
+                    let module D = Dijkstra.Make(Network.TransportGraph)(W) in
+                    (preset.name, (module D : ALGO))
+                  ) Presets.all
+                | "Distance"        -> [("Distance", (module DIJKSTRA_DistanceWeight))]
+                | "Arrets"          -> [("Arrêts", (module DIJKSTRA_HopWeight))]
+                | "Temps"           -> [("Temps", (module DIJKSTRA_TimeWeight))]
+                | "Correspondances" -> [("Correspondances", (module DIJKSTRA_CorrespondenceWeight))]
                 | "Rapide" | "Confort" | "Court chemin" | "Équilibré" | "Explorateur" ->
                 (match Presets.find_by_name poids with
                   | Some preset ->
                     let module W = (val Presets.to_weight preset) in
                     let module D = Dijkstra.Make(Network.TransportGraph)(W) in
-                    (module D)
-                  | None -> (module DIJKSTRA_TimeWeight))
+                    [(poids, (module D : ALGO))]
+                  | None -> [("Temps (par défaut)", (module DIJKSTRA_TimeWeight))])
                 | "Combinaison"     -> 
                      (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
                      let ct, cd, ca, cc = match coeffs with 
@@ -84,11 +90,14 @@ let () =
                      ] in
                      let module CombinedWeight = (val Combinator.combine critere : Routing.WEIGHT with type edge = Network.connection) in
                      let module DIJKSTRA_CombinedWeight = Dijkstra.Make(Network.TransportGraph)(CombinedWeight) in
-                     (module DIJKSTRA_CombinedWeight)
-                | _                 -> (module DIJKSTRA_TimeWeight)
+                     [("Combinaison", (module DIJKSTRA_CombinedWeight))]
+                | _                 -> [("Temps (par défaut)", (module DIJKSTRA_TimeWeight))]
               in
-          let module ShowPath = Show.Make (Routeur.P) in
-          begin
+          
+          (* Accumulation fonctionnelle des détails d'affichage *)
+          let details_afficheurs = List.fold_left (fun acc (nom_algo, (module Routeur : ALGO)) ->
+            let module ShowPath = Show.Make (Routeur.P) in
+            Printf.printf "\n=== Résultat avec %s ===\n%!" nom_algo;
             match Routeur.find_path ~graph:graphe ~source ~destination with
             | Some p ->
                 ShowPath.print_path
@@ -98,17 +107,38 @@ let () =
                   (fun (c : Network.connection) -> c.line.color)
                   (fun (c : Network.connection) -> c.duration)
                   (fun (c : Network.connection) -> c.distance)
-                  (Printf.printf
-                     "Choisissez l'affichage que vous voulez (1 : Normal) (2 : \
-                      Détaillés) \n\
-                      %!";
-                   match Cli.Console.raw_select "" [ "1"; "2" ] with
-                   | "1" -> false
-                   | _ -> true)
+                  (false)
                   p;
-                flush stdout
-            | None -> Printf.printf "Aucun chemin trouvé.\n%!"
-          end
+                flush stdout;
+                (* Créer une fermeture pour afficher le détail *)
+                let afficher_detail () =
+                  Printf.printf "\n=== Détails du chemin avec %s ===\n%!" nom_algo;
+                  ShowPath.print_path_detail
+                    (fun s -> s.name)
+                    (fun (c : Network.connection) -> c.line.name)
+                    Routeur.P.Weight.to_string
+                    (fun (c : Network.connection) -> c.line.color)
+                    (fun (c : Network.connection) -> c.duration)
+                    (fun (c : Network.connection) -> c.distance)
+                    p
+                in
+                (* Ajouter à l'accumulateur *)
+                acc @ [(nom_algo, afficher_detail)]
+            | None -> 
+                Printf.printf "Aucun chemin trouvé avec %s.\n%!" nom_algo;
+                acc
+          ) [] routeurs in
+          
+          (* Proposer à l'utilisateur de voir les détails d'un chemin spécifique *)
+          if details_afficheurs <> [] then (
+            let noms_algos = List.map fst details_afficheurs in
+            let choix = Cli.Console.raw_select "\nVoir les détails du chemin avec quel algorithme ?" noms_algos in
+            try
+              let (_, afficher_detail) = List.find (fun (nom, _) -> nom = choix) details_afficheurs in
+              afficher_detail(); flush stdout
+            with Not_found -> Printf.printf "Algorithme non trouvé.\n%!"
+          )
+
       | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
     in
 
