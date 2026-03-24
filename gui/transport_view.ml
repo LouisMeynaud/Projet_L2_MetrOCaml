@@ -46,7 +46,7 @@ let extraire_horaires graph =
               line_color = color_of_string conn.line.color;
               station_id = source.id;
               station_name = source.name;
-              direction = destination.name;
+              direction = conn.terminus.name;
               times = conn.schedules;
             })
           voisins)
@@ -57,7 +57,7 @@ let extraire_horaires graph =
 let algos_disponibles = [ "Dijkstra"; "BFS" ]
 
 let poids_disponibles =
-  ["Default"; "Temps"; "Distance"; "Arrets"; "Correspondances"; "Rapide"; "Confort"; "Court chemin"; "Équilibré"; "Explorateur"; "Combinaison" ]
+  ["Default"; "Temps"; "Distance"; "Arrets"; "Correspondances"; "Rapide"; "Confort"; "Court chemin"; "Equilibre"; "Explorateur"; "Combinaison" ]
 
 let affiche graph on_search =
   let stations = TransportGraph.nodes graph in

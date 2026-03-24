@@ -1,5 +1,3 @@
-(* bin/main.ml *)
-
 open Metrocaml
 open Weight
 open Routing
@@ -70,7 +68,7 @@ let () =
                 | "Arrets"          -> [("Arrêts", (module DIJKSTRA_HopWeight))]
                 | "Temps"           -> [("Temps", (module DIJKSTRA_TimeWeight))]
                 | "Correspondances" -> [("Correspondances", (module DIJKSTRA_CorrespondenceWeight))]
-                | "Rapide" | "Confort" | "Court chemin" | "Équilibré" | "Explorateur" ->
+                | "Rapide" | "Confort" | "Court chemin" | "Equilibre" | "Explorateur" ->
                 (match Presets.find_by_name poids with
                   | Some preset ->
                     let module W = (val Presets.to_weight preset) in

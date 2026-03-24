@@ -81,7 +81,7 @@ let preset_court_chemin =
     Compromis entre tous les critères, sans privilégier un aspect particulier *)
 let preset_equilibre =
   {
-    name = "Équilibré";
+    name = "Equilibre";
     description = "Compromis entre temps, distance, arrêts et correspondances.";
     criteria =
       [
