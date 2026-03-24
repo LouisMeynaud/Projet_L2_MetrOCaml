@@ -9,6 +9,15 @@ module HW = Metrocaml.Weight.HopWeight
 let hop_weight_t =
   Alcotest.testable (fun ppf w -> Fmt.string ppf (HW.to_string w)) HW.( = )
 
+let dummy_station : Metrocaml.Network.station =
+  {
+    id = "La Station crée par Thomas(il est trop beau)";
+    name = "StationTest";
+    latitude = 3.14159;
+    longitude = 1.41421;
+    pmr = true;
+  }
+
 let test_hop_of_edge () =
   let dummy_line : Metrocaml.Network.line =
     { name = "Ligne 1"; color = "#FFBE00" }
@@ -21,6 +30,7 @@ let test_hop_of_edge () =
       mode = Walk;
       (* Mode Walk pour ignorer l'absence de schedules dans le test *)
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let expected = HW.add (HW.start_at 0) dummy_conn in
@@ -37,6 +47,7 @@ let test_hop_arithmetic () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let one = add (start_at 0) dummy_conn in
@@ -56,6 +67,7 @@ let test_hop_infinity () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   Alcotest.(check string)
@@ -84,6 +96,7 @@ let test_time_of_edge () =
       distance = 500.0;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   Alcotest.(check string)
@@ -100,6 +113,7 @@ let test_time_arithmetic () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let c2 =
@@ -109,6 +123,7 @@ let test_time_arithmetic () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let c_100 =
@@ -118,6 +133,7 @@ let test_time_arithmetic () =
       distance = 0.;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let w1 = add (start_at 0) c1 in
@@ -136,6 +152,7 @@ let test_time_compare () =
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus = dummy_station;
       }
   in
   let w_120 =
@@ -146,6 +163,7 @@ let test_time_compare () =
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus = dummy_station;
       }
   in
   Alcotest.(check bool) "Moins de temps gagne (<)" true (w_60 < w_120);
@@ -163,6 +181,7 @@ let test_time_infinity () =
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus = dummy_station;
       }
   in
   Alcotest.(check bool)
@@ -207,6 +226,7 @@ let test_distance_of_edge () =
       distance = 1500.0;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   Alcotest.(check string)
@@ -223,6 +243,7 @@ let test_distance_arithmetic () =
       distance = 500.0;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let c2 =
@@ -232,6 +253,7 @@ let test_distance_arithmetic () =
       distance = 750.0;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let c_1250 =
@@ -241,6 +263,7 @@ let test_distance_arithmetic () =
       distance = 1250.0;
       mode = Walk;
       schedules = [];
+      terminus = dummy_station;
     }
   in
   let w1 = add (start_at 0) c1 in
@@ -259,6 +282,7 @@ let test_distance_compare () =
         distance = 500.0;
         mode = Walk;
         schedules = [];
+        terminus = dummy_station;
       }
   in
   let w_750 =
@@ -269,6 +293,7 @@ let test_distance_compare () =
         distance = 750.0;
         mode = Walk;
         schedules = [];
+        terminus = dummy_station;
       }
   in
   Alcotest.(check bool) "Moins de distance gagne (<)" true (w_500 < w_750);
@@ -304,6 +329,7 @@ let test_distance_to_string () =
         distance = dist;
         mode = Walk;
         schedules = [];
+        terminus = dummy_station;
       }
   in
   Alcotest.(check string)
@@ -484,6 +510,7 @@ module BFS_Tests = struct
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus = dummy_station;
       }
   end
 
@@ -502,6 +529,7 @@ module BFS_Tests = struct
       mode = Walk;
       (* Mode Walk pour éviter les bugs d'horaires vides dans les tests graph *)
       schedules = [];
+      terminus = dummy_station;
     }
 
   (* Tests *)
@@ -597,6 +625,7 @@ module Dijkstra_Tests = struct
         distance = 0.;
         mode = Walk;
         schedules = [];
+        terminus = dummy_station;
       }
   end
 
@@ -615,6 +644,7 @@ module Dijkstra_Tests = struct
       mode = Walk;
       (* Walk pour esquiver la nécessité de schedules valides *)
       schedules = [];
+      terminus = dummy_station;
     }
 
   (* --- Tests --- *)

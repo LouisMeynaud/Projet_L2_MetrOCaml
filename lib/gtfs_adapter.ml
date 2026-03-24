@@ -1,7 +1,15 @@
-(* bin/gtfs_adapter.ml *)
 open Network
 
 (* --- 1. Utilitaires --- *)
+let normalize_name s =
+  let s = String.lowercase_ascii s in
+  let buffer = Buffer.create (String.length s) in
+  String.iter (fun c ->
+    match c with
+    | 'a'..'z' | '0'..'9' -> Buffer.add_char buffer c
+    | _ -> ()
+  ) s;
+  Buffer.contents buffer
 let time_to_seconds time_str =
   try
     let clean_str = String.trim time_str in
@@ -224,6 +232,7 @@ let load_network_gtfs directory target_date =
 
   (* C. Trips *)
   let valid_trips = Hashtbl.create 5000 in
+  let trip_to_block = Hashtbl.create 5000 in
   let t_path = Filename.concat directory "trips.txt" in
   if Sys.file_exists t_path then begin
     let t_ic = open_in t_path in
@@ -232,6 +241,8 @@ let load_network_gtfs directory target_date =
     let i_tid = get_index t_header "trip_id" in
     let i_tsid = get_index t_header "service_id" in
     let i_trid = get_index t_header "route_id" in
+    let i_block_opt = get_index_opt t_header "block_id" in
+    let i_headsign_opt = get_index_opt t_header "trip_headsign" in
 
     Csv.iter
       ~f:(fun row ->
@@ -242,7 +253,18 @@ let load_network_gtfs directory target_date =
             with Not_found ->
               ({ Network.name = "?"; color = "000000" }, Network.Bus)
           in
-          Hashtbl.add valid_trips (List.nth row i_tid) (line_obj, mode, sid))
+          let tid = List.nth row i_tid in
+          let headsign = match i_headsign_opt with
+            | Some idx -> (try String.trim (List.nth row idx) with _ -> "")
+            | None -> ""
+          in
+          Hashtbl.add valid_trips tid (line_obj, mode, sid, headsign);
+          let block = match i_block_opt with
+            | Some idx -> (try String.trim (List.nth row idx) with _ -> "")
+            | None -> ""
+          in
+          let vehicle_id = if block = "" then tid else block in
+          Hashtbl.add trip_to_block tid vehicle_id)
       t_csv;
     close_in t_ic
   end;
@@ -250,6 +272,7 @@ let load_network_gtfs directory target_date =
   (* D. Stops *)
   let stop_to_area = Hashtbl.create 5000 in
   let area_nodes = Hashtbl.create 1000 in
+  let name_to_station = Hashtbl.create 1000 in
   let s_path = Filename.concat directory "stops.txt" in
   if Sys.file_exists s_path then begin
     let s_ic = open_in s_path in
@@ -273,6 +296,7 @@ let load_network_gtfs directory target_date =
             | None -> raw_id
           in
           Hashtbl.replace stop_to_area raw_id parent_id;
+          let station_name = List.nth row i_sname in
           let station =
             {
               Network.id = parent_id;
@@ -282,6 +306,10 @@ let load_network_gtfs directory target_date =
               pmr = false;
             }
           in
+          let norm_name = normalize_name station_name in
+          if not (Hashtbl.mem name_to_station norm_name) then
+            Hashtbl.add name_to_station norm_name station;
+
           if raw_id = parent_id then
             Hashtbl.replace area_nodes parent_id station
           else if not (Hashtbl.mem area_nodes parent_id) then
@@ -292,7 +320,38 @@ let load_network_gtfs directory target_date =
   end;
   Hashtbl.iter (fun _ st -> Network.TransportGraph.add_node graph st) area_nodes;
 
-  (* E. Stop Times *)
+(* E. Terminus *)
+let vehicle_terminus = Hashtbl.create 5000 in
+let st_path = Filename.concat directory "stop_times.txt" in
+if Sys.file_exists st_path then begin
+  let st_ic1 = open_in st_path in
+  let st_csv1 = Csv.of_channel st_ic1 in
+  let st_header1 = Csv.next st_csv1 in
+  let i_st_trip1 = get_index st_header1 "trip_id" in
+  let i_st_id1 = get_index st_header1 "stop_id" in
+  let i_st_arr1 = get_index st_header1 "arrival_time" in
+
+  Csv.iter ~f:(fun row ->
+    let tid = try List.nth row i_st_trip1 with _ -> "" in
+    if Hashtbl.mem valid_trips tid then begin
+      let raw_stop_id = try List.nth row i_st_id1 with _ -> "" in
+      let area_id = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
+      let arr_time = time_to_seconds (try List.nth row i_st_arr1 with _ -> "") in
+      
+      let vehicle_id = try Hashtbl.find trip_to_block tid with Not_found -> tid in
+
+      let current_max_time = 
+        try fst (Hashtbl.find vehicle_terminus vehicle_id) 
+        with Not_found -> -1 
+      in
+      
+      if arr_time > current_max_time then
+        Hashtbl.replace vehicle_terminus vehicle_id (arr_time, area_id)
+    end) st_csv1;
+  close_in st_ic1
+end;
+
+  (* F. Stop Times *)
   let st_ic = open_in (Filename.concat directory "stop_times.txt") in
   let st_csv = Csv.of_channel st_ic in
   let st_header = Csv.next st_csv in
@@ -320,7 +379,19 @@ let load_network_gtfs directory target_date =
               try Some (float_of_string (List.nth row idx)) with _ -> None)
           | None -> None
         in
-        let line_obj, m, sid = Hashtbl.find valid_trips tid in
+        let line_obj, m, sid, headsign = Hashtbl.find valid_trips tid in
+        let vehicle_id = try Hashtbl.find trip_to_block tid with Not_found -> tid in
+        let term_area_id = try snd (Hashtbl.find vehicle_terminus vehicle_id) with Not_found -> area_id in
+        let physical_term_station = try Hashtbl.find area_nodes term_area_id with Not_found -> 
+           { Network.id = term_area_id; name = "Inconnu"; latitude = 0.; longitude = 0.; pmr = false } 
+        in
+        let norm_headsign = normalize_name headsign in
+        let term_station = 
+          if norm_headsign <> "" && Hashtbl.mem name_to_station norm_headsign then
+            Hashtbl.find name_to_station norm_headsign
+          else
+            physical_term_station
+        in
         match !last_trip_state with
         | Some (prev_tid, prev_area, prev_dep, prev_dist_opt)
           when prev_tid = tid ->
@@ -330,7 +401,7 @@ let load_network_gtfs directory target_date =
                   Hashtbl.find_opt area_nodes area_id )
               with
               | Some f, Some t -> (
-                  let key = (f.id, t.id, line_obj.name) in
+                  let key = (f.id, t.id, line_obj.name, term_station) in
                   let duration = max (arr_time - prev_dep) 0 in
                   let edge_gtfs_dist =
                     match (prev_dist_opt, current_dist_opt) with
@@ -342,7 +413,7 @@ let load_network_gtfs directory target_date =
                     with Not_found -> [ 0 ]
                   in
                   match Hashtbl.find_opt edges_acc key with
-                  | Some (_, _, _, _, _, schedules_ref, dist_ref) ->
+                  | Some (_, _, _, _, _, schedules_ref, dist_ref,_) ->
                       List.iter
                         (fun offset ->
                           schedules_ref := (prev_dep + offset) :: !schedules_ref)
@@ -361,7 +432,7 @@ let load_network_gtfs directory target_date =
                           duration,
                           m,
                           ref initial_schedules,
-                          ref edge_gtfs_dist ))
+                          ref edge_gtfs_dist, term_station ))
               | _ -> ()
             end;
             last_trip_state := Some (tid, area_id, dep_time, current_dist_opt)
@@ -371,9 +442,9 @@ let load_network_gtfs directory target_date =
 
   close_in st_ic;
 
-  (* F. Construction finale des arêtes avec listes triées *)
+  (* G. Construction finale des arêtes avec listes triées *)
   Hashtbl.iter
-    (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref) ->
+    (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref, term_station) ->
       let sorted_schedules = List.sort compare !schedules_ref in
       let dist_meters =
         match !dist_ref with
@@ -388,11 +459,57 @@ let load_network_gtfs directory target_date =
           Network.schedules = sorted_schedules;
           Network.distance = dist_meters;
           Network.mode = m;
+          Network.terminus = term_station;
         }
       in
       Network.TransportGraph.add_edge graph f t conn)
     edges_acc;
+    
+  (* H. Transfers (Correspondances à pied) *)
+  let tr_path = Filename.concat directory "transfers.txt" in
+  if Sys.file_exists tr_path then begin
+    let tr_ic = open_in tr_path in
+    let tr_csv = Csv.of_channel tr_ic in
+    let tr_header = Csv.next tr_csv in
+    
+    let i_from = get_index tr_header "from_stop_id" in
+    let i_to = get_index tr_header "to_stop_id" in
+    let i_type = get_index tr_header "transfer_type" in
+    let i_time_opt = get_index_opt tr_header "min_transfer_time" in
 
+    Csv.iter ~f:(fun row ->
+      try
+        let raw_from = List.nth row i_from in
+        let raw_to = List.nth row i_to in
+        let t_type = String.trim (List.nth row i_type) in
+        let area_from = try Hashtbl.find stop_to_area raw_from with Not_found -> raw_from in
+        let area_to = try Hashtbl.find stop_to_area raw_to with Not_found -> raw_to in
+        if area_from <> area_to && (t_type = "0" || t_type = "2") then begin
+          match Hashtbl.find_opt area_nodes area_from, Hashtbl.find_opt area_nodes area_to with
+          | Some f, Some t ->
+              let walk_time = match i_time_opt with
+                | Some idx -> (try int_of_string (List.nth row idx) with _ -> 180)
+                | None -> 180
+              in
+              
+              let walk_dist = haversine_distance f.latitude f.longitude t.latitude t.longitude in
+              
+              let walk_conn = {
+                Network.line = { name = "Marche"; color = "AAAAAA" };
+                Network.duration = walk_time;
+                Network.schedules = []; 
+                Network.distance = walk_dist;
+                Network.mode = Network.Transfert;
+                Network.terminus = t;
+              } in
+              Network.TransportGraph.add_edge graph f t walk_conn;
+              Network.TransportGraph.add_edge graph t f walk_conn
+          | _ -> ()
+        end
+      with _ -> ()
+    ) tr_csv;
+    close_in tr_ic
+  end; 
   graph
 
 exception Invalid_GTFS_URL of string

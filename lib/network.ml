@@ -6,7 +6,14 @@ type line = { name : string; color : string }
 (** Line information. *)
 
 (** Transport mode enumerated type. *)
-type transport_mode = Metro | RER | Bus | Tram | Walk | Custom of string
+type transport_mode =
+  | Metro
+  | RER
+  | Bus
+  | Tram
+  | Walk
+  | Transfert
+  | Custom of string
 
 let string_of_mode = function
   | Metro -> "Metro"
@@ -14,6 +21,7 @@ let string_of_mode = function
   | Bus -> "Bus"
   | Tram -> "Tram"
   | Walk -> "Walk"
+  | Transfert -> "Transfert"
   | Custom s -> s
 
 type station = {
@@ -31,6 +39,7 @@ type connection = {
   schedules : int list;
   distance : float;
   mode : transport_mode;
+  terminus : station;
 }
 (** Connection (edge) information. *)
 
