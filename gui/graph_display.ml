@@ -1,4 +1,3 @@
-(* graph_display.ml *)
 open Bogue
 open Gui_types
 open Gui_draw
