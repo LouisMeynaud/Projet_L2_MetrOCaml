@@ -1,4 +1,3 @@
-(* bin/gtfs_adapter.ml *)
 open Network
 
 (* --- 1. Utilitaires --- *)

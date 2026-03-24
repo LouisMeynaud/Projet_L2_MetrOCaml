@@ -1,5 +1,3 @@
-(* bin/main.ml *)
-
 open Metrocaml
 open Weight
 open Routing
