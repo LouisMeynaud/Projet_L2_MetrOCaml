@@ -46,7 +46,7 @@ let extraire_horaires graph =
               line_color = color_of_string conn.line.color;
               station_id = source.id;
               station_name = source.name;
-              direction = destination.name;
+              direction = conn.terminus.name;
               times = conn.schedules;
             })
           voisins)
