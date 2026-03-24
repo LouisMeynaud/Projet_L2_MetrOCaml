@@ -112,29 +112,13 @@ let () =
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
-        (* Adaptateur pour le CLI : on demande l'heure et le mode d'affichage détaillé ici *)
         let cli_callback src dest algo poids coeffs =
-          Printf.printf "Entrez l'heure de départ (format HH:MM, ex: 08:30) : %!";
-          let time_input = read_line () in
-          let start_time =
-            try
-              match String.split_on_char ':' time_input with
-              | [h; m] -> (int_of_string h * 3600) + (int_of_string m * 60)
-              | _ -> 8 * 3600
-            with _ -> 8 * 3600
-          in
-          Printf.printf "Choisissez l'affichage que vous voulez (1 : Normal) (2 : Détaillés) \n%!";
-          let details_mode = match Cli.Console.raw_select "" [ "1"; "2" ] with
-            | "1" -> false
-            | _ -> true
-          in
-          search_callback src dest algo poids coeffs start_time details_mode
+          search_callback src dest algo poids coeffs (8 * 3600) false
         in
         Cli.Console.run_console graphe cli_callback
 
     | _ ->
         Printf.printf "Lancement de l'interface graphique...\n%!";
-        (* Adaptateur pour le GUI : L'heure vient de Bogue, on fixe details_mode par défaut *)
         let gui_callback src dest algo poids coeffs start_time =
           search_callback src dest algo poids coeffs start_time false
         in
