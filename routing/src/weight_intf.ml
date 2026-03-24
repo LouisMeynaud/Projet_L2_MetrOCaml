@@ -13,8 +13,8 @@ module type WEIGHT = sig
   (** Check if the weight is infinity. *)
 
   val add : t -> edge -> t
-  (** Combine the accumulated weight at a node with the next edge. 
-      This function checks schedules based on the current time. *)
+  (** Combine the accumulated weight at a node with the next edge. This function
+      checks schedules based on the current time. *)
 
   val compare : t -> t -> float
   (** Normalised comparison returning a value within [-1, 1]. *)
@@ -22,8 +22,6 @@ module type WEIGHT = sig
   val ( < ) : t -> t -> bool
   val ( > ) : t -> t -> bool
   val ( = ) : t -> t -> bool
-
   val get_time : t -> int
-
   val to_string : t -> string
 end

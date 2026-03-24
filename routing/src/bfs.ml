@@ -3,6 +3,7 @@ open Weight_intf
 
 module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
   module P = Path.Make (G) (W)
+
   type path = P.t
 
   let find_path ~start_time ~graph ~source ~destination =
@@ -47,11 +48,12 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
             with Not_found -> acc
           in
           let steps = build_steps [] destination in
-          let total_weight = 
-            match List.rev steps with 
-            | [] -> initial_weight 
-            | last_step :: _ -> last_step.P.weight 
+          let total_weight =
+            match List.rev steps with
+            | [] -> initial_weight
+            | last_step :: _ -> last_step.P.weight
           in
           Some { P.steps; total_weight }
-        in bfs ()
+        in
+        bfs ()
 end

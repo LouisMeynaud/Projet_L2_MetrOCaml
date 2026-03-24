@@ -18,12 +18,15 @@ let test_hop_of_edge () =
       line = dummy_line;
       duration = 120;
       distance = 500.0;
-      mode = Walk; (* Mode Walk pour ignorer l'absence de schedules dans le test *)
+      mode = Walk;
+      (* Mode Walk pour ignorer l'absence de schedules dans le test *)
       schedules = [];
     }
   in
   let expected = HW.add (HW.start_at 0) dummy_conn in
-  Alcotest.(check string) "Un segment vaut 1 arrêt" "1 arrêts (Aujourd'hui à 00h02m00s)" (HW.to_string expected)
+  Alcotest.(check string)
+    "Un segment vaut 1 arrêt" "1 arrêts (Aujourd'hui à 00h02m00s)"
+    (HW.to_string expected)
 
 let test_hop_arithmetic () =
   let open HW in
@@ -38,9 +41,11 @@ let test_hop_arithmetic () =
   in
   let one = add (start_at 0) dummy_conn in
   let two = add one dummy_conn in
-  Alcotest.(check string) "1 + 1 = 2" "2 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string two);
+  Alcotest.(check string)
+    "1 + 1 = 2" "2 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string two);
   (* "L'ajout d'une arête à 0 durée donne un arrêt supplémentaire" *)
-  Alcotest.(check hop_weight_t) "Vérifie l'accumulation" two (add one dummy_conn)
+  Alcotest.(check hop_weight_t)
+    "Vérifie l'accumulation" two (add one dummy_conn)
 
 let test_hop_infinity () =
   let open HW in
@@ -166,7 +171,9 @@ let test_time_infinity () =
   Alcotest.(check string) "Affichage de l'infini" "∞" (to_string infinity)
 
 let test_time_to_string () =
-  Alcotest.(check string) "Formatage 0s" "Aujourd'hui à 00h00m00s" (TimeW.to_string (TimeW.start_at 0));
+  Alcotest.(check string)
+    "Formatage 0s" "Aujourd'hui à 00h00m00s"
+    (TimeW.to_string (TimeW.start_at 0));
   Alcotest.(check string)
     "Formatage secondes (45s)" "Aujourd'hui à 00h00m45s"
     (TimeW.to_string (TimeW.start_at 45));
@@ -239,8 +246,7 @@ let test_distance_arithmetic () =
   let w1 = add (start_at 0) c1 in
   let w2 = add w1 c2 in
   let expected_1250 = add (start_at 0) c_1250 in
-  Alcotest.(check distance_weight_t)
-    "500.0 + 750.0 = 1250.0" expected_1250 w2
+  Alcotest.(check distance_weight_t) "500.0 + 750.0 = 1250.0" expected_1250 w2
 
 let test_distance_compare () =
   let open DW in
@@ -273,17 +279,18 @@ let test_distance_infinity () =
   let open DW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
   let dummy_conn =
-      {
-        Metrocaml.Network.line = dummy_line;
-        duration = 0;
-        distance = 500.0;
-        mode = Walk;
-        schedules = [];
-      }
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 0;
+      distance = 500.0;
+      mode = Walk;
+      schedules = [];
+    }
   in
   let w_500 = add (start_at 0) dummy_conn in
   Alcotest.(check distance_weight_t)
-    "L'infini absorbe l'addition (inf + x = inf)" infinity (add infinity dummy_conn);
+    "L'infini absorbe l'addition (inf + x = inf)" infinity
+    (add infinity dummy_conn);
   Alcotest.(check bool) "L'infini est superieur a tout" true (infinity > w_500);
   Alcotest.(check string) "Affichage de l'infini" "∞" (to_string infinity)
 
@@ -299,7 +306,9 @@ let test_distance_to_string () =
         schedules = [];
       }
   in
-  Alcotest.(check string) "Formatage 0 m" "0 m (Aujourd'hui à 00h00m00s)" (DW.to_string (make_w 0.0));
+  Alcotest.(check string)
+    "Formatage 0 m" "0 m (Aujourd'hui à 00h00m00s)"
+    (DW.to_string (make_w 0.0));
   Alcotest.(check string)
     "Formatage m (< 1000)" "850 m (Aujourd'hui à 00h00m00s)"
     (DW.to_string (make_w 850.0));
@@ -327,13 +336,14 @@ let test_cw_of_edge () =
       duration = 120;
       distance = 500.0;
       mode = Metro;
-      schedules = [0; 120; 240]; (* Faux horaires pour que le train passe *)
+      schedules = [ 0; 120; 240 ];
+      (* Faux horaires pour que le train passe *)
     }
   in
   let weight = CW.add (CW.start_at 0) conn in
   Alcotest.(check string)
-    "Poids initial (0 correspondance)" "0 correspondances (Aujourd'hui à 00h02m00s)"
-    (CW.to_string weight)
+    "Poids initial (0 correspondance)"
+    "0 correspondances (Aujourd'hui à 00h02m00s)" (CW.to_string weight)
 
 let test_cw_arithmetic_same_line () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
@@ -343,34 +353,35 @@ let test_cw_arithmetic_same_line () =
       duration = 60;
       distance = 100.;
       mode = Metro;
-      schedules = [0; 60; 120; 180];
+      schedules = [ 0; 60; 120; 180 ];
     }
   in
   let w1 = CW.add (CW.start_at 0) conn in
   let w2 = CW.add w1 conn in
   Alcotest.(check string)
-    "Même ligne : pas de pénalité" "0 correspondances (Aujourd'hui à 00h02m00s)" (CW.to_string w2)
+    "Même ligne : pas de pénalité" "0 correspondances (Aujourd'hui à 00h02m00s)"
+    (CW.to_string w2)
 
 let test_cw_transfer_penalty () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
   let line_b = { Metrocaml.Network.name = "Ligne B"; color = "#0000FF" } in
   let conn_a : Metrocaml.Network.connection =
-      {
-        line = line_a;
-        duration = 60;
-        distance = 100.;
-        mode = Metro;
-        schedules = [0; 60; 120];
-      }
+    {
+      line = line_a;
+      duration = 60;
+      distance = 100.;
+      mode = Metro;
+      schedules = [ 0; 60; 120 ];
+    }
   in
   let conn_b : Metrocaml.Network.connection =
-      {
-        line = line_b;
-        duration = 60;
-        distance = 100.;
-        mode = Metro;
-        schedules = [0; 60; 120; 180; 240; 300]; 
-      }
+    {
+      line = line_b;
+      duration = 60;
+      distance = 100.;
+      mode = Metro;
+      schedules = [ 0; 60; 120; 180; 240; 300 ];
+    }
   in
 
   let w_a = CW.add (CW.start_at 0) conn_a in
@@ -380,34 +391,35 @@ let test_cw_transfer_penalty () =
      Pénalité de transfert : 180s. Prêt sur le quai B à 240s.
      Prochain train B à 240s. Durée 60s. Arrivée à 300s (5min). *)
   Alcotest.(check string)
-    "Changement de ligne : +1 correspondance" "1 correspondances (Aujourd'hui à 00h05m00s)"
-    (CW.to_string total);
+    "Changement de ligne : +1 correspondance"
+    "1 correspondances (Aujourd'hui à 00h05m00s)" (CW.to_string total);
 
-  let conn_c : Metrocaml.Network.connection = 
-      {
-        line = { name = "Ligne C"; color = "" };
-        duration = 0;
-        distance = 0.;
-        mode = Metro;
-        schedules = [300; 480; 600];
-      }
+  let conn_c : Metrocaml.Network.connection =
+    {
+      line = { name = "Ligne C"; color = "" };
+      duration = 0;
+      distance = 0.;
+      mode = Metro;
+      schedules = [ 300; 480; 600 ];
+    }
   in
   let total_3_lines = CW.add total conn_c in
   (* Prêt sur le quai C à 300s + 180s = 480s. Arrivée à 480s (8min). *)
   Alcotest.(check string)
-    "Deux changements : 2 correspondances" "2 correspondances (Aujourd'hui à 00h08m00s)"
+    "Deux changements : 2 correspondances"
+    "2 correspondances (Aujourd'hui à 00h08m00s)"
     (CW.to_string total_3_lines)
 
 let test_cw_neutral_and_inf () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
   let conn_a : Metrocaml.Network.connection =
-      {
-        line = line_a;
-        duration = 60;
-        distance = 100.;
-        mode = Metro;
-        schedules = [0; 60; 120];
-      }
+    {
+      line = line_a;
+      duration = 60;
+      distance = 100.;
+      mode = Metro;
+      schedules = [ 0; 60; 120 ];
+    }
   in
   Alcotest.(check string)
     "Infini est absorbant" "∞"
@@ -416,9 +428,25 @@ let test_cw_neutral_and_inf () =
 let test_cw_compare () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "" } in
   let line_b = { Metrocaml.Network.name = "Ligne B"; color = "" } in
-  
-  let conn_a : Metrocaml.Network.connection = { line = line_a; duration = 0; distance = 0.; mode = Metro; schedules = [0; 100; 200; 500] } in
-  let conn_b : Metrocaml.Network.connection = { line = line_b; duration = 0; distance = 0.; mode = Metro; schedules = [0; 100; 200; 500] } in
+
+  let conn_a : Metrocaml.Network.connection =
+    {
+      line = line_a;
+      duration = 0;
+      distance = 0.;
+      mode = Metro;
+      schedules = [ 0; 100; 200; 500 ];
+    }
+  in
+  let conn_b : Metrocaml.Network.connection =
+    {
+      line = line_b;
+      duration = 0;
+      distance = 0.;
+      mode = Metro;
+      schedules = [ 0; 100; 200; 500 ];
+    }
+  in
 
   let w_no_transfer = CW.add (CW.add (CW.start_at 0) conn_a) conn_a in
   let w_one_transfer = CW.add (CW.add (CW.start_at 0) conn_a) conn_b in
@@ -471,7 +499,8 @@ module BFS_Tests = struct
       line = { name = "Test"; color = "#000000" };
       duration = 60;
       distance = 1000.0;
-      mode = Walk; (* Mode Walk pour éviter les bugs d'horaires vides dans les tests graph *)
+      mode = Walk;
+      (* Mode Walk pour éviter les bugs d'horaires vides dans les tests graph *)
       schedules = [];
     }
 
@@ -583,7 +612,8 @@ module Dijkstra_Tests = struct
       line = { name = "Test"; color = "#000000" };
       duration = dur;
       distance = 0.;
-      mode = Walk; (* Walk pour esquiver la nécessité de schedules valides *)
+      mode = Walk;
+      (* Walk pour esquiver la nécessité de schedules valides *)
       schedules = [];
     }
 
@@ -592,7 +622,9 @@ module Dijkstra_Tests = struct
   let test_simple_path () =
     let g = TestGraph.create () in
     TestGraph.add_edge g "A" "B" (conn 60);
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B"
+    with
     | Some path ->
         Alcotest.(check int)
           "Chemin direct (1 étape)" 1 (List.length path.steps)
@@ -602,14 +634,18 @@ module Dijkstra_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_node g "A";
     TestGraph.add_node g "B";
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B"
+    with
     | Some _ -> Alcotest.fail "Aucun chemin ne devrait être trouvé"
     | None -> ()
 
   let test_same_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g "A";
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"A" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"A"
+    with
     | Some path ->
         Alcotest.(check int)
           "Source = destination (0 étape)" 0 (List.length path.steps)
@@ -618,14 +654,18 @@ module Dijkstra_Tests = struct
   let test_missing_source () =
     let g = TestGraph.create () in
     TestGraph.add_node g "B";
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B"
+    with
     | Some _ -> Alcotest.fail "Devrait échouer car A n'existe pas"
     | None -> ()
 
   let test_missing_destination () =
     let g = TestGraph.create () in
     TestGraph.add_node g "A";
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B"
+    with
     | Some _ -> Alcotest.fail "Devrait échouer car B n'existe pas"
     | None -> ()
 
@@ -635,7 +675,9 @@ module Dijkstra_Tests = struct
     TestGraph.add_edge g "A" "B" (conn 10);
     TestGraph.add_edge g "B" "C" (conn 10);
     TestGraph.add_edge g "C" "D" (conn 10);
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"D" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"D"
+    with
     | Some path ->
         Alcotest.(check int)
           "Chaîne A->B->C->D (3 étapes)" 3 (List.length path.steps)
@@ -645,7 +687,9 @@ module Dijkstra_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_edge g "A" "B" (conn 10);
     TestGraph.add_edge g "B" "A" (conn 10);
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B"
+    with
     | Some path ->
         Alcotest.(check int)
           "Gère les cycles (1 étape)" 1 (List.length path.steps)
@@ -658,7 +702,9 @@ module Dijkstra_Tests = struct
     TestGraph.add_edge g "A" "B" (conn 10);
     TestGraph.add_edge g "B" "C" (conn 10);
     (* chemin indirect, moins coûteux *)
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"C" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"C"
+    with
     | None -> Alcotest.fail "Chemin A->C introuvable"
     | Some path ->
         Alcotest.(check int)
@@ -672,7 +718,9 @@ module Dijkstra_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_edge g "A" "B" (conn 30);
     TestGraph.add_edge g "B" "C" (conn 45);
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"C" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"C"
+    with
     | None -> Alcotest.fail "Chemin non trouvé"
     | Some path ->
         Alcotest.(check time_weight_t)
