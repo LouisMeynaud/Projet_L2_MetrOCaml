@@ -57,7 +57,7 @@ let extraire_horaires graph =
 let algos_disponibles = [ "Dijkstra"; "BFS" ]
 
 let poids_disponibles =
-  [ "Temps"; "Distance"; "Arrets"; "Correspondances"; "Combinaison" ]
+  ["Default"; "Temps"; "Distance"; "Arrets"; "Correspondances"; "Rapide"; "Confort"; "Court chemin"; "Equilibre"; "Explorateur"; "Combinaison" ]
 
 let affiche graph on_search =
   let stations = TransportGraph.nodes graph in
