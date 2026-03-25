@@ -8,14 +8,11 @@ module DIJKSTRA_TimeWeight           = Dijkstra.Make(Network.TransportGraph)(Wei
 module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
 module BFS_HopWeight                 = Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
 
-
 module type ALGO = sig
-  module P :
-    Routing.PATH
-      with type Node.t = Network.station
-       and type Edge.t = Network.connection
+  module P : Routing.PATH with type Node.t = Network.station and type Edge.t = Network.connection
 
   val find_path :
+    start_time:int ->
     graph:Network.TransportGraph.t ->
     source:Network.station ->
     destination:Network.station ->
@@ -24,8 +21,7 @@ end
 
 let today_yyyymmdd () =
   let tm = Unix.localtime (Unix.time ()) in
-  Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1)
-    tm.Unix.tm_mday
+  Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 
 let () =
   let town = Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France" ] in
@@ -60,13 +56,16 @@ let () =
     in
     flush stdout;
     
-    let search_callback source_query dest_query algo poids coeffs =
+    let search_callback source_query dest_query algo poids coeffs start_time details_mode =
       match Endpoint.build_routing_context graphe source_query dest_query with
       | Some (graph_for_search, source, destination) ->
-
           let routeurs : (string * (module ALGO)) list =
-            if algo = "BFS" then 
-              [("BFS", (module BFS_HopWeight))]
+            if algo = "BFS" then
+              [("BFS", (module struct
+                module P = BFS_HopWeight.P
+                let find_path ~start_time ~graph ~source ~destination =
+                  BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
+              end))]
             else
               match poids with
                 | "Default" -> List.map (fun (preset : Presets.preset) -> 
@@ -86,7 +85,7 @@ let () =
                     [(poids, (module D : ALGO))]
                   | None -> [("Temps (par défaut)", (module DIJKSTRA_TimeWeight))])
                 | "Combinaison"     -> 
-                     (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
+                      (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
                      let ct, cd, ca, cc = match coeffs with 
                      |[a;b;c;d] -> a,b,c,d 
                      | _ -> 1.0,1.0,1.0,1.0 in
@@ -101,21 +100,23 @@ let () =
                      [("Combinaison", (module DIJKSTRA_CombinedWeight))]
                 | _                 -> [("Temps (par défaut)", (module DIJKSTRA_TimeWeight))]
               in
-          
+
           (* Accumulation fonctionnelle des détails d'affichage *)
           let details_afficheurs = List.fold_left (fun acc (nom_algo, (module Routeur : ALGO)) ->
             let module ShowPath = Show.Make (Routeur.P) in
             Printf.printf "\n=== Résultat avec %s ===\n%!" nom_algo;
-            match Routeur.find_path ~graph:graph_for_search ~source ~destination with
+            match Routeur.find_path ~start_time ~graph:graph_for_search ~source ~destination with
             | Some p ->
                 ShowPath.print_path
                   (fun s -> s.name)
                   (fun (c : Network.connection) -> c.line.name)
                   Routeur.P.Weight.to_string
+                  Routeur.P.Weight.get_time
                   (fun (c : Network.connection) -> c.line.color)
                   (fun (c : Network.connection) -> c.duration)
                   (fun (c : Network.connection) -> c.distance)
-                  (false)
+                  start_time
+                  details_mode
                   p;
                 flush stdout;
                 (* Créer une fermeture pour afficher le détail *)
@@ -156,13 +157,20 @@ let () =
     Printf.printf "  2 - Interface Ligne de Commande (CLI)\n%!";
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
-    | "2" -> Cli.Console.run_console graphe search_callback
+    | "2" -> 
+        let cli_callback src dest algo poids coeffs =
+          search_callback src dest algo poids coeffs (8 * 3600) false
+        in
+        Cli.Console.run_console graphe cli_callback
+
     | _ ->
         Printf.printf "Lancement de l'interface graphique...\n%!";
-        Gui.Transport_view.affiche graphe search_callback;
+        let gui_callback src dest algo poids coeffs start_time =
+          search_callback src dest algo poids coeffs start_time false
+        in
+        Gui.Transport_view.affiche graphe gui_callback;
 
   with
   | Failure msg -> Printf.eprintf "ERREUR : %s\n" msg
   | Sys_error msg -> Printf.eprintf "ERREUR FICHIER : %s\n" msg
   | e -> Printf.eprintf "ERREUR INCONNUE : %s\n" (Printexc.to_string e)
-  
