@@ -46,7 +46,7 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     noeuds_visibles = [];
     aretes_groupees = Hashtbl.create 1;
     noeuds_actifs = Hashtbl.create 1;
-    categories = List.map (fun c -> (c, String.lowercase_ascii c <> "bus")) cats;
+    categories = List.map (fun c -> (c, String.lowercase_ascii c <> "bus" && String.lowercase_ascii c <> "transfert")) cats;
     source = None; dest = None; show_names = false;
     algos; algo_actif = List.hd algos;
     poids_list; poids_actif = List.hd poids_list;
@@ -693,7 +693,7 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let start_camera_x = ref 0.0 in
   let start_camera_y = ref 0.0 in
   let min_zoom = 0.5 in
-  let max_zoom = 10.0 in
+  let max_zoom = 30.0 in
   let needs_redraw = ref false in
 
   let boucle _w _target ev =
