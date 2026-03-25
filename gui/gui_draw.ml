@@ -151,7 +151,8 @@ let rgb_to_bogue (r, g, b) =
   Draw.opaque (r, g, b)
 
 
-let police_actuelle = ref None
+  let police_actuelle = ref None
+  let police_tente = ref false
 
 type label_cache_entry = {
   texture : Tsdl.Sdl.texture;
@@ -166,27 +167,30 @@ let clear_label_cache () =
   Hashtbl.iter (fun _ entry -> Tsdl.Sdl.destroy_texture entry.texture) label_cache;
   Hashtbl.clear label_cache
 
-let charger_police () =
-  if !police_actuelle = None then begin
-    let liste_candidats = ["FreeSans.otf"; "LiberationSans-Regular.ttf"; "DejaVuSans.ttf"] in
-    
-    (* On cherche la première police qui existe sur l'ordinateur *)
-    let chemin_trouve = 
-      List.fold_left (fun resultat_precedent nom_police -> 
-        match resultat_precedent with 
-        | Some _ -> resultat_precedent (* On a déjà trouvé, on garde *)
-        | None -> Theme.get_font_path_opt nom_police (* On essaie la suivante *)
-      ) None liste_candidats 
-    in
-    
-    (* Si on a trouvé un chemin, on demande à SDL d'ouvrir la police taille 12 *)
-    match chemin_trouve with 
-    | Some chemin -> 
-        (match Tsdl_ttf.Ttf.open_font chemin 12 with 
-         | Ok vraie_police -> police_actuelle := Some vraie_police 
-         | Error _ -> ()) 
-    | None -> ()
-  end
+  let charger_police () =
+    if not !police_tente then begin
+      police_tente := true;
+      if Tsdl_ttf.Ttf.was_init () = true then ignore (Tsdl_ttf.Ttf.init ());
+  
+      (* On va chercher directement dans les dossiers systèmes du Mac, Windows et Linux ! *)
+      let chemins = [
+        "/System/Library/Fonts/Helvetica.ttc"; 
+        "/Library/Fonts/Arial.ttf";            
+        "C:\\Windows\\Fonts\\arial.ttf";       
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" 
+      ] in
+  
+      let rec trouver_police = function
+        | [] -> Printf.printf "Aucune police système trouvée.\n%!"
+        | chemin :: suite ->
+            if Sys.file_exists chemin then
+              match Tsdl_ttf.Ttf.open_font chemin 26 with
+              | Ok p -> police_actuelle := Some p
+              | Error _ -> trouver_police suite
+            else trouver_police suite
+      in
+      trouver_police chemins
+    end
 
 (* 3. Le dessin du texte *)
 let dessiner_texte x y texte (r, g, b) =
@@ -231,61 +235,68 @@ let dessiner_texte x y texte (r, g, b) =
   @param arete l'arrete à dessiner 
   @param i l'index de la ligne parmi les lignes parallèles
   @param n le nombre total de lignes parallèles *)
-let draw_arete etat (arete : arete) i n =
+  let draw_arete etat (arete : arete) i n =
 
-  let get_pos id =
-    match Hashtbl.find_opt etat.positions id with
-    | Some p -> p
-    | None -> (0., 0.)
-  in
-  let (wx1, wy1) = get_pos arete.source in
-  let (wx2, wy2) = get_pos arete.destination in
-  let x1 = wx1 *. etat.zoom +. etat.camera_x in
-  let y1 = wy1 *. etat.zoom +. etat.camera_y in
-  let x2 = wx2 *. etat.zoom +. etat.camera_x in
-  let y2 = wy2 *. etat.zoom +. etat.camera_y in
-
-  (* on ignore ce qui est hors de l'écran *)
-  let pad = 32.0 in
-  let min_x = -.pad and min_y = -.pad in
-  let max_x = float !canvas_w +. pad and max_y = float !canvas_h +. pad in
-
-  if (x1 < min_x && x2 < min_x) || (x1 > max_x && x2 > max_x) ||
-     (y1 < min_y && y2 < min_y) || (y1 > max_y && y2 > max_y) then
+    let get_pos id =
+      match Hashtbl.find_opt etat.positions id with
+      | Some p -> p 
+      | None -> (0., 0.)
+    in
+    let (wx1, wy1) = get_pos arete.source in
+    let (wx2, wy2) = get_pos arete.destination in
+    let x1 = wx1 *. etat.zoom +. etat.camera_x in
+    let y1 = wy1 *. etat.zoom +. etat.camera_y in
+    let x2 = wx2 *. etat.zoom +. etat.camera_x in
+    let y2 = wy2 *. etat.zoom +. etat.camera_y in
+  
+    (* on ignore ce qui est hors de l'écran *)
+    let pad = 32.0 in
+    let min_x = -.pad and min_y = -.pad in
+    let max_x = float !canvas_w +. pad and max_y = float !canvas_h +. pad in
+  
+    if (x1 < min_x && x2 < min_x) || (x1 > max_x && x2 > max_x) ||
+       (y1 < min_y && y2 < min_y) || (y1 > max_y && y2 > max_y) then
     () (* On ne dessine rien *)
-  else
-    let (ox, oy) =
+    else
+      let (ox, oy) =
       if n <= 1 then (0., 0.) (* une station : on decalle pas*)
+        else 
+          let (dx, dy) = if arete.source < arete.destination then (x2 -. x1, y2 -. y1) else (x1 -. x2, y1 -. y2) in
+          let len = sqrt (dx *. dx +. dy *. dy) in
+          if len = 0. then (0., 0.) 
+          else
+            let nx, ny = -.dy /. len, dx /. len in
+            let shift = (float i -. (float (n - 1) /. 2.0)) *. 4.0 in (* decalle pour centré le paquet*)
+            (nx *. shift, ny *. shift)
+      in
+      let clamp_int_coord f =
+        if Float.is_nan f || Float.is_infinite f then 0
+        else max (-50000) (min 50000 (int_of_float f))
+      in
+      let x1i = clamp_int_coord (x1 +. ox) in
+      let y1i = clamp_int_coord (y1 +. oy) in
+      let x2i = clamp_int_coord (x2 +. ox) in
+      let y2i = clamp_int_coord (y2 +. oy) in
+      if x1i = x2i && y1i = y2i then 
+        ()
       else 
-        let (dx, dy) = if arete.source < arete.destination then (x2 -. x1, y2 -. y1) else (x1 -. x2, y1 -. y2) in
-        let len = sqrt (dx *. dx +. dy *. dy) in
-        if len = 0. then (0., 0.) 
-        else
-          let nx, ny = -.dy /. len, dx /. len in
-          let shift = (float i -. (float (n - 1) /. 2.0)) *. 4.0 in (* decalle pour centré le paquet*)
-          (nx *. shift, ny *. shift)
-    in
-    let color = rgb_to_bogue (hex_to_rgb arete.couleur) in
-    let clamp_int_coord f =
-      if Float.is_nan f || Float.is_infinite f then 0
-      else max (-50000) (min 50000 (int_of_float f))
-    in
-    let x1i = clamp_int_coord (x1 +. ox) in
-    let y1i = clamp_int_coord (y1 +. oy) in
-    let x2i = clamp_int_coord (x2 +. ox) in
-    let y2i = clamp_int_coord (y2 +. oy) in
-    if x1i = x2i && y1i = y2i then 
-      ()
-    else 
-      Sdl_area.draw_line (get_canvas ()) ~color ~thick:3 (x1i, y1i) (x2i, y2i)
+        let r, g, b = hex_to_rgb arete.couleur in
+        Sdl_area.add (get_canvas ()) (fun renderer ->
+          ignore (Tsdl.Sdl.set_render_draw_color renderer r g b 255);
+          ignore (Tsdl.Sdl.render_draw_line renderer x1i y1i x2i y2i);
+          ignore (Tsdl.Sdl.render_draw_line renderer (x1i+1) y1i (x2i+1) y2i);
+          ignore (Tsdl.Sdl.render_draw_line renderer (x1i-1) y1i (x2i-1) y2i);
+          ignore (Tsdl.Sdl.render_draw_line renderer x1i (y1i+1) x2i (y2i+1));
+          ignore (Tsdl.Sdl.render_draw_line renderer x1i (y1i-1) x2i (y2i-1))
+        )
 
 (*dessine un noeud*)
 let draw_noeud etat noeud =
-  let (wx, wy) =
-    match Hashtbl.find_opt etat.positions noeud.id with
-    | Some p -> p
-    | None -> (0., 0.)
-  in
+  let (wx, wy) = 
+  match Hashtbl.find_opt etat.positions noeud.id with 
+  | Some p -> p 
+  | None -> (0., 0.) 
+in
   let x = wx *. etat.zoom +. etat.camera_x in
   let y = wy *. etat.zoom +. etat.camera_y in
 
@@ -293,16 +304,29 @@ let draw_noeud etat noeud =
   if x < -.pad || y < -.pad || x > float !canvas_w +. pad || y > float !canvas_h +. pad then
     ()
   else
-  let (color_ext, r_ext, r_int) =
-    if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 9, 8)
-    else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 9, 8)
-    else (hex_to_rgb 0x000000, 5, 4)
-  in
-  Sdl_area.fill_circle (get_canvas ()) ~color:(rgb_to_bogue color_ext) ~radius:r_ext (int_of_float x, int_of_float y);
-  Sdl_area.fill_circle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~radius:r_int (int_of_float x, int_of_float y);
-  if etat.show_names then begin
-    dessiner_texte (int_of_float x + 12) (int_of_float y - 4) noeud.nom (0,0,0)
-  end
+    let (color_ext, r_ext, r_int) =
+      if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 26, 24)
+      else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 26, 24)
+      else (hex_to_rgb 0x000000, 5, 4)
+    in
+    
+    let r, g, b = color_ext in
+    let cx = int_of_float x in
+    let cy = int_of_float y in
+    
+    Sdl_area.add (get_canvas ()) (fun renderer ->
+      ignore (Tsdl.Sdl.set_render_draw_color renderer r g b 255);
+      let rect_ext = Tsdl.Sdl.Rect.create ~x:(cx - r_ext) ~y:(cy - r_ext) ~w:(r_ext * 2) ~h:(r_ext * 2) in
+      ignore (Tsdl.Sdl.render_fill_rect renderer (Some rect_ext));
+      
+      ignore (Tsdl.Sdl.set_render_draw_color renderer 255 255 255 255);
+      let rect_int = Tsdl.Sdl.Rect.create ~x:(cx - r_int) ~y:(cy - r_int) ~w:(r_int * 2) ~h:(r_int * 2) in
+      ignore (Tsdl.Sdl.render_fill_rect renderer (Some rect_int))
+    );
+    
+    if etat.show_names && etat.zoom > 6.0 then begin
+      dessiner_texte (cx + 12) (cy - 4) noeud.nom (0,0,0)
+    end
 
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
 *)
