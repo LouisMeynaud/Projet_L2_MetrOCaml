@@ -46,8 +46,8 @@ let () =
     let graphe = Gtfs_adapter.load_network_from_url url date_cible in
     flush stdout;
     
-    let search_callback source_id dest_id algo poids coeffs =
-      match Endpoint.build_routing_context graphe source_id dest_id with
+    let search_callback source_query dest_query algo poids coeffs =
+      match Endpoint.build_routing_context graphe source_query dest_query with
       | Some (graph_for_search, source, destination) ->
 
           let routeurs : (string * (module ALGO)) list =

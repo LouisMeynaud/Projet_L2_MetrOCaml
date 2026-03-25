@@ -181,16 +181,6 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     | None -> id
   in
 
-  let station_id_of_name nom =
-    let cible = String.lowercase_ascii (String.trim nom) in
-    if cible = "" then None
-    else
-      List.find_opt
-        (fun (n : noeud) -> String.lowercase_ascii n.nom = cible)
-        noeuds
-      |> Option.map (fun n -> n.id)
-  in
-
   let mode_selection_carte = ref `Aucun in
 
   (* ================================================== *)
@@ -588,16 +578,20 @@ let run noeuds aretes algos poids_list schedule_items on_search =
 
   (* Action de recherche depuis l'onglet recherche *)
   let conn_valider_rech = Widget.connect btn_valider_recherche btn_valider_recherche (fun _ _ _ ->
-    let id_dep = station_id_of_name (Widget.get_text input_depart) in
-    let id_arr = station_id_of_name (Widget.get_text input_arrivee) in
-    let source = match id_dep with Some id -> Some id | None -> !current_etat.source in
-    let dest = match id_arr with Some id -> Some id | None -> !current_etat.dest in
-    current_etat := { !current_etat with source; dest };
+    let raw_dep = String.trim (Widget.get_text input_depart) in
+    let raw_arr = String.trim (Widget.get_text input_arrivee) in
+    
+    let source_opt = if raw_dep = "" then !current_etat.source else Some raw_dep in
+    let dest_opt = if raw_arr = "" then !current_etat.dest else Some raw_arr in
+
+    current_etat := { !current_etat with source = source_opt; dest = dest_opt };
     update_ui_buttons ();
     rafraichir_ecran !current_etat;
-    match source, dest with
-    | Some s, Some d -> launch_search s d
-    | _ -> print_endline "Entrez un depart et une arrivee valides, ou selectionnez-les sur la carte."
+    match source_opt, dest_opt with
+    | Some source, Some dest -> launch_search source dest
+    | _ -> Printf.printf "Erreur: point source/destination manquant dans l'interface graphique.\n%!"
+
+    
   ) Trigger.buttons_down in
 
   (* Connexions Horaire *)

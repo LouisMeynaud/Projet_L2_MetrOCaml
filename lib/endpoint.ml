@@ -1,3 +1,5 @@
+open Network
+
 type endpoint =
   | Station of Network.station
   | Geo of float * float
@@ -58,24 +60,24 @@ let add_virtual_station_with_walk_edges graph (stations : Network.station list)
       pmr = false;
     }
   in
-  Network.TransportGraph.add_node graph virtual_station;
+  TransportGraph.add_node graph virtual_station;
   let nearby_count = ref 0 in
   List.iter
     (fun (station : Network.station) ->
       let distance = Util.haversine_distance lat lon station.latitude station.longitude in
       if distance <= walk_radius then (
         incr nearby_count;
-        Network.TransportGraph.add_edge graph virtual_station station
+        TransportGraph.add_edge graph virtual_station station
           (make_walk_connection ~to_station:station ~distance);
-        Network.TransportGraph.add_edge graph station virtual_station
+        TransportGraph.add_edge graph station virtual_station
           (make_walk_connection ~to_station:virtual_station ~distance)))
     stations;
   (virtual_station, !nearby_count)
 
-let walk_radius = 2000.0
+let walk_radius = 1000.0
 
-let build_routing_context graph source_id dest_id =
-  match resolve_endpoint graph source_id, resolve_endpoint graph dest_id with
+let build_routing_context graph source_query dest_query =
+  match resolve_endpoint graph source_query, resolve_endpoint graph dest_query with
   | Some source_ep, Some dest_ep -> (
       match (source_ep, dest_ep) with
       | Station source, Station destination -> Some (graph, source, destination)
