@@ -305,9 +305,9 @@ in
     ()
   else
     let (color_ext, r_ext, r_int) =
-      if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 15, 13)
-      else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 15, 13)
-      else (hex_to_rgb 0x000000, 9,7)
+      if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 11, 9)
+      else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 11, 9)
+      else (hex_to_rgb 0x000000, 5,3)
     in
     
     let r, g, b = color_ext in
