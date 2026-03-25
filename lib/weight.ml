@@ -21,7 +21,8 @@ let time_to_string time =
     poids *)
 let calc_next_time current_time current_line_name (edge : connection) =
   if current_time = max_int then (max_int, None)
-  else if edge.mode = Walk || edge.mode = Transfert then (current_time + edge.duration, current_line_name)
+  else if edge.mode = Walk || edge.mode = Transfert then
+    (current_time + edge.duration, current_line_name)
   else
     let is_transfer =
       match current_line_name with
