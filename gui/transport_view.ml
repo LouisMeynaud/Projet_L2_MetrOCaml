@@ -51,13 +51,25 @@ let extraire_horaires graph =
             })
           voisins)
       stations in
-        List.flatten horaires_par_station (* fait une seul liste a partit de cette liste de liste*)
+        List.flatten horaires_par_station
 
-(* ajouter les algo/poids ici pour qu'il aparraise dans l'ui graphique*)
 let algos_disponibles = [ "Dijkstra"; "BFS" ]
 
 let poids_disponibles =
-  ["Default"; "Temps"; "Distance"; "Arrets"; "Correspondances"; "Rapide"; "Confort"; "Court chemin"; "Equilibre"; "Explorateur"; "Combinaison" ]
+  [
+    "Default";
+    "Temps";
+    "Distance";
+    "Arrets";
+    "Correspondances";
+    "Rapide";
+    "Confort";
+    "Court chemin";
+    "Equilibre";
+    "Explorateur";
+    "Combinaison";
+    "Horaires";
+  ]
 
 let affiche graph on_search =
   let stations = TransportGraph.nodes graph in

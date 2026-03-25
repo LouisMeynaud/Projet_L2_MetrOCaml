@@ -41,16 +41,16 @@ let preset_confort =
       [
         Combinator.criterion
           (module CorrespondenceWeight)
-          ~coefficient:0.55 ~label:"Correspondances";
+          ~coefficient:0.60 ~label:"Correspondances";
         Combinator.criterion
           (module HopWeight)
-          ~coefficient:0.25 ~label:"Arrêts";
+          ~coefficient:0.00 ~label:"Arrêts";
         Combinator.criterion
           (module TimeWeight)
-          ~coefficient:0.15 ~label:"Temps";
+          ~coefficient:0.40 ~label:"Temps";
         Combinator.criterion
           (module DistanceWeight)
-          ~coefficient:0.05 ~label:"Distance";
+          ~coefficient:0.00 ~label:"Distance";
       ];
   }
 

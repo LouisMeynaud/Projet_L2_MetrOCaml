@@ -8,18 +8,11 @@ module DIJKSTRA_TimeWeight           = Dijkstra.Make(Network.TransportGraph)(Wei
 module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
 module BFS_HopWeight                 = Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
 
-let find_station graphe id =
-  List.find_opt
-    (fun (s : Network.station) -> s.id = id)
-    (Network.TransportGraph.nodes graphe)
-
 module type ALGO = sig
-  module P :
-    Routing.PATH
-      with type Node.t = Network.station
-       and type Edge.t = Network.connection
+  module P : Routing.PATH with type Node.t = Network.station and type Edge.t = Network.connection
 
   val find_path :
+    start_time:int ->
     graph:Network.TransportGraph.t ->
     source:Network.station ->
     destination:Network.station ->
@@ -28,8 +21,7 @@ end
 
 let today_yyyymmdd () =
   let tm = Unix.localtime (Unix.time ()) in
-  Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1)
-    tm.Unix.tm_mday
+  Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 
 let () =
   let town = Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France" ] in
@@ -46,17 +38,34 @@ let () =
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
 
+  let local_data_dir =  "data/" ^ town in
+  let local_data_exists =
+    try (Unix.stat ("data/" ^ town )).Unix.st_kind = Unix.S_DIR (* verif si le dossier existe et si c'est bien un dossier (S_DIR)*)
+    with _ -> false (*plutot que planter on retourne false*)
+  in
+
   try
-    let graphe = Gtfs_adapter.load_network_from_url url date_cible in
+    let graphe =
+      if local_data_exists then begin
+        Printf.printf "Chargement local GTFS depuis %s\n%!" local_data_dir;
+        Gtfs_adapter.load_network_gtfs local_data_dir date_cible
+      end else begin
+        Printf.printf "Aucun GTFS local pour %s, telechargement en cours...\n%!" town;
+        Gtfs_adapter.load_network_from_url url date_cible
+      end
+    in
     flush stdout;
     
-    let search_callback source_id dest_id algo poids coeffs =
-      match find_station graphe source_id, find_station graphe dest_id with
-      | Some source, Some destination ->
-
+    let search_callback source_query dest_query algo poids coeffs start_time details_mode =
+      match Endpoint.build_routing_context graphe source_query dest_query with
+      | Some (graph_for_search, source, destination) ->
           let routeurs : (string * (module ALGO)) list =
-            if algo = "BFS" then 
-              [("BFS", (module BFS_HopWeight))]
+            if algo = "BFS" then
+              [("BFS", (module struct
+                module P = BFS_HopWeight.P
+                let find_path ~start_time ~graph ~source ~destination =
+                  BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
+              end))]
             else
               match poids with
                 | "Default" -> List.map (fun (preset : Presets.preset) -> 
@@ -74,9 +83,9 @@ let () =
                     let module W = (val Presets.to_weight preset) in
                     let module D = Dijkstra.Make(Network.TransportGraph)(W) in
                     [(poids, (module D : ALGO))]
-                  | None -> [("Temps (par défaut)", (module DIJKSTRA_TimeWeight))])
+                  | None -> [("Temps", (module DIJKSTRA_TimeWeight))])
                 | "Combinaison"     -> 
-                     (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
+                      (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
                      let ct, cd, ca, cc = match coeffs with 
                      |[a;b;c;d] -> a,b,c,d 
                      | _ -> 1.0,1.0,1.0,1.0 in
@@ -89,23 +98,25 @@ let () =
                      let module CombinedWeight = (val Combinator.combine critere : Routing.WEIGHT with type edge = Network.connection) in
                      let module DIJKSTRA_CombinedWeight = Dijkstra.Make(Network.TransportGraph)(CombinedWeight) in
                      [("Combinaison", (module DIJKSTRA_CombinedWeight))]
-                | _                 -> [("Temps (par défaut)", (module DIJKSTRA_TimeWeight))]
+                | _                 -> [("Temps", (module DIJKSTRA_TimeWeight))]
               in
-          
+
           (* Accumulation fonctionnelle des détails d'affichage *)
           let details_afficheurs = List.fold_left (fun acc (nom_algo, (module Routeur : ALGO)) ->
             let module ShowPath = Show.Make (Routeur.P) in
             Printf.printf "\n=== Résultat avec %s ===\n%!" nom_algo;
-            match Routeur.find_path ~graph:graphe ~source ~destination with
+            match Routeur.find_path ~start_time ~graph:graph_for_search ~source ~destination with
             | Some p ->
                 ShowPath.print_path
                   (fun s -> s.name)
                   (fun (c : Network.connection) -> c.line.name)
                   Routeur.P.Weight.to_string
+                  Routeur.P.Weight.get_time
                   (fun (c : Network.connection) -> c.line.color)
                   (fun (c : Network.connection) -> c.duration)
                   (fun (c : Network.connection) -> c.distance)
-                  (false)
+                  start_time
+                  details_mode
                   p;
                 flush stdout;
                 (* Créer une fermeture pour afficher le détail *)
@@ -137,7 +148,7 @@ let () =
             with Not_found -> Printf.printf "Algorithme non trouvé.\n%!"
           )
 
-      | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
+      | None -> Printf.printf "Erreur: Stations introuvables ou coordonnées invalides.\n%!"
     in
 
     Printf.printf "\nGraphe chargé avec succès !\n%!";
@@ -146,13 +157,20 @@ let () =
     Printf.printf "  2 - Interface Ligne de Commande (CLI)\n%!";
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
-    | "2" -> Cli.Console.run_console graphe search_callback
+    | "2" -> 
+        let cli_callback src dest algo poids coeffs =
+          search_callback src dest algo poids coeffs (8 * 3600) false
+        in
+        Cli.Console.run_console graphe cli_callback
+
     | _ ->
         Printf.printf "Lancement de l'interface graphique...\n%!";
-        Gui.Transport_view.affiche graphe search_callback;
+        let gui_callback src dest algo poids coeffs start_time =
+          search_callback src dest algo poids coeffs start_time false
+        in
+        Gui.Transport_view.affiche graphe gui_callback;
 
   with
   | Failure msg -> Printf.eprintf "ERREUR : %s\n" msg
   | Sys_error msg -> Printf.eprintf "ERREUR FICHIER : %s\n" msg
   | e -> Printf.eprintf "ERREUR INCONNUE : %s\n" (Printexc.to_string e)
-  

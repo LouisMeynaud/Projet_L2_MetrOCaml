@@ -2,6 +2,6 @@
  (name metrocaml)
  (public_name metrocaml)
  (libraries routing csv unix)
- (modules network weight gtfs_adapter show)
+ (modules network weight gtfs_adapter show util endpoint)
  (instrumentation (backend bisect_ppx)))
 

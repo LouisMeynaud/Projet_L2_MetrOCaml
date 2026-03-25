@@ -1,4 +1,3 @@
-(* graph_display.ml *)
 open Bogue
 open Gui_types
 open Gui_draw
@@ -47,7 +46,7 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     noeuds_visibles = [];
     aretes_groupees = Hashtbl.create 1;
     noeuds_actifs = Hashtbl.create 1;
-    categories = List.map (fun c -> (c, String.lowercase_ascii c <> "bus")) cats;
+    categories = List.map (fun c -> (c, String.lowercase_ascii c <> "bus" && String.lowercase_ascii c <> "transfert")) cats;
     source = None; dest = None; show_names = false;
     algos; algo_actif = List.hd algos;
     poids_list; poids_actif = List.hd poids_list;
@@ -179,16 +178,6 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     match List.find_opt (fun (n : noeud) -> n.id = id) noeuds with
     | Some n -> n.nom
     | None -> id
-  in
-
-  let station_id_of_name nom =
-    let cible = String.lowercase_ascii (String.trim nom) in
-    if cible = "" then None
-    else
-      List.find_opt
-        (fun (n : noeud) -> String.lowercase_ascii n.nom = cible)
-        noeuds
-      |> Option.map (fun n -> n.id)
   in
 
   let mode_selection_carte = ref `Aucun in
@@ -550,16 +539,14 @@ let run noeuds aretes algos poids_list schedule_items on_search =
 
   (* Fonction pour lancer la recherche depuis l'onglet itinéraire ou après sélection sur la carte *)
   let launch_search source dest =
-    (* preparation de la recuperation du bool depart et de l'heure de depart , suprimer les ignore et les passer a on_search une fois les algo de temps fini*)
     let depart = !is_depart in
     let time_in_secondes = (!curr_heure * 3600) + (!curr_minute * 60) in
-    ignore(time_in_secondes); (* pour l'instant on ne l'utilise pas, mais ça permet d'éviter un warning *)
-    ignore depart; (* même chose pour le mode départ/arrivée *)
+    ignore depart;
     let c_temps = float_of_int (Slider.value (Widget.get_slider s_temps)) /. 100.0 in
     let c_dist = float_of_int (Slider.value (Widget.get_slider s_dist)) /. 100.0 in
     let c_arrets = float_of_int (Slider.value (Widget.get_slider s_arrets)) /. 100.0 in
     let c_corresp = float_of_int (Slider.value (Widget.get_slider s_corresp)) /. 100.0 in
-    on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp]
+    on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp] time_in_secondes
   in
 
   (* Connexions des Onglets *)
@@ -588,16 +575,20 @@ let run noeuds aretes algos poids_list schedule_items on_search =
 
   (* Action de recherche depuis l'onglet recherche *)
   let conn_valider_rech = Widget.connect btn_valider_recherche btn_valider_recherche (fun _ _ _ ->
-    let id_dep = station_id_of_name (Widget.get_text input_depart) in
-    let id_arr = station_id_of_name (Widget.get_text input_arrivee) in
-    let source = match id_dep with Some id -> Some id | None -> !current_etat.source in
-    let dest = match id_arr with Some id -> Some id | None -> !current_etat.dest in
-    current_etat := { !current_etat with source; dest };
+    let raw_dep = String.trim (Widget.get_text input_depart) in
+    let raw_arr = String.trim (Widget.get_text input_arrivee) in
+    
+    let source_opt = if raw_dep = "" then !current_etat.source else Some raw_dep in
+    let dest_opt = if raw_arr = "" then !current_etat.dest else Some raw_arr in
+
+    current_etat := { !current_etat with source = source_opt; dest = dest_opt };
     update_ui_buttons ();
     rafraichir_ecran !current_etat;
-    match source, dest with
-    | Some s, Some d -> launch_search s d
-    | _ -> print_endline "Entrez un depart et une arrivee valides, ou selectionnez-les sur la carte."
+    match source_opt, dest_opt with
+    | Some source, Some dest -> launch_search source dest
+    | _ -> Printf.printf "Erreur: point source/destination manquant dans l'interface graphique.\n%!"
+
+    
   ) Trigger.buttons_down in
 
   (* Connexions Horaire *)
@@ -702,7 +693,7 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let start_camera_x = ref 0.0 in
   let start_camera_y = ref 0.0 in
   let min_zoom = 0.5 in
-  let max_zoom = 10.0 in
+  let max_zoom = 30.0 in
   let needs_redraw = ref false in
 
   let boucle _w _target ev =
