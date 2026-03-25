@@ -8,10 +8,6 @@ module DIJKSTRA_TimeWeight           = Dijkstra.Make(Network.TransportGraph)(Wei
 module DIJKSTRA_HopWeight            = Dijkstra.Make(Network.TransportGraph)(Weight.HopWeight)
 module BFS_HopWeight                 = Bfs.Make(Network.TransportGraph)(Weight.HopWeight)
 
-let find_station graphe id =
-  List.find_opt
-    (fun (s : Network.station) -> s.id = id)
-    (Network.TransportGraph.nodes graphe)
 
 module type ALGO = sig
   module P :
@@ -51,8 +47,8 @@ let () =
     flush stdout;
     
     let search_callback source_id dest_id algo poids coeffs =
-      match find_station graphe source_id, find_station graphe dest_id with
-      | Some source, Some destination ->
+      match Endpoint.build_routing_context graphe source_id dest_id with
+      | Some (graph_for_search, source, destination) ->
 
           let routeurs : (string * (module ALGO)) list =
             if algo = "BFS" then 
@@ -96,7 +92,7 @@ let () =
           let details_afficheurs = List.fold_left (fun acc (nom_algo, (module Routeur : ALGO)) ->
             let module ShowPath = Show.Make (Routeur.P) in
             Printf.printf "\n=== Résultat avec %s ===\n%!" nom_algo;
-            match Routeur.find_path ~graph:graphe ~source ~destination with
+            match Routeur.find_path ~graph:graph_for_search ~source ~destination with
             | Some p ->
                 ShowPath.print_path
                   (fun s -> s.name)
@@ -137,7 +133,7 @@ let () =
             with Not_found -> Printf.printf "Algorithme non trouvé.\n%!"
           )
 
-      | _ -> Printf.printf "Erreur: Stations introuvables.\n%!"
+      | None -> Printf.printf "Erreur: Stations introuvables ou coordonnées invalides.\n%!"
     in
 
     Printf.printf "\nGraphe chargé avec succès !\n%!";

@@ -1,10 +1,5 @@
 open Metrocaml
 
-let find_station_by_name graphe name =
-  List.find_opt
-    (fun (s : Network.station) -> String.lowercase_ascii (String.trim s.name) = String.lowercase_ascii (String.trim name))
-    (Network.TransportGraph.nodes graphe)
-
 let rec raw_select prompt options =
   Printf.printf "%s (%s) : %!" prompt (String.concat " / " options);
   let choice = read_line () in
@@ -25,7 +20,7 @@ let run_console graphe search_callback =
   let dest_name = read_line () in
 
   let get_station_id name =
-    match find_station_by_name graphe name with
+    match Util.find_station_by_name graphe name with
     | Some station -> station.id
     | None -> ""
   in
