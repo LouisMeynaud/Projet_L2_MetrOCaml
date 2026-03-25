@@ -42,8 +42,22 @@ let () =
   Printf.printf "=== Lancement de MetroCaml ===\n%!";
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
 
+  let local_data_dir =  "data/" ^ town in
+  let local_data_exists =
+    try (Unix.stat ("data/" ^ town )).Unix.st_kind = Unix.S_DIR (* verif si le dossier existe et si c'est bien un dossier (S_DIR)*)
+    with _ -> false (*plutot que planter on retourne false*)
+  in
+
   try
-    let graphe = Gtfs_adapter.load_network_from_url url date_cible in
+    let graphe =
+      if local_data_exists then begin
+        Printf.printf "Chargement local GTFS depuis %s\n%!" local_data_dir;
+        Gtfs_adapter.load_network_gtfs local_data_dir date_cible
+      end else begin
+        Printf.printf "Aucun GTFS local pour %s, telechargement en cours...\n%!" town;
+        Gtfs_adapter.load_network_from_url url date_cible
+      end
+    in
     flush stdout;
     
     let search_callback source_query dest_query algo poids coeffs =
