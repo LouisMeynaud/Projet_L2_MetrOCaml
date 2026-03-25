@@ -1,13 +1,13 @@
 open Network
 
 let find_station graphe id =
-  List.find_opt
-    (fun (s : station) -> s.id = id)
-    (TransportGraph.nodes graphe)
+  List.find_opt (fun (s : station) -> s.id = id) (TransportGraph.nodes graphe)
 
 let find_station_by_name graphe name =
   List.find_opt
-    (fun (s : station) -> String.lowercase_ascii (String.trim s.name) = String.lowercase_ascii (String.trim name))
+    (fun (s : station) ->
+      String.lowercase_ascii (String.trim s.name)
+      = String.lowercase_ascii (String.trim name))
     (TransportGraph.nodes graphe)
 
 let clone_graph graph =
@@ -17,10 +17,11 @@ let clone_graph graph =
   List.iter
     (fun source ->
       TransportGraph.neighbors graph source
-      |> List.iter (fun (destination, conn) -> TransportGraph.add_edge clone source destination conn))
+      |> List.iter (fun (destination, conn) ->
+          TransportGraph.add_edge clone source destination conn))
     nodes;
   clone
-  
+
 let to_radians deg = deg *. (4.0 *. atan 1.0) /. 180.0
 
 let haversine_distance lat1 lon1 lat2 lon2 =

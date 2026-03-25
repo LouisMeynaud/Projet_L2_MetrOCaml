@@ -22,7 +22,9 @@ let colorize_hex hex text =
   colorize_rgb rgb text
 
 let change_arrow node_name line nb_stops temps color =
-  let arrow = Printf.sprintf " --[%s | %d arrets | %d min] --> " line nb_stops temps in
+  let arrow =
+    Printf.sprintf " --[%s | %d arrets | %d min] --> " line nb_stops temps
+  in
   let colored_arrow = colorize_hex color arrow in
   Printf.sprintf "%s%s\n" colored_arrow node_name
 
@@ -32,8 +34,7 @@ let simple_arrow node_name color =
   Printf.sprintf "%s%s" colored_arrow node_name
 
 module Make (P : Routing.PATH) = struct
-  let line_minutes_from_seconds secs =
-    if secs <= 0 then 0 else max 1 (secs / 60)
+  let line_minutes_from_seconds secs = if secs <= 0 then 0 else max 1 (secs / 60)
 
   let calcul_temps_distance edge_to_duration edge_to_distance steps =
     List.fold_left
@@ -57,9 +58,14 @@ module Make (P : Routing.PATH) = struct
         in
         let start = node_to_string first_step.from ^ first_wait_str in
 
-        let _, final_step_to, final_color, final_stops, final_onboard_secs,
-            transferts, _, segments
-            =
+        let ( _,
+              final_step_to,
+              final_color,
+              final_stops,
+              final_onboard_secs,
+              transferts,
+              _,
+              segments ) =
           List.fold_left
             (fun ( prev_line,
                    prev_step_to,
@@ -110,7 +116,8 @@ module Make (P : Routing.PATH) = struct
                   in
                   let onboard_time = line_minutes_from_seconds onboard_secs in
                   let arrow =
-                    change_arrow prev_step_to prev_l stops onboard_time prev_color
+                    change_arrow prev_step_to prev_l stops onboard_time
+                      prev_color
                   in
                   let transition =
                     arrow ^ node_to_string step.from ^ wait_str
@@ -119,17 +126,19 @@ module Make (P : Routing.PATH) = struct
                     step_to,
                     color,
                     1,
-                      duration,
+                    duration,
                     transferts + 1,
                     current_arrival,
                     transition :: acc ))
-                    (None, "", "", 0, 0, 0, start_time, [])
+            (None, "", "", 0, 0, 0, start_time, [])
             path.steps
         in
 
         let final_line = edge_to_string (List.hd (List.rev path.steps)).edge in
         let final_segment =
-          change_arrow final_step_to final_line final_stops (line_minutes_from_seconds final_onboard_secs) final_color
+          change_arrow final_step_to final_line final_stops
+            (line_minutes_from_seconds final_onboard_secs)
+            final_color
         in
 
         let total_time, total_distance =
