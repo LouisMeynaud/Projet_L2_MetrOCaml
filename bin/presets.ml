@@ -64,13 +64,13 @@ let preset_court_chemin =
       [
         Combinator.criterion
           (module DistanceWeight)
-          ~coefficient:0.65 ~label:"Distance";
+          ~coefficient:0.75 ~label:"Distance";
         Combinator.criterion
           (module HopWeight)
-          ~coefficient:0.20 ~label:"Arrêts";
+          ~coefficient:0.15 ~label:"Arrêts";
         Combinator.criterion
           (module TimeWeight)
-          ~coefficient:0.10 ~label:"Temps";
+          ~coefficient:0.05 ~label:"Temps";
         Combinator.criterion
           (module CorrespondenceWeight)
           ~coefficient:0.05 ~label:"Correspondances";
@@ -110,16 +110,16 @@ let preset_explorateur =
       [
         Combinator.criterion
           (module HopWeight)
-          ~coefficient:0.50 ~label:"Arrêts";
+          ~coefficient:0.65 ~label:"Arrêts";
         Combinator.criterion
           (module DistanceWeight)
-          ~coefficient:0.25 ~label:"Distance";
+          ~coefficient:0.10 ~label:"Distance";
         Combinator.criterion
           (module TimeWeight)
-          ~coefficient:0.15 ~label:"Temps";
+          ~coefficient:0.10 ~label:"Temps";
         Combinator.criterion
           (module CorrespondenceWeight)
-          ~coefficient:0.10 ~label:"Correspondances";
+          ~coefficient:0.15 ~label:"Correspondances";
       ];
   }
 
