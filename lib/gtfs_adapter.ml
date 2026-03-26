@@ -413,16 +413,16 @@ end;
                     with Not_found -> [ 0 ]
                   in
                   match Hashtbl.find_opt edges_acc key with
-                  | Some (_, _, _, _, _, schedules_ref, dist_ref,_) ->
+                  | Some (_, _, _, _, _, schedules_ref, dist_ref, _) ->
                       List.iter
                         (fun offset ->
-                          schedules_ref := (prev_dep + offset) :: !schedules_ref)
+                          schedules_ref := (tid, prev_dep + offset) :: !schedules_ref)
                         active_offsets;
                       if !dist_ref = None then dist_ref := edge_gtfs_dist
                   | None ->
                       let initial_schedules =
                         List.map
-                          (fun offset -> prev_dep + offset)
+                          (fun offset -> (tid, prev_dep + offset))
                           active_offsets
                       in
                       Hashtbl.add edges_acc key
@@ -445,7 +445,7 @@ end;
   (* G. Construction finale des arêtes avec listes triées *)
   Hashtbl.iter
     (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref, term_station) ->
-      let sorted_schedules = List.sort compare !schedules_ref in
+      let sorted_schedules = List.sort (fun (_, temps1) (_, temps2) -> compare temps1 temps2) !schedules_ref in
       let dist_meters =
         match !dist_ref with
         | Some d -> d

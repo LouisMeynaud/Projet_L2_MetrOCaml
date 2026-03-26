@@ -367,7 +367,7 @@ let test_cw_of_edge () =
       duration = 120;
       distance = 500.0;
       mode = Metro;
-      schedules = [ 0; 120; 240 ];
+      schedules = [ ("t1",0); ("t2",120); ("t3",240) ];
       terminus = dummy_station;
     }
   in
@@ -387,7 +387,7 @@ let test_cw_arithmetic_same_line () =
       duration = 60;
       distance = 100.;
       mode = Metro;
-      schedules = [ 0; 60; 120; 180 ];
+      schedules = [ ("t1",0); ("t2",60); ("t3",120); ("t4",180) ];
       terminus = dummy_station;
     }
   in
@@ -409,7 +409,7 @@ let test_cw_transfer_penalty () =
       duration = 60;
       distance = 100.;
       mode = Metro;
-      schedules = [ 0; 60; 120 ];
+      schedules =  [ ("t1",0); ("t2",60); ("t3",120) ];
       terminus = dummy_station;
     }
   in
@@ -419,7 +419,7 @@ let test_cw_transfer_penalty () =
       duration = 60;
       distance = 100.;
       mode = Metro;
-      schedules = [ 0; 60; 120; 180; 240; 300 ];
+      schedules = [ ("t1",0); ("t2",60); ("t4",120); ("t5",180); ("t6",240); ("t7",300) ];
       terminus = dummy_station;
     }
   in
@@ -436,7 +436,7 @@ let test_cw_transfer_penalty () =
       duration = 0;
       distance = 0.;
       mode = Metro;
-      schedules = [ 300; 480; 600 ];
+      schedules = [ ("t1",300); ("t2",480); ("t3",600) ];
       terminus = dummy_station;
     }
   in
@@ -457,7 +457,7 @@ let test_cw_neutral_and_inf () =
       duration = 60;
       distance = 100.;
       mode = Metro;
-      schedules = [ 0; 60; 120 ];
+      schedules = [ ("t1",0); ("t2",60); ("t3",120) ];
       terminus = dummy_station;
     }
   in
@@ -478,7 +478,7 @@ let test_cw_compare () =
       duration = 0;
       distance = 0.;
       mode = Metro;
-      schedules = [ 0; 100; 200; 500 ];
+      schedules = [ ("t1",0); ("t2",100); ("t3",200); ("t5",500) ];
       terminus = dummy_station;
     }
   in
@@ -488,7 +488,7 @@ let test_cw_compare () =
       duration = 0;
       distance = 0.;
       mode = Metro;
-      schedules = [ 0; 100; 200; 500 ];
+      schedules = [ ("t3",0); ("t4",100); ("t2",200); ("t4",500) ];
       terminus = dummy_station;
     }
   in

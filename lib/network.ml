@@ -36,12 +36,18 @@ type station = {
 type connection = {
   line : line;
   duration : int;
-  schedules : int list;
+  schedules : (string*int) list;
   distance : float;
   mode : transport_mode;
   terminus : station;
 }
 (** Connection (edge) information. *)
+
+type etat_trajet =
+  | Retard of int   
+  | Supprime        
+
+(** State of the connection. *)
 
 (** Nodes module implementation for the routing library. Stations are the nodes
     in the transport graph. *)
