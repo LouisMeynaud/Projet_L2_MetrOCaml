@@ -34,9 +34,9 @@ let calc_next_time current_time current_line_name (edge : connection) =
     in
     let rec find_next_departure = function
       | [] -> max_int
-      | (_,t) :: ts -> if t >= ready_time then t else find_next_departure ts
+      | (_, t) :: ts -> if t >= ready_time then t else find_next_departure ts
     in
-    let next_dep = find_next_departure  edge.schedules in
+    let next_dep = find_next_departure edge.schedules in
     if next_dep = max_int then (max_int, None)
     else (next_dep + edge.duration, Some edge.line.name)
 
