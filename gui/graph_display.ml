@@ -22,16 +22,16 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   in
 
   (* On ouvre au maximum de l'ecran (hors barres systeme). *)
-  largeur := max 720 (screen_w - 16);
-  hauteur := max 520 (screen_h - 16);
+  largeur := max window_min_width (screen_w - window_screen_padding);
+  hauteur := max window_min_height (screen_h - window_screen_padding);
 
   (* Le panneau prend ~30% de la largeur, avec bornes pour petits/grands ecrans. *)
   let panel_width =
-    let preferred = !largeur * 30 / 100 in
-    max 210 (min 360 preferred)
+    let preferred = !largeur * panel_ratio_percent / 100 in
+    max panel_min_width (min panel_max_width preferred)
   in
 
-  canvas_w := max 320 (!largeur - panel_width);
+  canvas_w := max canvas_min_width (!largeur - panel_width);
   canvas_h := !hauteur;
 
   let bornes = calcule_bornes noeuds in
@@ -111,7 +111,9 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   in
 
   (* -------------------- Bloc sliders (poids) -------------------- *)
-  let slider_len = max 80 (panel_width - 140) in
+  let slider_len =
+    max panel_slider_min_length (panel_width - panel_slider_width_margin)
+  in
   let s_temps = Widget.slider ~length:slider_len 50 in
   let s_dist = Widget.slider ~length:slider_len 50 in
   let s_arrets = Widget.slider ~length:slider_len 50 in
@@ -170,7 +172,9 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let btn_select_arrivee = Widget.button "Selection carte" in
   let btn_valider_recherche = Widget.button "Rechercher" in
   let fond_barre_recherche = Layout.color_bg (rgb_to_bogue (218, 223, 230)) in
-  let search_input_w = max 110 (panel_width - 120) in
+  let search_input_w =
+    max search_input_min_width (panel_width - search_input_width_margin)
+  in
   let barre_depart = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_depart in
   let barre_arrivee = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_arrivee in
 
@@ -198,10 +202,12 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let barre_ligne_h = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_ligne_h in
   let barre_arret_h = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_arret_h in
 
-  let horaires_row_w = max 150 (panel_width - 26) in
-  let horaires_row_h = 30 in
-  let color_cell_w = 16 in
-  let max_search_results = 60 in
+  let horaires_row_w =
+    max horaires_row_min_width (panel_width - horaires_row_width_margin)
+  in
+  let horaires_row_h = horaires_row_height in
+  let color_cell_w = horaires_color_cell_width in
+  let max_search_results = horaires_max_search_results in
 
   (* Création des 24 cases de résultats (invisibles par défaut) *)
   let result_keys = Array.make max_search_results None in (* stocke les clés des résultats *)
@@ -218,8 +224,8 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     row
   ) in
 
-  let max_direction_buttons = 6 in
-  let max_table_rows = 24 in
+  let max_direction_buttons = horaires_max_direction_buttons in
+  let max_table_rows = horaires_max_table_rows in
 
   (* Création des boutons de direction (invisibles par défaut) *)
   let direction_buttons = Array.init max_direction_buttons (fun _ -> Widget.button "") in
@@ -234,8 +240,10 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let bg_table_next = Layout.color_bg (rgb_to_bogue (214, 214, 214)) in
   let table_rows = Array.init max_table_rows (fun i ->
     let row =
-      if i = 0 then Layout.resident ~w:horaires_row_w ~h:26 ~background:bg_table_next table_labels.(i)
-      else Layout.resident ~w:horaires_row_w ~h:26 table_labels.(i)
+      if i = 0 then
+        Layout.resident ~w:horaires_row_w ~h:horaires_table_row_height
+          ~background:bg_table_next table_labels.(i)
+      else Layout.resident ~w:horaires_row_w ~h:horaires_table_row_height table_labels.(i)
     in
     Layout.set_show row false;
     row
@@ -250,9 +258,15 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let selected_direction_idx = ref 0 in
 
   let result_box = Layout.tower (Array.to_list result_rows) in
-  let result_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:220 result_box in
-  let direction_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:110 direction_box in
-  let table_box_clip = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:250 table_box in
+  let result_box_clip =
+    Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:horaires_result_clip_height result_box
+  in
+  let direction_box_clip =
+    Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:horaires_direction_clip_height direction_box
+  in
+  let table_box_clip =
+    Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:horaires_table_clip_height table_box
+  in
 
   (* ------suppression des résultats---- *)
   
@@ -459,8 +473,10 @@ let run noeuds aretes algos poids_list schedule_items on_search =
 
   (* Les contenus d'onglets se superposent pour conserver la meme position visuelle. *)
   let zone_onglet = Layout.superpose [contenu_itineraire; contenu_recherche; contenu_horaires] in
-  let h_zone_onglet = max 220 (!hauteur - 70) in
-  let zone_onglet_scroll = Layout.make_clip ~scrollbar:true ~scrollbar_width:8 ~h:h_zone_onglet zone_onglet in
+  let h_zone_onglet = max tab_zone_min_height (!hauteur - tab_zone_height_margin) in
+  let zone_onglet_scroll =
+    Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:h_zone_onglet zone_onglet
+  in
 
   (* -------------------- Barre d'onglets -------------------- *)
 
@@ -469,9 +485,9 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let tab_horaires = Widget.button "[ HORAIRES ]" in
   
   let barre_onglets = Layout.flat ~align:Draw.Center [
-    Layout.resident tab_itineraire;
-    Layout.resident tab_recherche;
-    Layout.resident tab_horaires;
+    Layout.resident ~w:tab_button_width tab_itineraire;
+    Layout.resident ~w:tab_button_width tab_recherche;
+    Layout.resident ~w:tab_button_width tab_horaires;
   ] in
 
 
@@ -692,8 +708,6 @@ let run noeuds aretes algos poids_list schedule_items on_search =
   let dy_glisse = ref 0 in
   let start_camera_x = ref 0.0 in
   let start_camera_y = ref 0.0 in
-  let min_zoom = 0.5 in
-  let max_zoom = 30.0 in
   let needs_redraw = ref false in
 
   let boucle _w _target ev =
@@ -826,7 +840,11 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     let old_w = max 1 !canvas_w in
     let old_h = max 1 !canvas_h in
     let new_w, new_h = Layout.get_physical_size layout_carte in
-    let size_changed = new_w > 50 && new_h > 50 && (new_w <> old_w || new_h <> old_h) in
+    let size_changed =
+      new_w > max_resize_safety_threshold
+      && new_h > max_resize_safety_threshold
+      && (new_w <> old_w || new_h <> old_h)
+    in
     if size_changed then begin
       canvas_w := new_w;
       canvas_h := new_h;

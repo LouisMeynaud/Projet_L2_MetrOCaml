@@ -35,8 +35,8 @@ let to_screen bornes x y =
   let dx = max 1e-9 (max_x -. min_x) in
   let dy = max 1e-9 (max_y -. min_y) in
   let echelle = min 
-    (float (max 1 (!canvas_w - 2*marge)) /. dx)
-    (float (max 1 (!canvas_h - 2*marge)) /. dy) in
+    (float (max 1 (!canvas_w - (2 * marge))) /. dx)
+    (float (max 1 (!canvas_h - (2 * marge))) /. dy) in
   (float marge +. (x -. min_x) *. echelle,
    float marge +. (max_y -. y) *. echelle)
 
@@ -85,7 +85,7 @@ let get_noeud_clique mx my etat =
       let px = wx *. etat.zoom +. etat.camera_x in
       let py = wy *. etat.zoom +. etat.camera_y in
       let d = distance_carre px py mx my in
-      if d <= 400.0 && d < min_d && Hashtbl.mem etat.noeuds_actifs id then (Some id, d) else (best, min_d)
+      if d <= draw_click_radius_squared && d < min_d && Hashtbl.mem etat.noeuds_actifs id then (Some id, d) else (best, min_d)
     ) etat.positions (None, max_float)
   in best_id
 
@@ -246,7 +246,7 @@ let draw_arete etat (arete : arete) i n =
   let y2 = wy2 *. etat.zoom +. etat.camera_y in
 
   (* on ignore ce qui est hors de l'écran *)
-  let pad = 32.0 in
+  let pad = draw_edge_clip_padding in
   let min_x = -.pad and min_y = -.pad in
   let max_x = float !canvas_w +. pad and max_y = float !canvas_h +. pad in
 
@@ -262,7 +262,7 @@ let draw_arete etat (arete : arete) i n =
         if len = 0. then (0., 0.) 
         else
           let nx, ny = -.dy /. len, dx /. len in
-          let shift = (float i -. (float (n - 1) /. 2.0)) *. 4.0 in (* decalle pour centré le paquet*)
+          let shift = (float i -. (float (n - 1) /. 2.0)) *. draw_edge_parallel_offset in (* decalle pour centré le paquet*)
           (nx *. shift, ny *. shift)
     in
     let color = rgb_to_bogue (hex_to_rgb arete.couleur) in
@@ -277,7 +277,7 @@ let draw_arete etat (arete : arete) i n =
     if x1i = x2i && y1i = y2i then 
       ()
     else 
-      Sdl_area.draw_line (get_canvas ()) ~color ~thick:3 (x1i, y1i) (x2i, y2i)
+      Sdl_area.draw_line (get_canvas ()) ~color ~thick:draw_edge_thickness (x1i, y1i) (x2i, y2i)
 
 (*dessine un noeud*)
 let draw_noeud etat noeud =
@@ -289,14 +289,16 @@ let draw_noeud etat noeud =
   let x = wx *. etat.zoom +. etat.camera_x in
   let y = wy *. etat.zoom +. etat.camera_y in
 
-  let pad = 20.0 in
+  let pad = draw_node_clip_padding in
   if x < -.pad || y < -.pad || x > float !canvas_w +. pad || y > float !canvas_h +. pad then
     ()
   else
   let (color_ext, r_ext, r_int) =
-    if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 9, 8)
-    else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 9, 8)
-    else (hex_to_rgb 0x000000, 5, 4)
+    if Some noeud.id = etat.source then
+      (hex_to_rgb 0x00FF00, draw_node_selected_radius_outer, draw_node_selected_radius_inner)
+    else if Some noeud.id = etat.dest then
+      (hex_to_rgb 0xFF0000, draw_node_selected_radius_outer, draw_node_selected_radius_inner)
+    else (hex_to_rgb 0x000000, draw_node_radius_outer, draw_node_radius_inner)
   in
   Sdl_area.fill_circle (get_canvas ()) ~color:(rgb_to_bogue color_ext) ~radius:r_ext (int_of_float x, int_of_float y);
   Sdl_area.fill_circle (get_canvas ()) ~color:(rgb_to_bogue (255,255,255)) ~radius:r_int (int_of_float x, int_of_float y);
