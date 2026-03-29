@@ -105,6 +105,7 @@ line:272,network:1,403,Lévignac Ancienne Gare / Mérenvielle Gare,004687,ffffff
 line:61,network:1,A,Basso Cambo / Balma - Gramont,db001b,ffffff,1
 line:99,network:1,AERO,Navette Aéroport,e46809,ffffff,3
 line:69,network:1,B,Borderouge / Ramonville,ffdd00,000000,1
+line:228,network:1,Bp,Borderouge / Jean Jaurès,ffdd00,000000,3
 line:108,network:1,CIMTR,Navette Cimetières,0098d4,ffffff,3
 line:144,network:1,L1,Sept Deniers - Salvador Dali / Fonsegrives Entiore,ff671b,ffffff,3
 line:145,network:1,L2,Arènes / Colomiers Lycée International,ff671b,ffffff,3
