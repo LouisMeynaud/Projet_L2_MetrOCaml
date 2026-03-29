@@ -4,14 +4,35 @@ open Gui_draw
 open Gui_utils
 open Gui_view
 
+
+(** Initialise et connecte toute la logique de l'interface graphique.
+    
+    Cette fonction agit comme le Contrôleur (Controller) de l'application. Elle lie 
+    les éléments visuels (View) aux données dynamiques (State) et définit les comportements 
+    suite aux interactions de l'utilisateur (clics, clavier, souris).
+
+    @param noeuds La liste des nœuds (stations) du graphe.
+    @param schedule_items Les données des horaires de transport.
+    @param on_search La fonction de callback appelée pour lancer un calcul de plus court chemin.
+    @param current_etat Une référence vers l'état global et muable de l'interface.
+    @param view L'enregistrement contenant tous les widgets interactifs générés par [Gui_view].
+    @param layout_carte Le composant [Layout.t] représentant la zone de dessin (canvas) de la carte.
+    
+    @return Un triplet contenant :
+    - [connections] : La liste de toutes les connexions d'événements (boutons, molette, etc.) requise par Bogue.
+    - [apply_map_resize] : Une fonction à appeler lors du redimensionnement de la fenêtre pour ajuster l'échelle de la carte.
+    - [before_display] : Une fonction de boucle (callback) à fournir à [Bogue.Main.run] pour gérer les rafraîchissements d'écran demandés.
+*)
 let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
+	(* Fonction pour obtenir le nom d'une station à partir de son ID *)
 	let station_name_of_id id =
 		match List.find_opt (fun (n : noeud) -> n.id = id) noeuds with
 		| Some n -> n.nom
 		| None -> id
 	in
 
+	(* Mode de sélection sur la carte (départ, arrivée, ou aucun) *)
 	let mode_selection_carte = ref `Aucun in
 
 	let max_search_results = Array.length view.result_rows in
@@ -21,6 +42,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	(* ================================================== *)
 	(*            LOGIQUE HORAIRES / RESULTATS           *)
 	(* ================================================== *)
+	
 	(* Variables pour retenir ce qu'on a cliqué *)
 	let selected_choices = ref ([] : schedule_item list) in
 	let selected_direction_idx = ref 0 in
@@ -48,9 +70,10 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		done
 	in
 
-	(* ------suppression des résultats---- *)
 
-	(* Fonction pour enlever les doublons de ligne+station dans les résultats de recherche d'horaires *)
+	(*enleve les doublons de ligne+station dans les résultats de recherche d'horaires
+	@param items Liste d'éléments de type schedule_item
+	@return Liste d'éléments sans doublons *)
 	let dedupe_line_station items =
 		let resultat = Hashtbl.create 128 in
 		List.filter (fun (elt : schedule_item) ->
@@ -59,6 +82,11 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		) items
 	in
 
+	(*trouve les horaires correspondant à une ligne, une station et un mode de transport donnés 
+	@param mode_name Nom du mode de transport
+	@param line_name Nom de la ligne
+	@param station_id ID de la station
+	@return Liste d'éléments de type schedule_item *)
 	let choices_for mode_name line_name station_id =
 		List.filter
 			(fun (it : schedule_item) ->
@@ -68,6 +96,9 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			schedule_items
 	in
 
+	(*trouverl'index du prochain horaire à venir dans une liste d'horaires triée 
+	@param times Liste d'horaires triée
+	@return Index du prochain horaire à venir *)
 	let closest_next_index times =
 		let now_s = now_seconds_of_day () in
 		let rec find i = function
@@ -78,9 +109,10 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		if times = [] then None else Some (find 0 times)
 	in
 
-
+	(*affiche les horaires d'une ligne+station+direction sélectionnée 
+	@param choice élément de type schedule_item *)
 	let set_table_for_choice (choice : schedule_item) =
-		Widget.set_text view.label_schedule_table (Printf.sprintf "Horaires - %s|%s - %s - vers %s" choice.mode_name choice.line_name choice.station_name choice.direction);(* let a jour le titre de la categorie*)
+		Widget.set_text view.label_schedule_table (Printf.sprintf "Horaires - %s|%s - %s - vers %s" choice.mode_name choice.line_name choice.station_name choice.direction);
 		clear_table_rows ();
 
 		let times = List.sort_uniq compare choice.times in
@@ -106,7 +138,8 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		end
 	in
 
-	(* Fonction pour afficher les directions disponibles pour une ligne+station donnée *)
+	(* affiche les directions disponibles pour une ligne+station donnée 
+	@param choices Liste des choix de direction *)
 	let update_direction_buttons () =
 		clear_direction_rows ();
 		let limited_choices = List.filteri (fun i _ -> i < max_direction_buttons) !selected_choices in(* on garde les premier*)
@@ -117,7 +150,10 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		) limited_choices
 	in
 
-
+	(*ouvre le choix d'horaires à partir des résultats de recherche 
+	@param mode_name Nom du mode de transport
+	@param line_name Nom de la ligne
+	@param station_id ID de la station *)
 	let open_choice mode_name line_name station_id =
 		let choices = choices_for mode_name line_name station_id in
 		match choices with
@@ -133,7 +169,8 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			set_table_for_choice (List.hd choices)
 	in
 
-	(* Fonction pour afficher les résultats de recherche d'horaires *)
+	(*affiche les résultats de recherche d'horaires 
+	@param entries Liste des résultats de recherche *)
 	let set_result_rows entries =
 		let limited = List.filteri (fun i _ -> i < max_search_results) entries in (*on garde que les premeier*)
 		List.iteri (fun i (elt : schedule_item) ->
@@ -145,7 +182,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		) limited
 	in
 
-	(* Fonction pour lancer la recherche d'horaires à partir des champs de saisie *)
+	(*lance la recherche d'horaires à partir des champs de saisie *)
 	let launch_horaire_search () =
 		clear_result_rows ();
 
@@ -176,6 +213,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	(*                 LOGIQUE UI / ETAT                 *)
 	(* ================================================== *)
 
+	(* Met à jour les textes et la visibilité des boutons en fonction de l'état actuel *)
 	let update_ui_buttons () =
 		let etat = !current_etat in
 		Widget.set_text view.button_station_names (if etat.show_names then "Noms des stations : ON" else "Noms des stations : OFF");
@@ -205,20 +243,27 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	(*                     CONNEXIONS                     *)
 	(* ================================================== *)
 
+	(* Réinitialise le mode de sélection sur la carte et les textes des boutons associés *)
 	let reset_selection_mode () =
 		mode_selection_carte := `Aucun;
 		Widget.set_text view.button_select_departure_on_map "Selection carte";
 		Widget.set_text view.button_select_arrival_on_map "Selection carte"
 	in
 
+	(* Fonction pour basculer entre les onglets Itinéraire, Recherche et Horaires 
+	@param show_itineraire Booléen pour afficher l'onglet Itinéraire
+	@param show_recherche Booléen pour afficher l'onglet Recherche
+	@param show_horaires Booléen pour afficher l'onglet Horaires
+	*)
 	let switch_tab ~show_itineraire ~show_recherche ~show_horaires =
 		Layout.set_show view.tab_content_settings show_itineraire;
 		Layout.set_show view.tab_content_route show_recherche;
 		Layout.set_show view.tab_content_schedules show_horaires;
-		reset_selection_mode ();
-		rafraichir_ecran !current_etat
+		reset_selection_mode ()
 	in
 
+	(*change les textes des boutons de sélection sur la carte
+	@param mode Mode de sélection *)
 	let begin_map_selection mode =
 		mode_selection_carte := mode;
 		match mode with
@@ -233,7 +278,10 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			Widget.set_text view.button_select_arrival_on_map "Selection carte"
 	in
 
-	(* Fonction pour lancer la recherche depuis l'onglet itinéraire ou après sélection sur la carte *)
+	(* Lance la recherche d'itinéraire avec les paramètres actuels et les champs de saisie 
+	@param source Point de départ
+	@param dest Point d'arrivée
+	*)
 	let launch_search source dest =
 		let depart = !(view.is_departure_mode) in
 		let time_in_secondes = (!(view.current_hour) * 3600) + (!(view.current_minute) * 60) in
@@ -245,7 +293,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp] time_in_secondes
 	in
 
-	(* Connexions des Onglets *)
+	(* ---------connexions onglets et boutons--------- *)
 	let conn_tab_iti = Widget.connect view.tab_settings view.tab_settings (fun _ _ _ ->
 		switch_tab ~show_itineraire:true ~show_recherche:false ~show_horaires:false
 	) Trigger.buttons_down in
@@ -258,18 +306,22 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:true
 	) Trigger.buttons_down in
 
+
+	(*ecoute les saisie clavier dans ligne_horaire et arret_horaire pour mettre a jour les proposition*)
 	let conn_input_ligne_h = Widget.connect view.input_schedule_line view.input_schedule_line (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
 	let conn_input_arret_h = Widget.connect view.input_schedule_stop view.input_schedule_stop (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
 
+	(* Boutons de sélection sur la carte pour le départ et l'arrivée *)
 	let conn_select_depart = Widget.connect view.button_select_departure_on_map view.button_select_departure_on_map (fun _ _ _ ->
 		begin_map_selection `Depart
 	) Trigger.buttons_down in
 
+	(* Connexion pour le bouton de sélection d'arrivée sur la carte *)
 	let conn_select_arrivee = Widget.connect view.button_select_arrival_on_map view.button_select_arrival_on_map (fun _ _ _ ->
 		begin_map_selection `Arrivee
 	) Trigger.buttons_down in
 
-	(* Action de recherche depuis l'onglet recherche *)
+	(* Connexion pour le bouton de validation de la recherche d'itinéraire *)
 	let conn_valider_rech = Widget.connect view.button_validate_search view.button_validate_search (fun _ _ _ ->
 		let raw_dep = String.trim (Widget.get_text view.input_depart) in
 		let raw_arr = String.trim (Widget.get_text view.input_arrivee) in
@@ -287,12 +339,15 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
 	) Trigger.buttons_down in
 
-	(* Connexions Horaire *)
+	(*--------- connexions horraire-------------*)
+	
+	(* Connexion pour le bouton de basculement entre mode départ/arrivée *)
 	let conn_dep = Widget.connect view.button_departure_arrival view.button_departure_arrival (fun _ _ _ ->
 		view.is_departure_mode := not !(view.is_departure_mode);
 		Widget.set_text view.button_departure_arrival (if !(view.is_departure_mode) then "DÉPART" else "ARRIVÉE")
 	) Trigger.buttons_down in
 
+	(* Connexion pour le bouton de mise à l'heure actuelle *)
 	let conn_maint = Widget.connect view.button_now view.button_now (fun _ _ _ ->
 		let tm = Unix.localtime (Unix.time ()) in
 		view.current_hour := tm.Unix.tm_hour;
@@ -320,6 +375,9 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		view.update_time_display ()
 	) Trigger.buttons_down in
 
+
+
+	(* Connexion pour l'affichage des noms de stations *)
 	let conn_noms = Widget.connect view.button_station_names view.button_station_names (fun _ _ _ ->
 		current_etat := { !current_etat with show_names = not !current_etat.show_names };
 		update_ui_buttons ();
@@ -338,16 +396,14 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	let conn_algos = List.map (fun (nom, w) ->
 		Widget.connect w w (fun _ _ _ ->
 			current_etat := { !current_etat with algo_actif = nom };
-			update_ui_buttons ();
-			rafraichir_ecran !current_etat
+			update_ui_buttons ()
 		) Trigger.buttons_down
 	) view.algorithm_buttons in
 
 	let conn_poids = List.map (fun (nom, w) ->
 		Widget.connect w w (fun _ _ _ ->
 			current_etat := { !current_etat with poids_actif = nom };
-			update_ui_buttons ();
-			rafraichir_ecran !current_etat
+			update_ui_buttons ()
 		) Trigger.buttons_down
 	) view.weight_buttons in
 
@@ -393,8 +449,10 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	let boucle _w _target ev =
 		let etat = !current_etat in
 
+		(*ecoute en continue les evenements*)
 		match Trigger.event_kind ev with
 
+		(*ecoute la molette de la souris pour le zoom*)
 		| `Mouse_wheel ->
 			let wheel_delta = Tsdl.Sdl.Event.(get ev mouse_wheel_y) in
 			if wheel_delta <> 0 then begin
@@ -413,6 +471,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 				end
 			end
 
+		(*ecoute le clique pour la sélection sur la carte*)
 		| `Mouse_button_down | `Finger_down ->
 			let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
 			let selection =
@@ -446,12 +505,14 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 				needs_redraw := true
 			end
 
+		(*ecoute le relachement de la souris*)
 		| `Mouse_button_up | `Finger_up ->
 			if !is_dragging then begin
 				 is_dragging := false;
 				 needs_redraw := true
 			end
 
+		(*ecoute le mouvement de la souris pour faire glisser la carte si on est en train de glisser*)
 		| `Mouse_motion | `Finger_motion ->
 			if !is_dragging then begin
 				let mx, my = Sdl_area.pointer_pos (get_canvas ()) ev in
@@ -474,6 +535,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	(*                     RESIZE                        *)
 	(* ================================================== *)
 
+	(* Met à l'échelle les positions des nœuds en fonction du redimensionnement de la fenetre *)
 	let scale_positions ~from_w ~from_h ~to_w ~to_h positions =
 		let sx = float_of_int to_w /. float_of_int from_w in (* facteur de mise à l'échelle en x *)
 		let sy = float_of_int to_h /. float_of_int from_h in (* facteur de mise à l'échelle en y *)
@@ -488,6 +550,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		dy_glisse := 0
 	in
 
+	(*detecte si la fenetre est redomensionnée , si oui , met a jour les position et redessine*)
 	let apply_map_resize () =
 		let old_w = max 1 !canvas_w in
 		let old_h = max 1 !canvas_h in
