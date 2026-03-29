@@ -59,7 +59,7 @@ let btn_h = 30 (* Hauteur de base des boutons standards. *)
 let zoom_in_factor = 1.15 (* Facteur de zoom avant par cran molette. *)
 let zoom_out_factor = 1.0 /. 1.15 (* Facteur de zoom arriere par cran molette. *)
 let min_zoom = 0.5 (* Niveau de zoom minimal autorise. *)
-let max_zoom = 30.0 (* Niveau de zoom maximal autorise. *)
+let max_zoom = 90.0 (* Niveau de zoom maximal autorise. *)
 
 let draw_edge_thickness = 3 (* Epaisseur des traits d'aretes. *)
 let draw_edge_parallel_offset = 4.0 (* Decalage entre aretes paralleles. *)

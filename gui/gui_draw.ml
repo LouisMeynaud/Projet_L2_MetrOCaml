@@ -172,19 +172,18 @@ let clear_label_cache () =
       police_tente := true;
       if Tsdl_ttf.Ttf.was_init () = true then ignore (Tsdl_ttf.Ttf.init ());
   
-      (* On va chercher directement dans les dossiers systèmes du Mac, Windows et Linux ! *)
-      let chemins = [
-        "/System/Library/Fonts/Helvetica.ttc"; 
-        "/Library/Fonts/Arial.ttf";            
-        "C:\\Windows\\Fonts\\arial.ttf";       
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" 
-      ] in
-  
+      let chemins = ["/System/Library/Fonts/Helvetica.ttc"; 
+      "/Library/Fonts/Arial.ttf"; 
+      "C:\\Windows\\Fonts\\arial.ttf"; 
+      "C:/Windows/Fonts/arial.ttf"; 
+      "/Windows/Fonts/arial.ttf"; 
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; 
+      "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"] in
       let rec trouver_police = function
         | [] -> Printf.printf "Aucune police système trouvée.\n%!"
         | chemin :: suite ->
             if Sys.file_exists chemin then
-              match Tsdl_ttf.Ttf.open_font chemin 26 with
+              match Tsdl_ttf.Ttf.open_font chemin 16 with
               | Ok p -> police_actuelle := Some p
               | Error _ -> trouver_police suite
             else trouver_police suite
@@ -324,7 +323,7 @@ in
       ignore (Tsdl.Sdl.render_fill_rect renderer (Some rect_int))
     );
     
-    if etat.show_names && etat.zoom > 6.0 then begin
+    if etat.show_names then begin
       dessiner_texte (cx + 12) (cy - 4) noeud.nom (0,0,0)
     end
 
