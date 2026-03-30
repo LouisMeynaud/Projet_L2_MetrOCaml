@@ -24,7 +24,18 @@ let today_yyyymmdd () =
   Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 
 let () =
-  let town = Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France" ] in
+
+  let loading_mode = Cli.Console.raw_select "\nChoisissez le mode de chargement : " [ "En ligne"; "Local"] in
+  let town = match loading_mode with
+    | "En ligne" -> Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"]
+    | "Local" -> 
+      Cli.Console.raw_select "Choisissez la ville : "
+      (List.filter(fun ville -> try (Unix.stat ("data/" ^ ville )).Unix.st_kind = Unix.S_DIR (*Vérifie si le dossier existe et si c'est bien un dossier (S_DIR)*)
+                                with _ -> false (*Plutôt que de planter on retourne false.*))
+      [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"])
+    | _ -> failwith "Mode de chargement inconnu"
+  in
+
   let url =
     match town with
     | "Toulouse" -> "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77"
@@ -34,23 +45,24 @@ let () =
     | _ -> failwith "Ville inconnue"
   in
 
-  let date_cible = today_yyyymmdd () in
-  Printf.printf "=== Lancement de MetroCaml ===\n%!";
-  Printf.printf "Date GTFS cible: %s\n%!" date_cible;
+  let date_cible = 
+    match loading_mode with
+    | "En ligne" -> today_yyyymmdd ()
+    | "Local" -> "20260330"
+    | _ -> failwith "Mode de chargement inconnu"
+  in
+  Printf.printf "\n=== Lancement de MetroCaml ===\n%!";
+  Printf.printf "Date GTFS cible : %s\n%!" date_cible;
 
   let local_data_dir =  "data/" ^ town in
-  let local_data_exists =
-    try (Unix.stat ("data/" ^ town )).Unix.st_kind = Unix.S_DIR (* verif si le dossier existe et si c'est bien un dossier (S_DIR)*)
-    with _ -> false (*plutot que planter on retourne false*)
-  in
 
   try
     let graphe =
-      if local_data_exists then begin
-        Printf.printf "Chargement local GTFS depuis %s\n%!" local_data_dir;
+      if loading_mode == "Local" then begin
+        Printf.printf "Chargement local GTFS depuis %s...\n%!" local_data_dir;
         Gtfs_adapter.load_network_gtfs local_data_dir date_cible
       end else begin
-        Printf.printf "Aucun GTFS local pour %s, telechargement en cours...\n%!" town;
+        Printf.printf "Téléchargement en cours...\n%!";
         Gtfs_adapter.load_network_from_url url date_cible
       end
     in
@@ -73,7 +85,7 @@ let () =
                     let module D = Dijkstra.Make(Network.TransportGraph)(W) in
                     (preset.name, (module D : ALGO))
                   ) Presets.all
-                | "Distance"        -> [("Distance", (module DIJKSTRA_DistanceWeight))]
+             (* | "Distance"        -> [("Distance", (module DIJKSTRA_DistanceWeight))]
                 | "Arrets"          -> [("Arrêts", (module DIJKSTRA_HopWeight))]
                 | "Temps"           -> [("Temps", (module DIJKSTRA_TimeWeight))]
                 | "Correspondances" -> [("Correspondances", (module DIJKSTRA_CorrespondenceWeight))]
@@ -83,7 +95,7 @@ let () =
                     let module W = (val Presets.to_weight preset) in
                     let module D = Dijkstra.Make(Network.TransportGraph)(W) in
                     [(poids, (module D : ALGO))]
-                  | None -> [("Temps", (module DIJKSTRA_TimeWeight))])
+                  | None -> [("Temps", (module DIJKSTRA_TimeWeight))]) *)
                 | "Combinaison"     -> 
                       (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
                      let ct, cd, ca, cc = match coeffs with 
