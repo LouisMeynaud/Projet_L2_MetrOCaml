@@ -39,7 +39,7 @@ let () =
   let url =
     match town with
     | "Toulouse" -> "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77"
-    | "Montpellier" -> "https://www.data.gouv.fr/api/1/datasets/r/350c3f75-226e-4570-960a-dec2144926b6"
+    | "Montpellier" -> "https://data.montpellier3m.fr/sites/default/files/ressources/TAM_MMM_GTFS.zip"
     | "Marseille" -> "https://www.data.gouv.fr/api/1/datasets/r/ab931edc-0bc1-4c66-960a-dc546b46df03"
     | "Ile-de-France" -> "https://eu.ftp.opendatasoft.com/stif/GTFS/IDFM-gtfs.zip"
     | _ -> failwith "Ville inconnue"

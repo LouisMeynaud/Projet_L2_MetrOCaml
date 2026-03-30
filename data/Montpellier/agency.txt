@@ -1,4 +1,2 @@
-﻿agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone,agency_fare_url,ticketing_deep_link_id
-TAM,TaM,https://www.tam-voyages.com,Europe/Paris,fr,0467228787,,mticket-deeplink
-TMTP,TaM,https://www.tam-voyages.com,Europe/Paris,fr,0467228787,,mticket-deeplink
-T A M,TaM,https://www.tam-voyages.com,Europe/Paris,fr,,,mticket-deeplink
+﻿agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone,agency_fare_url,agency_email
+1,"TAM",http://www.tam-voyages.com,Europe/Paris,fr,04 67 22 87 87,,
