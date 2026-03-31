@@ -75,6 +75,9 @@ let panel_slider_min_length = 80 (* Longueur minimale d'un slider dans le pannea
 let panel_slider_width_margin = 140 (* Espace reserve dans la ligne slider (labels + marge). *)
 let search_input_min_width = 110 (* Largeur minimale des champs de recherche. *)
 let search_input_width_margin = 120 (* Espace reserve a cote des champs de recherche. *)
+let route_max_suggestions = 20 (* Nombre max de suggestions affichees pour depart/arrivee. *)
+let route_suggestion_row_height = 28 (* Hauteur d'une ligne de suggestion d'itineraire. *)
+let route_suggestion_clip_height = 120 (* Hauteur du panneau scrollable des suggestions d'itineraire. *)
 
 let tab_zone_min_height = 220 (* Hauteur minimale de la zone d'onglets scrollable. *)
 let tab_zone_height_margin = 70 (* Marge verticale retiree pour dimensionner la zone d'onglets. *)

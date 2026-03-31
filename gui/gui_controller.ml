@@ -25,19 +25,32 @@ open Gui_view
 *)
 let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
-	(* Fonction pour obtenir le nom d'une station à partir de son ID *)
-	let station_name_of_id id =
-		match List.find_opt (fun (n : noeud) -> n.id = id) noeuds with
-		| Some n -> n.nom
-		| None -> id
+	(* Retourne tous les IDs dont le nom correspond exactement (insensible a la casse/espaces) *)
+	let exact_ids_for_name name =
+		let q = normalize name in
+		noeuds
+		|> List.filter (fun (n : noeud) -> normalize n.nom = q)
+		|> List.map (fun (n : noeud) -> n.id)
+	in
+
+	(* Retourne l'ID si [raw] est deja un ID valide de station. *)
+	let station_id_if_valid raw =
+		let q = String.trim raw in
+		match List.find_opt (fun (n : noeud) -> n.id = q) noeuds with
+		| Some n -> Some n.id
+		| None -> None
 	in
 
 	(* Mode de sélection sur la carte (départ, arrivée, ou aucun) *)
 	let mode_selection_carte = ref `Aucun in
+	let selected_depart_id = ref !current_etat.source in
+	let selected_arrivee_id = ref !current_etat.dest in
 
 	let max_search_results = Array.length view.result_rows in
 	let max_direction_buttons = Array.length view.direction_rows in
 	let max_table_rows = Array.length view.table_rows in
+	let max_route_depart_suggestions = Array.length view.route_depart_rows in
+	let max_route_arrivee_suggestions = Array.length view.route_arrivee_rows in
 
 	(* ================================================== *)
 	(*            LOGIQUE HORAIRES / RESULTATS           *)
@@ -213,6 +226,62 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	(*                 LOGIQUE UI / ETAT                 *)
 	(* ================================================== *)
 
+    let clear_suggestions keys rows max_val =
+        for i = 0 to max_val - 1 do
+            keys.(i) <- None;
+            Layout.set_show rows.(i) false
+        done
+    in
+
+    let update_suggestions text keys buttons rows max_val =
+        clear_suggestions keys rows max_val;
+        let q = normalize text in
+        if q <> "" then begin
+            let rec find_matches acc count = function
+                | [] -> List.rev acc
+                | _ when count >= max_val -> List.rev acc
+                | n :: tl ->
+                    if Gui_utils.contains_ci n.nom q then
+                        find_matches (n :: acc) (count + 1) tl
+                    else
+                        find_matches acc count tl
+            in
+            let matches = find_matches [] 0 noeuds in
+
+            List.iteri (fun i (n : noeud) ->
+                keys.(i) <- Some n.id;
+                Widget.set_text buttons.(i) (Printf.sprintf "%s (%s)" n.nom n.id);
+                Layout.set_show rows.(i) true
+            ) matches
+        end
+    in
+
+    let show_route_depart_suggestions text =
+        update_suggestions text view.route_depart_keys view.route_depart_buttons view.route_depart_rows max_route_depart_suggestions
+    in
+
+    let show_route_arrivee_suggestions text =
+        update_suggestions text view.route_arrivee_keys view.route_arrivee_buttons view.route_arrivee_rows max_route_arrivee_suggestions
+    in
+
+	let clear_route_depart_suggestions () =
+		clear_suggestions view.route_depart_keys view.route_depart_rows max_route_depart_suggestions
+	in
+
+	let clear_route_arrivee_suggestions () =
+		clear_suggestions view.route_arrivee_keys view.route_arrivee_rows max_route_arrivee_suggestions
+	in
+
+	let set_depart_id id =
+		selected_depart_id := Some id;
+		current_etat := { !current_etat with source = Some id }
+	in
+
+	let set_arrivee_id id =
+		selected_arrivee_id := Some id;
+		current_etat := { !current_etat with dest = Some id }
+	in
+
 	(* Met à jour les textes et la visibilité des boutons en fonction de l'état actuel *)
 	let update_ui_buttons () =
 		let etat = !current_etat in
@@ -311,6 +380,18 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	let conn_input_ligne_h = Widget.connect view.input_schedule_line view.input_schedule_line (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
 	let conn_input_arret_h = Widget.connect view.input_schedule_stop view.input_schedule_stop (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
 
+	let conn_input_depart = Widget.connect view.input_depart view.input_depart (fun _ _ _ ->
+		selected_depart_id := None;
+		current_etat := { !current_etat with source = None };
+		show_route_depart_suggestions (Widget.get_text view.input_depart)
+	) [Trigger.text_input; Trigger.key_up] in
+
+	let conn_input_arrivee = Widget.connect view.input_arrivee view.input_arrivee (fun _ _ _ ->
+		selected_arrivee_id := None;
+		current_etat := { !current_etat with dest = None };
+		show_route_arrivee_suggestions (Widget.get_text view.input_arrivee)
+	) [Trigger.text_input; Trigger.key_up] in
+
 	(* Boutons de sélection sur la carte pour le départ et l'arrivée *)
 	let conn_select_depart = Widget.connect view.button_select_departure_on_map view.button_select_departure_on_map (fun _ _ _ ->
 		begin_map_selection `Depart
@@ -325,9 +406,52 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	let conn_valider_rech = Widget.connect view.button_validate_search view.button_validate_search (fun _ _ _ ->
 		let raw_dep = String.trim (Widget.get_text view.input_depart) in
 		let raw_arr = String.trim (Widget.get_text view.input_arrivee) in
-
-		let source_opt = if raw_dep = "" then !current_etat.source else Some raw_dep in
-		let dest_opt = if raw_arr = "" then !current_etat.dest else Some raw_arr in
+		let source_opt =
+			match !selected_depart_id with
+			| Some id -> Some id
+			| None ->
+				(match station_id_if_valid raw_dep with
+				| Some id ->
+					Widget.set_text view.input_depart id;
+					set_depart_id id;
+					clear_route_depart_suggestions ();
+					Some id
+				| None ->
+					(match exact_ids_for_name raw_dep with
+					| [id] ->
+						Widget.set_text view.input_depart id;
+						set_depart_id id;
+						clear_route_depart_suggestions ();
+						Some id
+					| [] -> None
+					| _ ->
+						show_route_depart_suggestions raw_dep;
+						Printf.printf "Plusieurs stations portent ce nom pour le depart. Choisissez une suggestion.\n%!";
+						None))
+		in
+		let dest_opt =
+			match !selected_arrivee_id with
+			| Some id -> Some id
+			| None ->
+				(match station_id_if_valid raw_arr with
+				| Some id ->
+					Widget.set_text view.input_arrivee id;
+					set_arrivee_id id;
+					clear_route_arrivee_suggestions ();
+					Some id
+				| None ->
+					(match exact_ids_for_name raw_arr with
+					| [id] ->
+						Widget.set_text view.input_arrivee id;
+						set_arrivee_id id;
+						clear_route_arrivee_suggestions ();
+						Some id
+					| [] -> None
+					| _ ->
+						show_route_arrivee_suggestions raw_arr;
+						Printf.printf "Plusieurs stations portent ce nom pour l'arrivee. Choisissez une suggestion.\n%!";
+						None))
+		in
 
 		current_etat := { !current_etat with source = source_opt; dest = dest_opt };
 		update_ui_buttons ();
@@ -433,6 +557,32 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		) view.direction_buttons)
 	in
 
+	let conn_route_depart_rows =
+		Array.to_list (Array.mapi (fun i btn ->
+			Widget.connect btn btn (fun _ _ _ ->
+				match view.route_depart_keys.(i) with
+				| Some id ->
+					set_depart_id id;
+					Widget.set_text view.input_depart id;
+					clear_route_depart_suggestions ()
+				| None -> ()
+			) Trigger.buttons_down
+		) view.route_depart_buttons)
+	in
+
+	let conn_route_arrivee_rows =
+		Array.to_list (Array.mapi (fun i btn ->
+			Widget.connect btn btn (fun _ _ _ ->
+				match view.route_arrivee_keys.(i) with
+				| Some id ->
+					set_arrivee_id id;
+					Widget.set_text view.input_arrivee id;
+					clear_route_arrivee_suggestions ()
+				| None -> ()
+			) Trigger.buttons_down
+		) view.route_arrivee_buttons)
+	in
+
 	(* ================================================== *)
 	(*                 EVENEMENTS CARTE                  *)
 	(* ================================================== *)
@@ -477,16 +627,18 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			let selection =
 				match !mode_selection_carte, get_noeud_clique mx my etat with
 				| `Depart, Some id ->
-					Widget.set_text view.input_depart (station_name_of_id id);
+					Widget.set_text view.input_depart id;
+					clear_route_depart_suggestions ();
 					Widget.set_text view.button_select_departure_on_map "Selection carte";
 					mode_selection_carte := `Aucun;
-					current_etat := { etat with source = Some id };
+					set_depart_id id;
 					true
 				| `Arrivee, Some id ->
-					Widget.set_text view.input_arrivee (station_name_of_id id);
+					Widget.set_text view.input_arrivee id;
+					clear_route_arrivee_suggestions ();
 					Widget.set_text view.button_select_arrival_on_map "Selection carte";
 					mode_selection_carte := `Aucun;
-					current_etat := { etat with dest = Some id };
+					set_arrivee_id id;
 					true
 				| (`Depart | `Arrivee), None -> false
 				| `Aucun, _ -> false
@@ -576,7 +728,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		end
 	in
 
-	let connections = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows) in
+	let connections = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_input_depart :: conn_input_arrivee :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows @ conn_route_depart_rows @ conn_route_arrivee_rows) in
 
 	let before_display () =
 		if !needs_redraw then begin
