@@ -1,6 +1,53 @@
 open Network
+open Lwt.Infix
+
+module Http_client = Cohttp_lwt_unix.Client
 
 type endpoint = Station of Network.station | Geo of float * float
+
+let json_number_to_float = function
+  | `Float f -> Some f
+  | `Int i -> Some (float_of_int i)
+  | `String s -> (try Some (float_of_string s) with _ -> None)
+  | _ -> None
+
+let parse_nominatim_coordinates payload =
+  match Yojson.Safe.from_string payload with
+  | `List (`Assoc fields :: _) ->
+      let extract field_name =
+        match List.assoc_opt field_name fields with
+        | Some value -> json_number_to_float value
+        | None -> None
+      in
+      (match (extract "lat", extract "lon") with
+      | Some lat, Some lon -> Some (lat, lon)
+      | _ -> None)
+  | _ -> None
+
+  (* cf. opam cookbook pour la doc Cohttp et lwt *)
+let geocode_address_lwt address =
+  let query = String.trim address in
+  if query = "" then Lwt.return_none
+  else
+    let encoded_query = Uri.pct_encode ~component:`Query_value query in
+    let uri = Uri.of_string (Printf.sprintf "https://nominatim.openstreetmap.org/search?q=%s&format=jsonv2&limit=1" encoded_query) in
+    let headers = Cohttp.Header.of_list [ ("User-Agent", "MetroCaml"); ("Accept", "application/json") ] in
+    Lwt.catch
+      (fun () ->
+        Lwt_unix.with_timeout 6.0 (fun () ->
+            Lwt.bind (Http_client.get ~headers uri) (fun (resp, body) ->
+                let code = resp |> Cohttp.Response.status |> Cohttp.Code.code_of_status in
+                if Cohttp.Code.is_success code then
+                  Lwt.bind (Cohttp_lwt.Body.to_string body) (fun payload ->
+                      Lwt.return (try parse_nominatim_coordinates payload with _ -> None))
+                else Lwt.return_none))
+              )
+      (fun _ -> Lwt.return_none)
+
+let geocode_address address =
+  let query = String.trim address in
+  if query = "" then None
+  else Lwt_main.run (geocode_address_lwt query)
 
 let parse_coordinates input =
   let cleaned =
@@ -37,7 +84,9 @@ let resolve_endpoint graphe query =
         match Util.find_station_by_name graphe q with
         | Some station -> Some (Station station)
         | None ->
-            parse_coordinates q |> Option.map (fun (lat, lon) -> Geo (lat, lon))
+          (match parse_coordinates q with
+          | Some (lat, lon) -> Some (Geo (lat, lon))
+          | None -> geocode_address q |> Option.map (fun (lat, lon) -> Geo (lat, lon)))
         )
 
 let walk_speed_m_per_s = 1.4
