@@ -1,4 +1,4 @@
-open Graph_display
+open Gui_main
 open Gui_types
 open Metrocaml.Network
 
@@ -58,17 +58,7 @@ let algos_disponibles = [ "Dijkstra"; "BFS" ]
 let poids_disponibles =
   [
     "Default";
-    "Temps";
-    "Distance";
-    "Arrets";
-    "Correspondances";
-    "Rapide";
-    "Confort";
-    "Court chemin";
-    "Equilibre";
-    "Explorateur";
     "Combinaison";
-    "Horaires";
   ]
 
 let affiche graph on_search =
