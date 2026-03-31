@@ -49,29 +49,6 @@ let calcule_positions bornes noeuds =
   List.iter (fun n -> Hashtbl.replace positions n.id (to_screen bornes n.x n.y)) noeuds;
   positions
 
-(* applique un deplacement a toute les positions
-  @param src positions de reference
-  @param dst table de positions a mettre a jour
-  @param dx le deplacement en
-  @param dy le deplacement en
-   *)
-let move_from_snapshot src dst dx dy =
-  Hashtbl.iter (fun id (x, y) ->
-    Hashtbl.replace dst id (x +. float dx, y +. float dy)
-  ) src
-
-(* applique un zoom
-   @param positions table associative (id,(x_pixel,y_pixel))
-   @param cx centre x du zoom (position souris)
-   @param cy centre y du zoom
-   @param facteur facteur de zoom (>1 = zoom in, <1 = zoom out) *)
-let zoom_positions positions cx cy facteur =
-  Hashtbl.iter (fun id (x, y) ->
-    let nx = (float cx) +. (x -. (float cx)) *. facteur in
-    let ny = (float cy) +. (y -. (float cy)) *. facteur in
-    Hashtbl.replace positions id (nx, ny)
-  ) positions
-
 
 
 
