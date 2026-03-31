@@ -1,183 +1,196 @@
 open Network
 
-(** Time-based weight for transport networks. Extracts duration from connection
-    data and uses it as the routing cost. Optimizes for fastest routes. *)
+(** Constante de pénalité de transfert globale (en secondes) *)
+let transfer_penalty = 180
+
+(** Helper magique pour formater le temps en chaîne lisible *)
+let time_to_string time =
+  if time = max_int then "∞"
+  else
+    let days = time / 86400 in
+    let hours = time mod 86400 / 3600 in
+    let minutes = time mod 3600 / 60 in
+    let seconds = time mod 60 in
+    match days with
+    | 0 -> Printf.sprintf "Aujourd'hui à %02dh%02dm%02ds" hours minutes seconds
+    | 1 -> Printf.sprintf "Demain à %02dh%02dm%02ds" hours minutes seconds
+    | 2 -> Printf.sprintf "Après-demain à %02dh%02dm%02ds" hours minutes seconds
+    | _ -> Printf.sprintf "J+%d à %02dh%02dm%02ds" days hours minutes seconds
+
+(** Helper global pour calculer la prochaine heure de départ pour n'importe quel
+    poids *)
+let calc_next_time current_time current_line_name (edge : connection) =
+  if current_time = max_int then (max_int, None)
+  else if edge.mode = Walk || edge.mode = Transfert then
+    (current_time + edge.duration, current_line_name)
+  else
+    let is_transfer =
+      match current_line_name with
+      | Some l when l <> edge.line.name -> true
+      | _ -> false
+    in
+    let ready_time =
+      if is_transfer then current_time + transfer_penalty else current_time
+    in
+    let rec find_next_departure = function
+      | [] -> max_int
+      | t :: ts -> if t >= ready_time then t else find_next_departure ts
+    in
+    let next_dep = find_next_departure edge.schedules in
+    if next_dep = max_int then (max_int, None)
+    else (next_dep + edge.duration, Some edge.line.name)
+
+(* ========================================================== *)
+(* LES MODULES DE POIDS *)
+(* ========================================================== *)
+
 module TimeWeight : Routing.WEIGHT with type edge = connection = struct
-  type t = int
+  type t = { time : int; line_name : string option }
   type edge = connection
 
-  let zero = 0
-  let infinity = max_int
+  let start_at time = { time; line_name = None }
+  let infinity = { time = max_int; line_name = None }
+  let is_inf w = w.time = max_int
 
-  (** Extract duration from connection metadata. *)
-  let of_edge (conn : connection) = conn.duration
+  let add w e =
+    let next_time, next_line = calc_next_time w.time w.line_name e in
+    { time = next_time; line_name = next_line }
 
-  let is_inf = ( = ) infinity
-  let add = ( + )
-
-  (** (a - b) / max(a, b)*)
-  let compare a b =
-    if a = infinity && b = infinity then 0.0
-    else if a = infinity then 1.0
-    else if b = infinity then -1.0
+  let compare w1 w2 =
+    if is_inf w1 && is_inf w2 then 0.0
+    else if is_inf w1 then 1.0
+    else if is_inf w2 then -1.0
     else
-      let diff = a - b in
-      let denom = Int.max 1 (Int.max a b) in
-      float_of_int diff /. float_of_int denom
+      let diff = w1.time - w2.time in
+      float_of_int diff /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-
-  let to_string w =
-    if w = infinity then "∞"
-    else
-      let hours = w / 3600 in
-      let minutes = w mod 3600 / 60 in
-      let seconds = w mod 60 in
-      if hours > 0 then Printf.sprintf "%dh%02dm%02ds" hours minutes seconds
-      else if minutes > 0 then Printf.sprintf "%dm%02ds" minutes seconds
-      else Printf.sprintf "%ds" seconds
+  let get_time w = w.time
+  let to_string w = time_to_string w.time
 end
 
-(** Distance-based weight for routing. *)
 module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
-  type t = float
+  type t = { time : int; distance : float; line_name : string option }
   type edge = connection
 
-  let zero = 0.0
-  let infinity = Float.infinity
+  let start_at time = { time; distance = 0.0; line_name = None }
+  let infinity = { time = max_int; distance = Float.infinity; line_name = None }
+  let is_inf w = w.time = max_int
 
-  (** Extract distance from connection metadata. If distance is not specified,
-      estimate from duration *)
-  let of_edge (conn : connection) : t = conn.distance
-
-  let is_inf = ( = ) infinity
-  let add = ( +. )
-
-  (** (a - b) / max(a, b)*)
-  let compare a b =
-    if a = infinity && b = infinity then 0.0
-    else if a = infinity then 1.0
-    else if b = infinity then -1.0
+  let add w e =
+    let next_time, next_line = calc_next_time w.time w.line_name e in
+    if next_time = max_int then infinity
     else
-      let diff = a -. b in
-      let denom = Float.max 1.0 (Float.max a b) in
-      diff /. denom
+      {
+        time = next_time;
+        distance = w.distance +. e.distance;
+        line_name = next_line;
+      }
+
+  let compare w1 w2 =
+    if is_inf w1 && is_inf w2 then 0.0
+    else if is_inf w1 then 1.0
+    else if is_inf w2 then -1.0
+    else
+      let diff = w1.distance -. w2.distance in
+      if Float.abs diff < 0.1 then (* Tie-breaker sur le temps *)
+        float_of_int (w1.time - w2.time)
+        /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
+      else diff /. Float.max 1.0 (Float.max w1.distance w2.distance)
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-
-  let to_string d =
-    if d = infinity then "∞"
-    else if d >= 1000.0 then Printf.sprintf "%.1f km" (d /. 1000.0)
-    else Printf.sprintf "%.0f m" d
-end
-
-(** Hop count weight for transport networks. Treats all edges as equal cost (1
-    hop each). Optimizes for routes with fewest stops. *)
-module HopWeight : Routing.WEIGHT with type edge = connection = struct
-  type t = int
-  type edge = connection
-
-  let zero = 0
-  let infinity = max_int
-
-  (** All edges have unit cost—ignore edge data entirely. *)
-  let of_edge (_conn : connection) = 1
-
-  let is_inf = ( = ) infinity
-  let add w1 w2 = if w1 = infinity || w2 = infinity then infinity else w1 + w2
-
-  (** (a - b) / max(a, b)*)
-  let compare a b =
-    if a = infinity && b = infinity then 0.0
-    else if a = infinity then 1.0
-    else if b = infinity then -1.0
-    else
-      let diff = a - b in
-      let denom = Int.max 1 (Int.max a b) in
-      float_of_int diff /. float_of_int denom
-
-  let ( < ) a b = compare a b < 0.0
-  let ( > ) a b = compare a b > 0.0
-  let ( = ) a b = compare a b = 0.0
+  let get_time w = w.time
 
   let to_string w =
-    if w = infinity then "∞"
-    else if w = 1 then "1 hop"
-    else Printf.sprintf "%d hops" w
+    if is_inf w then "∞"
+    else if w.distance >= 1000.0 then
+      Printf.sprintf "%.1f km (%s)" (w.distance /. 1000.0)
+        (time_to_string w.time)
+    else Printf.sprintf "%.0f m (%s)" w.distance (time_to_string w.time)
 end
 
-(** Module de calcul de poids basé sur le nombre de correspondances.
+module HopWeight : Routing.WEIGHT with type edge = connection = struct
+  type t = { time : int; hops : int; line_name : string option }
+  type edge = connection
 
-    Ce module implémente l'interface [Routing.WEIGHT]. Il permet d'optimiser les
-    trajets en minimisant les changements de ligne. *)
+  let start_at time = { time; hops = 0; line_name = None }
+  let infinity = { time = max_int; hops = max_int; line_name = None }
+  let is_inf w = w.time = max_int
+
+  let add w e =
+    let next_time, next_line = calc_next_time w.time w.line_name e in
+    if next_time = max_int then infinity
+    else { time = next_time; hops = w.hops + 1; line_name = next_line }
+
+  let compare w1 w2 =
+    if is_inf w1 && is_inf w2 then 0.0
+    else if is_inf w1 then 1.0
+    else if is_inf w2 then -1.0
+    else
+      let diff = w1.hops - w2.hops in
+      if diff = 0 then
+        float_of_int (w1.time - w2.time)
+        /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
+      else
+        float_of_int diff /. float_of_int (Int.max 1 (Int.max w1.hops w2.hops))
+
+  let ( < ) a b = compare a b < 0.0
+  let ( > ) a b = compare a b > 0.0
+  let ( = ) a b = compare a b = 0.0
+  let get_time w = w.time
+
+  let to_string w =
+    if is_inf w then "∞"
+    else Printf.sprintf "%d arrêts (%s)" w.hops (time_to_string w.time)
+end
+
 module CorrespondenceWeight : Routing.WEIGHT with type edge = connection =
 struct
-  type t = int * string option
-  (** Le type [t] est un poids composite :
-      - [int] : Le nombre total de correspondances.
-      - [string option] : Le nom de la dernière ligne empruntée pour détecter
-        les changements. *)
-
+  type t = { time : int; transfers : int; line_name : string option }
   type edge = connection
 
-  (** Poids initial : aucune correspondance et aucune ligne enregistrée. *)
-  let zero = (0, None)
+  let start_at time = { time; transfers = 0; line_name = None }
+  let infinity = { time = max_int; transfers = max_int; line_name = None }
+  let is_inf w = w.time = max_int
 
-  (** Poids infini utilisé pour les nœuds non atteignables. *)
-  let infinity = (max_int, None)
-
-  (** Constante de pénalité : 1 ajouté à chaque correspondance. *)
-  let transfer_penalty = 1
-
-  (** Transforme une arête du réseau en poids. Extrait le nom de la ligne de la
-      structure [connection]. *)
-  let of_edge (conn : connection) = (0, Some conn.line.name)
-
-  let is_inf (weight : t) =
-    let correspondance, _ = weight in
-    correspondance = max_int
-
-  (** Calcule la somme de deux poids. Détecte si une correspondance a lieu en
-      comparant la ligne du poids cumulé avec celle de la nouvelle arête.
-      @return
-        Un nouveau poids incluant le nombre de correspondance avec l'éventuelle
-        pénalité. *)
-  let add (total_correspondance, last_line) (edge_correspondance, current_line)
-      =
-    if total_correspondance = max_int then infinity
+  let add w e =
+    let next_time, next_line = calc_next_time w.time w.line_name e in
+    if next_time = max_int then infinity
     else
-      let penalty =
-        match (last_line, current_line) with
-        | Some l1, Some l2 when l1 <> l2 -> transfer_penalty
-        | _ -> 0 (* Pas de pénalité au départ ou si la ligne est identique *)
+      let is_transfer =
+        match w.line_name with Some l when l <> e.line.name -> 1 | _ -> 0
       in
-      (total_correspondance + edge_correspondance + penalty, current_line)
+      {
+        time = next_time;
+        transfers = w.transfers + is_transfer;
+        line_name = next_line;
+      }
 
-  (** Compare deux poids en se basant uniquement sur la composante temporelle.
-      Nécessaire pour le fonctionnement de l'algorithme de Dijkstra. (a - b) /
-      max(a, b)*)
-  let compare (t1, _) (t2, _) =
-    if t1 = max_int && t2 = max_int then 0.0
-    else if t1 = max_int then 1.0
-    else if t2 = max_int then -1.0
+  let compare w1 w2 =
+    if is_inf w1 && is_inf w2 then 0.0
+    else if is_inf w1 then 1.0
+    else if is_inf w2 then -1.0
     else
-      let diff = t1 - t2 in
-      let denom = Int.max 1 (Int.max t1 t2) in
-      float_of_int diff /. float_of_int denom
+      let diff = w1.transfers - w2.transfers in
+      if diff = 0 then
+        float_of_int (w1.time - w2.time)
+        /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
+      else
+        float_of_int diff
+        /. float_of_int (Int.max 1 (Int.max w1.transfers w2.transfers))
 
-  (* Opérateurs de comparaison spécialisés pour le type [t]. *)
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
+  let get_time w = w.time
 
-  (** Convertit le poids en une chaîne de caractères lisible. Affiche "∞" pour
-      le poids infini. *)
-  let to_string (weight : t) =
-    let correspondance, _ = weight in
-    if Stdlib.( = ) correspondance max_int then "∞"
-    else Printf.sprintf "%d correspondance(s)" correspondance
+  let to_string w =
+    if is_inf w then "∞"
+    else
+      Printf.sprintf "%d correspondances (%s)" w.transfers
+        (time_to_string w.time)
 end

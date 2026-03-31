@@ -1,4 +1,5 @@
 open Graph_display
+open Gui_types
 open Metrocaml.Network
 
 let color_of_string s =
@@ -31,14 +32,48 @@ let extraire_aretes graph =
   let aretes_par_station = List.map (aretes_depuis graph) stations in
   List.flatten aretes_par_station
 
-(* ajouter les algo/poids ici pour qu'il aparraise dans l'ui graphique*)
+let extraire_horaires graph =
+  let stations = TransportGraph.nodes graph in
+    let horaires_par_station =
+    List.map
+      (fun source ->
+        let voisins = TransportGraph.neighbors graph source in
+        List.map
+          (fun (destination, conn) ->
+            {
+              mode_name = String.lowercase_ascii (string_of_mode conn.mode);
+              line_name = conn.line.name;
+              line_color = color_of_string conn.line.color;
+              station_id = source.id;
+              station_name = source.name;
+              direction = conn.terminus.name;
+              times = conn.schedules;
+            })
+          voisins)
+      stations in
+        List.flatten horaires_par_station
+
 let algos_disponibles = [ "Dijkstra"; "BFS" ]
 
 let poids_disponibles =
-  [ "Temps"; "Distance"; "Arrets"; "Correspondances"; "Combinaison" ]
+  [
+    "Default";
+    "Temps";
+    "Distance";
+    "Arrets";
+    "Correspondances";
+    "Rapide";
+    "Confort";
+    "Court chemin";
+    "Equilibre";
+    "Explorateur";
+    "Combinaison";
+    "Horaires";
+  ]
 
 let affiche graph on_search =
   let stations = TransportGraph.nodes graph in
   let noeuds = List.map station_to_noeud stations in
   let aretes = extraire_aretes graph in
-  run noeuds aretes algos_disponibles poids_disponibles on_search
+  let horaires = extraire_horaires graph in
+  run noeuds aretes algos_disponibles poids_disponibles horaires on_search
