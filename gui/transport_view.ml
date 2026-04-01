@@ -12,7 +12,7 @@ let color_of_string s =
 let station_to_noeud s =
   { id = s.id; nom = s.name; x = s.longitude; y = s.latitude }
 
-let connexion_to_arete src dst conn =
+let connexion_to_arete src dst (conn : Metrocaml.Network.connection) =
   {
     source = src.id;
     destination = dst.id;
