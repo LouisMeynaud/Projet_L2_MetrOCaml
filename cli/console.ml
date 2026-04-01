@@ -50,4 +50,4 @@ let run_console graphe search_callback =
     else []
   in
 
-  search_callback source_query dest_query algo poids coeffs
+  search_callback source_query dest_query algo poids coeffs []

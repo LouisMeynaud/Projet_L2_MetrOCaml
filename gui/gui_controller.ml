@@ -361,11 +361,17 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		let depart = !(view.is_departure_mode) in
 		let time_in_secondes = (!(view.current_hour) * 3600) + (!(view.current_minute) * 60) in
 		ignore depart;
+		let excluded_modes =
+			!current_etat.categories
+			|> List.filter (fun (mode_name, is_enabled) ->
+				not is_enabled && not (String.lowercase_ascii mode_name = "transfert"))
+			|> List.map fst
+		in
 		let c_temps = float_of_int (Slider.value (Widget.get_slider view.slider_time)) /. 100.0 in
 		let c_dist = float_of_int (Slider.value (Widget.get_slider view.slider_distance)) /. 100.0 in
 		let c_arrets = float_of_int (Slider.value (Widget.get_slider view.slider_stops)) /. 100.0 in
 		let c_corresp = float_of_int (Slider.value (Widget.get_slider view.slider_transfers)) /. 100.0 in
-		on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp] time_in_secondes
+		on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp] excluded_modes time_in_secondes
 	in
 
 	(* ---------connexions onglets et boutons--------- *)
