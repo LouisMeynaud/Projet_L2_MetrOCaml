@@ -87,7 +87,8 @@ let build_routing_context graph source_query dest_query =
         match source_ep with
         | Station station ->
             add_virtual_station_with_walk_edges routing_graph base_stations
-              ~id:"__source__" ~name:("Départ: " ^ station.name)
+              ~id:"__source__"
+              ~name:("Départ: " ^ station.name)
               ~lat:station.latitude ~lon:station.longitude ~walk_radius
         | Geo (lat, lon) ->
             add_virtual_station_with_walk_edges routing_graph base_stations
