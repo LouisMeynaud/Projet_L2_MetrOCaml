@@ -123,11 +123,9 @@ let () =
                   (fun s -> s.name)
                   (fun (c : Network.connection) -> c.line.name)
                   Routeur.P.Weight.to_string
-                  Routeur.P.Weight.get_time
                   (fun (c : Network.connection) -> c.line.color)
                   (fun (c : Network.connection) -> c.duration)
                   (fun (c : Network.connection) -> c.distance)
-                  start_time
                   details_mode
                   p;
                 flush stdout;

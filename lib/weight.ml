@@ -1,9 +1,7 @@
 open Network
 
-(** Constante de pénalité de transfert globale (en secondes) *)
-let transfer_penalty = 180
+let transfer_penalty = 380
 
-(** Helper magique pour formater le temps en chaîne lisible *)
 let time_to_string time =
   if time = max_int then "∞"
   else
@@ -17,28 +15,45 @@ let time_to_string time =
     | 2 -> Printf.sprintf "Après-demain à %02dh%02dm%02ds" hours minutes seconds
     | _ -> Printf.sprintf "J+%d à %02dh%02dm%02ds" days hours minutes seconds
 
-(** Helper global pour calculer la prochaine heure de départ pour n'importe quel
-    poids *)
-let calc_next_time current_time current_line_name (edge : connection) =
-  if current_time = max_int then (max_int, None)
+type metro_step_data = { wait_time : int }
+
+let format_metro_step_data s =
+  if s.wait_time > 0 then Printf.sprintf " [attente %d min]" (s.wait_time / 60) else ""
+
+let eval_edge current_time current_line_name (edge : connection) =
+  if current_time = max_int then None
   else if edge.mode = Walk || edge.mode = Transfert then
-    (current_time + edge.duration, current_line_name)
+    Some (current_time + edge.duration, 0, current_line_name)
   else
     let is_transfer =
       match current_line_name with
       | Some l when l <> edge.line.name -> true
       | _ -> false
     in
+    
+    let margin =
+      match current_line_name with
+      | None -> 0
+      | Some l when l = edge.line.name -> 180 
+      | _ -> 0
+    in
+    
     let ready_time =
-      if is_transfer then current_time + transfer_penalty else current_time
+      if is_transfer then current_time + transfer_penalty else current_time - margin
     in
-    let rec find_next_departure = function
-      | [] -> max_int
-      | t :: ts -> if t >= ready_time then t else find_next_departure ts
+    
+    let next_dep = 
+      List.fold_left (fun best t ->
+        if t >= ready_time && t < best then t else best
+      ) max_int edge.schedules 
     in
-    let next_dep = find_next_departure edge.schedules in
-    if next_dep = max_int then (max_int, None)
-    else (next_dep + edge.duration, Some edge.line.name)
+    
+    if next_dep = max_int then None
+    else 
+      let actual_dep = max current_time next_dep in
+      let wait = max 0 (next_dep - current_time) in
+      
+      Some (actual_dep + edge.duration, wait, Some edge.line.name)
 
 (* ========================================================== *)
 (* LES MODULES DE POIDS *)
@@ -47,14 +62,18 @@ let calc_next_time current_time current_line_name (edge : connection) =
 module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   type t = { time : int; line_name : string option }
   type edge = connection
+  type step_data = metro_step_data
+  type state_key = string option
 
   let start_at time = { time; line_name = None }
   let infinity = { time = max_int; line_name = None }
   let is_inf w = w.time = max_int
 
-  let add w e =
-    let next_time, next_line = calc_next_time w.time w.line_name e in
-    { time = next_time; line_name = next_line }
+  let traverse w e =
+    match eval_edge w.time w.line_name e with
+    | None -> None
+    | Some (next_time, wait_time, next_line) ->
+        Some ({ time = next_time; line_name = next_line }, { wait_time })
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -69,25 +88,26 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   let ( = ) a b = compare a b = 0.0
   let get_time w = w.time
   let to_string w = time_to_string w.time
+  let step_data_to_string = format_metro_step_data
+  let get_state_key w = w.line_name
 end
 
 module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   type t = { time : int; distance : float; line_name : string option }
   type edge = connection
+  type step_data = metro_step_data
+  type state_key = string option
 
   let start_at time = { time; distance = 0.0; line_name = None }
   let infinity = { time = max_int; distance = Float.infinity; line_name = None }
   let is_inf w = w.time = max_int
 
-  let add w e =
-    let next_time, next_line = calc_next_time w.time w.line_name e in
-    if next_time = max_int then infinity
-    else
-      {
-        time = next_time;
-        distance = w.distance +. e.distance;
-        line_name = next_line;
-      }
+  let traverse w e =
+    match eval_edge w.time w.line_name e with
+    | None -> None
+    | Some (next_time, wait_time, next_line) ->
+        let new_w = { time = next_time; distance = w.distance +. e.distance; line_name = next_line } in
+        Some (new_w, { wait_time })
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -95,7 +115,7 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
     else if is_inf w2 then -1.0
     else
       let diff = w1.distance -. w2.distance in
-      if Float.abs diff < 0.1 then (* Tie-breaker sur le temps *)
+      if Float.abs diff < 0.1 then
         float_of_int (w1.time - w2.time)
         /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
       else diff /. Float.max 1.0 (Float.max w1.distance w2.distance)
@@ -104,27 +124,31 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
   let get_time w = w.time
-
   let to_string w =
     if is_inf w then "∞"
     else if w.distance >= 1000.0 then
-      Printf.sprintf "%.1f km (%s)" (w.distance /. 1000.0)
-        (time_to_string w.time)
+      Printf.sprintf "%.1f km (%s)" (w.distance /. 1000.0) (time_to_string w.time)
     else Printf.sprintf "%.0f m (%s)" w.distance (time_to_string w.time)
+  let step_data_to_string = format_metro_step_data
+  let get_state_key w = w.line_name
 end
 
 module HopWeight : Routing.WEIGHT with type edge = connection = struct
   type t = { time : int; hops : int; line_name : string option }
   type edge = connection
+  type step_data = metro_step_data
+  type state_key = string option
 
   let start_at time = { time; hops = 0; line_name = None }
   let infinity = { time = max_int; hops = max_int; line_name = None }
   let is_inf w = w.time = max_int
 
-  let add w e =
-    let next_time, next_line = calc_next_time w.time w.line_name e in
-    if next_time = max_int then infinity
-    else { time = next_time; hops = w.hops + 1; line_name = next_line }
+  let traverse w e =
+    match eval_edge w.time w.line_name e with
+    | None -> None
+    | Some (next_time, wait_time, next_line) ->
+        let new_w = { time = next_time; hops = w.hops + 1; line_name = next_line } in
+        Some (new_w, { wait_time })
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -142,33 +166,31 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
   let get_time w = w.time
-
   let to_string w =
     if is_inf w then "∞"
     else Printf.sprintf "%d arrêts (%s)" w.hops (time_to_string w.time)
+  let step_data_to_string = format_metro_step_data
+  let get_state_key w = w.line_name
 end
 
 module CorrespondenceWeight : Routing.WEIGHT with type edge = connection =
 struct
   type t = { time : int; transfers : int; line_name : string option }
   type edge = connection
+  type step_data = metro_step_data
+  type state_key = string option
 
   let start_at time = { time; transfers = 0; line_name = None }
   let infinity = { time = max_int; transfers = max_int; line_name = None }
   let is_inf w = w.time = max_int
 
-  let add w e =
-    let next_time, next_line = calc_next_time w.time w.line_name e in
-    if next_time = max_int then infinity
-    else
-      let is_transfer =
-        match w.line_name with Some l when l <> e.line.name -> 1 | _ -> 0
-      in
-      {
-        time = next_time;
-        transfers = w.transfers + is_transfer;
-        line_name = next_line;
-      }
+  let traverse w e =
+    match eval_edge w.time w.line_name e with
+    | None -> None
+    | Some (next_time, wait_time, next_line) ->
+        let is_transfer = match w.line_name with Some l when l <> e.line.name -> 1 | _ -> 0 in
+        let new_w = { time = next_time; transfers = w.transfers + is_transfer; line_name = next_line } in
+        Some (new_w, { wait_time })
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -187,10 +209,9 @@ struct
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
   let get_time w = w.time
-
   let to_string w =
     if is_inf w then "∞"
-    else
-      Printf.sprintf "%d correspondances (%s)" w.transfers
-        (time_to_string w.time)
+    else Printf.sprintf "%d correspondances (%s)" w.transfers (time_to_string w.time)
+  let step_data_to_string = format_metro_step_data
+  let get_state_key w = w.line_name
 end
