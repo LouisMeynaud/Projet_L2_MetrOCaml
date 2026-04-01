@@ -23,14 +23,14 @@ let run_console graphe search_callback =
 
   let poids =
     if algo = "Dijkstra" then begin
-      raw_select "Choisissez le poids : " ["Default"; "Temps"; "Distance"; "Arrets"; "Correspondances"; "Rapide"; "Confort"; "Court chemin"; "Equilibre"; "Explorateur"; "Combinaison" ];
+      raw_select "Choisissez le poids : " ["Default"; "Combinaison" ];
     end else ""
   in
 
   let coeffs =
     if algo = "Dijkstra" && poids = "Combinaison" then
       let rec ask_coeffs () =
-        Printf.printf "Entrez les 4 coefficients (Temps Distance Arrêts Correspondances) : %!";
+        Printf.printf "Entrez les 4 coefficients (flottants) (Temps Distance Arrêts Correspondances) : %!";
         let input = read_line () in
         let parts = String.split_on_char ' ' input |> List.filter (fun s -> s <> "") in
         

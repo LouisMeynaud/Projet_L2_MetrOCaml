@@ -515,7 +515,7 @@ end;
 exception Invalid_GTFS_URL of string
 
 let download_and_extract_gtfs url dest_dir =
-  Printf.printf "=== Recuperation du GTFS ===\n";
+  Printf.printf "\n=== Récupération du GTFS ===\n";
   Printf.printf "URL : %s\n" url;
 
   let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
@@ -527,7 +527,7 @@ let download_and_extract_gtfs url dest_dir =
     else Printf.sprintf "mkdir -p \"%s\"" dest_dir
   in
   let _ = Sys.command cmd_mkdir in
-  Printf.printf "Telechargement en cours...\n";
+  Printf.printf "Téléchargement en cours...\n";
   flush stdout;
   let cmd_curl =
     if is_win then
@@ -565,7 +565,7 @@ let download_and_extract_gtfs url dest_dir =
   in
   let _ = Sys.command cmd_rm in
 
-  Printf.printf "Donnees pretes dans le dossier : %s\n\n" dest_dir
+  Printf.printf "Données prêtes dans le dossier : %s\n\n" dest_dir
 
 let load_network_from_url url target_date =
   let temp_base = Filename.get_temp_dir_name () in
@@ -579,7 +579,7 @@ let load_network_from_url url target_date =
       else Printf.sprintf "rm -rf \"%s\"" temp_dir
     in
     let _ = Sys.command cmd_cleanup in
-    Printf.printf "Jeu de Donné supprimmer avec succés, graphe persistant \n";
+    Printf.printf "Jeu de données supprimmé avec succés, graphe persistant \n";
     graph
   with
   | Invalid_GTFS_URL msg ->

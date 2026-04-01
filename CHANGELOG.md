@@ -1,34 +1,35 @@
-Changelog v1.0
- Nouvelles Fonctionnalités
+Changelog v1.2
+### Nouvelle interface graphique :
+- nouveaux visuels
+- utilisation de vrais boutons
+- utilisation des poids personnalisés
+- suppression des caches de dessins (optimisation)
+- mise en cache des textes (optimisation)
+- ajout de l'onglet horaires (permet de voir les horaires de passage pour un arrêt/ligne)
+- nombreuses autres optimisations
 
-Architecture & Bibliothèque (Core)
-Mise en place des fondations abstraites du projet via des signatures et des interfaces modulaires.
-• Signatures : Définition des interfaces pour Noeud, Edge (Arête) et Graph.
-• Poids (Weight) : Création d'une structure pour gérer différents types de coûts.
-• Path : Définition de l'interface générique de chemins.
+### Ajout UI console :
+- utilisation des poids personnalisés
+- affichage des chemins trouvés (détaillé ou simple)
+- ajout du temps et de la distance dans l'affichage pour un chemin choisi
+- possibilité de choisir entre plusieurs réseaux au lancement (Toulouse et IDF par exemple)
+- ajout de tolérance lors des questions à choix multiples / demandes de stations (la casse et les accents ne comptent plus)
 
-Modélisation du Réseau 
-Implémentation des types concrets pour représenter le réseau de transport.
-• Structures de données : Ajout des types Ligne, Station, Connexion Inter-station.
-• Modes de transport : Prise en charge des différents modes (Métro, RER, etc.).
-• Parsing : Ajout du module de lecture et chargement des données du réseau.
+### Parseur :
+- ajout des distances entre les stations
+- résolution de bugs sur les horaires
+- optimisation du chargement des fichiers à parser
+- ajout des connexions de transfert entre les stations proches
 
-Algorithmes et Logique
-• Implémentation des Poids de type : 
-• Temps 
-• Distance 
-• Sauts (Nombre de stations) 
-• Mixte (Sauts puis Temps) 
-• Implémentation de l'algorithme BFS.
-• Implémentation de l’algorithme de Dijkstra
-• Graphe : Implémentation concrète de la structure de graphe et des arêtes.
+### Poids :
+- refonte des modules weight pour qu'ils prennent en compte les horaires des trains
+- ajout dans l'affichage des temps d'attente entre les correspondances
 
-Interface Graphique (UI)
-• interface : Affichage basique du graphe.
-• Navigation :
-• Ajout du Zoom.
-• Ajout de la Caméra.
+### Presets :
+- ajout des presets (combinaisons de poids prédéfinis) (Rapide, Confort, Équilibré, Explorateur, Court chemin)
 
-DevOps & Divers
-• CI/CD : Mise en place de l'intégration et du déploiement continus.
-• Ajout de tests notamment pour les Poids de type saut et mixte, et des algorithmes bfs et de Dijkstra
+### Général :
+- séparation du code de main et de la console
+- ajout d'une licence
+- vérification de si des datas sont déjà téléchargées, dans ce cas chargement des données locales
+- possibilité d'entrer des coordonnées GPS plutôt qu'une station (estimation du temps de marche)
