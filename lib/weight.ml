@@ -2,6 +2,17 @@ open Network
 
 let transfer_penalty = 180
 
+let excluded_modes = ref []
+
+let set_excluded_modes modes =
+  excluded_modes :=
+    List.map String.lowercase_ascii (List.map String.trim modes)
+    |> List.filter (fun m -> m <> "")
+
+let is_mode_excluded mode =
+  let key = String.lowercase_ascii (string_of_mode mode) in
+  List.mem key !excluded_modes
+
 let time_to_string time =
   if time = max_int then "∞"
   else
@@ -72,7 +83,9 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   let is_inf w = w.time = max_int
 
   let traverse w e =
-    match eval_edge w.time w.line_name e with
+    if is_mode_excluded e.mode then None
+    else
+      match eval_edge w.time w.line_name e with
     | None -> None
     | Some (next_time, wait_time, next_line) ->
         Some ({ time = next_time; line_name = next_line }, { wait_time })
@@ -105,7 +118,9 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   let is_inf w = w.time = max_int
 
   let traverse w e =
-    match eval_edge w.time w.line_name e with
+    if is_mode_excluded e.mode then None
+    else
+      match eval_edge w.time w.line_name e with
     | None -> None
     | Some (next_time, wait_time, next_line) ->
         let new_w =
@@ -155,7 +170,9 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
   let is_inf w = w.time = max_int
 
   let traverse w e =
-    match eval_edge w.time w.line_name e with
+    if is_mode_excluded e.mode then None
+    else
+      match eval_edge w.time w.line_name e with
     | None -> None
     | Some (next_time, wait_time, next_line) ->
         let new_w =
@@ -200,7 +217,9 @@ struct
   let is_inf w = w.time = max_int
 
   let traverse w e =
-    match eval_edge w.time w.line_name e with
+    if is_mode_excluded e.mode then None
+    else
+      match eval_edge w.time w.line_name e with
     | None -> None
     | Some (next_time, wait_time, next_line) ->
         let is_transfer =

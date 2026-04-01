@@ -68,9 +68,10 @@ let () =
     in
     flush stdout;
     
-    let search_callback source_query dest_query algo poids coeffs start_time details_mode =
+    let search_callback source_query dest_query algo poids coeffs excluded_modes start_time details_mode =
       match Endpoint.build_routing_context graphe source_query dest_query with
       | Some (graph_for_search, source, destination) ->
+          Weight.set_excluded_modes excluded_modes;
           let routeurs : (string * (module ALGO)) list =
             if algo = "BFS" then
               [("BFS", (module struct
@@ -168,15 +169,15 @@ let () =
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
-        let cli_callback src dest algo poids coeffs =
-          search_callback src dest algo poids coeffs (8 * 3600) false
+        let cli_callback src dest algo poids coeffs excluded_modes =
+          search_callback src dest algo poids coeffs excluded_modes (8 * 3600) false
         in
         Cli.Console.run_console graphe cli_callback
 
     | _ ->
         Printf.printf "Lancement de l'interface graphique...\n%!";
-        let gui_callback src dest algo poids coeffs start_time =
-          search_callback src dest algo poids coeffs start_time false
+        let gui_callback src dest algo poids coeffs excluded_modes start_time =
+          search_callback src dest algo poids coeffs excluded_modes start_time false
         in
         Gui.Transport_view.affiche graphe gui_callback;
 
