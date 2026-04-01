@@ -2,7 +2,6 @@ open Network
 
 let transfer_penalty = 180
 let transfer_time_tradeoff = 900
-
 let excluded_modes = ref []
 
 let set_excluded_modes modes =
@@ -87,9 +86,9 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
     if is_mode_excluded e.mode then None
     else
       match eval_edge w.time w.line_name e with
-    | None -> None
-    | Some (next_time, wait_time, next_line) ->
-        Some ({ time = next_time; line_name = next_line }, { wait_time })
+      | None -> None
+      | Some (next_time, wait_time, next_line) ->
+          Some ({ time = next_time; line_name = next_line }, { wait_time })
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -122,16 +121,16 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
     if is_mode_excluded e.mode then None
     else
       match eval_edge w.time w.line_name e with
-    | None -> None
-    | Some (next_time, wait_time, next_line) ->
-        let new_w =
-          {
-            time = next_time;
-            distance = w.distance +. e.distance;
-            line_name = next_line;
-          }
-        in
-        Some (new_w, { wait_time })
+      | None -> None
+      | Some (next_time, wait_time, next_line) ->
+          let new_w =
+            {
+              time = next_time;
+              distance = w.distance +. e.distance;
+              line_name = next_line;
+            }
+          in
+          Some (new_w, { wait_time })
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -174,12 +173,12 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
     if is_mode_excluded e.mode then None
     else
       match eval_edge w.time w.line_name e with
-    | None -> None
-    | Some (next_time, wait_time, next_line) ->
-        let new_w =
-          { time = next_time; hops = w.hops + 1; line_name = next_line }
-        in
-        Some (new_w, { wait_time })
+      | None -> None
+      | Some (next_time, wait_time, next_line) ->
+          let new_w =
+            { time = next_time; hops = w.hops + 1; line_name = next_line }
+          in
+          Some (new_w, { wait_time })
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -221,21 +220,23 @@ struct
     if is_mode_excluded e.mode then None
     else
       match eval_edge w.time w.line_name e with
-    | None -> None
-    | Some (next_time, wait_time, next_line) ->
-        let is_transfer =
-          match w.line_name with
-          | Some l when e.mode <> Walk && e.mode <> Transfert && l <> e.line.name -> 1
-          | _ -> 0
-        in
-        let new_w =
-          {
-            time = next_time;
-            transfers = w.transfers + is_transfer;
-            line_name = next_line;
-          }
-        in
-        Some (new_w, { wait_time })
+      | None -> None
+      | Some (next_time, wait_time, next_line) ->
+          let is_transfer =
+            match w.line_name with
+            | Some l
+              when e.mode <> Walk && e.mode <> Transfert && l <> e.line.name ->
+                1
+            | _ -> 0
+          in
+          let new_w =
+            {
+              time = next_time;
+              transfers = w.transfers + is_transfer;
+              line_name = next_line;
+            }
+          in
+          Some (new_w, { wait_time })
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -244,7 +245,8 @@ struct
     else
       let cost1 = (w1.transfers * transfer_time_tradeoff) + w1.time in
       let cost2 = (w2.transfers * transfer_time_tradeoff) + w2.time in
-      float_of_int (cost1 - cost2) /. float_of_int (Int.max 1 (Int.max cost1 cost2))
+      float_of_int (cost1 - cost2)
+      /. float_of_int (Int.max 1 (Int.max cost1 cost2))
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
