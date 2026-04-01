@@ -99,7 +99,7 @@ let load_network_gtfs directory target_date =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
-  let valid_services = Hashtbl.create 1000 in
+  let valid_services = Hashtbl.create 50000 in
   let date_0 = target_date in
   let date_1 = next_day_str date_0 in
   let date_2 = next_day_str date_1 in
@@ -195,7 +195,7 @@ let load_network_gtfs directory target_date =
   end;
 
   (* B. Routes *)
-  let route_info = Hashtbl.create 1000 in
+  let route_info = Hashtbl.create 50000 in
   let r_csv = Csv.load (Filename.concat directory "routes.txt") in
   let r_header = List.hd r_csv in
   let i_rid = get_index r_header "route_id" in
@@ -231,7 +231,7 @@ let load_network_gtfs directory target_date =
     (List.tl r_csv);
 
   (* C. Trips *)
-  let valid_trips = Hashtbl.create 5000 in
+  let valid_trips = Hashtbl.create 200000 in
   let trip_to_block = Hashtbl.create 5000 in
   let t_path = Filename.concat directory "trips.txt" in
   if Sys.file_exists t_path then begin
@@ -270,9 +270,9 @@ let load_network_gtfs directory target_date =
   end;
 
   (* D. Stops *)
-  let stop_to_area = Hashtbl.create 5000 in
-  let area_nodes = Hashtbl.create 1000 in
-  let name_to_station = Hashtbl.create 1000 in
+  let stop_to_area = Hashtbl.create 15000 in
+  let area_nodes = Hashtbl.create 20000 in
+  let name_to_station = Hashtbl.create 20000 in
   let s_path = Filename.concat directory "stops.txt" in
   if Sys.file_exists s_path then begin
     let s_ic = open_in s_path in
