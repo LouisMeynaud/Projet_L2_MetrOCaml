@@ -1,6 +1,6 @@
 open Network
 
-let transfer_penalty = 380
+let transfer_penalty = 180
 
 let time_to_string time =
   if time = max_int then "∞"

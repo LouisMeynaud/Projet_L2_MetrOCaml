@@ -12,7 +12,6 @@ module HW = Metrocaml.Weight.HopWeight
 let hop_weight_t =
   Alcotest.testable (fun ppf w -> Fmt.string ppf (HW.to_string w)) HW.( = )
 
-(* Helper pour les tests : extrait le poids s'il existe, sinon fail *)
 let force_traverse traverse_fn w e =
   match traverse_fn w e with
   | Some (new_w, _) -> new_w
@@ -202,32 +201,80 @@ let test_distance_of_edge () =
     "Extraction de la distance" "1.5 km (Aujourd'hui à 00h02m00s)"
     (DW.to_string (force_traverse DW.traverse (DW.start_at 0) dummy_conn))
 
-let test_distance_compare () =
+let test_distance_arithmetic () =
+  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
+  let conn1 =
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 60;
+      distance = 400.0;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
+  in
+  let conn2 =
+    {
+      Metrocaml.Network.line = dummy_line;
+      duration = 60;
+      distance = 800.0;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
+  in
+  let w1 = force_traverse DW.traverse (DW.start_at 0) conn1 in
+  let w2 = force_traverse DW.traverse w1 conn2 in
+  Alcotest.(check string)
+    "400m + 800m = 1.2 km" "1.2 km (Aujourd'hui à 00h02m00s)"
+    (DW.to_string w2)
+
+let test_distance_tie_breaker () =
   let open DW in
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
-  let w_500 =
+  let w_fast =
     force_traverse traverse (start_at 0)
       {
         line = dummy_line;
-        duration = 0;
+        duration = 60;
         distance = 500.0;
         mode = Walk;
         schedules = [];
         terminus = dummy_station;
       }
   in
-  let w_750 =
+  let w_slow =
     force_traverse traverse (start_at 0)
       {
         line = dummy_line;
-        duration = 0;
-        distance = 750.0;
+        duration = 300;
+        distance = 500.0;
         mode = Walk;
         schedules = [];
         terminus = dummy_station;
       }
   in
-  Alcotest.(check bool) "Moins de distance gagne (<)" true (w_500 < w_750)
+  Alcotest.(check bool)
+    "A distance egale, le temps le plus court gagne (<)" true
+    (w_fast < w_slow);
+  Alcotest.(check bool)
+    "A distance egale, le temps le plus long perd (>)" true
+    (w_slow > w_fast)
+
+let test_distance_infinity () =
+  let dummy_conn =
+    {
+      Metrocaml.Network.line = { name = ""; color = "" };
+      duration = 0;
+      distance = 100.0;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
+  in
+  Alcotest.(check bool)
+    "L'infini empêche la traversée (None)" true
+    (DW.traverse DW.infinity dummy_conn = None)
 
 (* ========================================================== *)
 (* TESTS: CorrespondenceWeight                                *)
@@ -264,6 +311,79 @@ let test_cw_transfer_penalty () =
   Alcotest.(check string)
     "Changement de ligne : +1 correspondance"
     "1 correspondances (Aujourd'hui à 00h05m00s)" (CW.to_string total)
+
+let test_cw_no_transfer () =
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let conn1 =
+    {
+      Metrocaml.Network.line = line_a;
+      duration = 60;
+      distance = 100.;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
+  in
+  let conn2 =
+    {
+      Metrocaml.Network.line = line_a;
+      duration = 60;
+      distance = 100.;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
+  in
+  let w1 = force_traverse CW.traverse (CW.start_at 0) conn1 in
+  let w2 = force_traverse CW.traverse w1 conn2 in
+  Alcotest.(check string)
+    "Meme ligne : 0 correspondance"
+    "0 correspondances (Aujourd'hui à 00h02m00s)" (CW.to_string w2)
+
+let test_cw_tie_breaker () =
+  let open CW in
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  (* Tous deux ont 0 correspondance, mais l'un est plus rapide *)
+  let w_fast =
+    force_traverse traverse (start_at 0)
+      {
+        line = line_a;
+        duration = 60;
+        distance = 100.;
+        mode = Walk;
+        schedules = [];
+        terminus = dummy_station;
+      }
+  in
+  let w_slow =
+    force_traverse traverse (start_at 0)
+      {
+        line = line_a;
+        duration = 300;
+        distance = 100.;
+        mode = Walk;
+        schedules = [];
+        terminus = dummy_station;
+      }
+  in
+  Alcotest.(check bool)
+    "A correspondances egales, le temps le plus court gagne (<)" true
+    (w_fast < w_slow)
+
+let test_cw_infinity () =
+  let conn =
+    {
+      Metrocaml.Network.line = { name = ""; color = "" };
+      duration = 0;
+      distance = 100.0;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
+  in
+  Alcotest.(check bool)
+    "L'infini empêche la traversée (None)" true
+    (CW.traverse CW.infinity conn = None)
 
 (* ========================================================== *)
 (* TESTS: BFS (Parcours en largeur)                           *)
@@ -389,11 +509,16 @@ let () =
       ( "DistanceWeight",
         [
           test_case "Extraction de la distance" `Quick test_distance_of_edge;
-          test_case "Comparaison booléenne" `Quick test_distance_compare;
+          test_case "Arithmétique" `Quick test_distance_arithmetic;
+          test_case "Tie-breaker temporel" `Quick test_distance_tie_breaker;
+          test_case "Gestion Infini" `Quick test_distance_infinity;
         ] );
       ( "CorrespondenceWeight",
         [
-          test_case "Pénalité de correspondance" `Quick test_cw_transfer_penalty;
+          test_case "Pénalité de changement" `Quick test_cw_transfer_penalty;
+          test_case "Maintien sur la ligne" `Quick test_cw_no_transfer;
+          test_case "Tie-breaker temporel" `Quick test_cw_tie_breaker;
+          test_case "Gestion Infini" `Quick test_cw_infinity;
         ] );
       ( "BFS",
         [ test_case "Chemin simple" `Quick BFS_Tests.test_bfs_simple_path ] );
