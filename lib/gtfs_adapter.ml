@@ -283,6 +283,7 @@ let load_network_gtfs directory target_date =
     let i_lat = get_index s_header "stop_lat" in
     let i_lon = get_index s_header "stop_lon" in
     let i_parent_opt = get_index_opt s_header "parent_station" in
+    let i_wheelchair_opt = get_index_opt s_header "wheelchair_boarding" in
 
     Csv.iter
       ~f:(fun row ->
@@ -297,13 +298,18 @@ let load_network_gtfs directory target_date =
           in
           Hashtbl.replace stop_to_area raw_id parent_id;
           let station_name = List.nth row i_sname in
+          let is_pmr =
+            match i_wheelchair_opt with
+            | Some idx -> (try String.trim (List.nth row idx) = "1" with _ -> false)
+            | None -> false
+          in
           let station =
             {
               Network.id = parent_id;
               name = List.nth row i_sname;
               latitude = float_of_string (List.nth row i_lat);
               longitude = float_of_string (List.nth row i_lon);
-              pmr = false;
+              pmr = is_pmr;
             }
           in
           let norm_name = normalize_name station_name in
@@ -314,6 +320,10 @@ let load_network_gtfs directory target_date =
             Hashtbl.replace area_nodes parent_id station
           else if not (Hashtbl.mem area_nodes parent_id) then
             Hashtbl.add area_nodes parent_id station
+          else if is_pmr then begin
+            let existing_parent = Hashtbl.find area_nodes parent_id in
+            Hashtbl.replace area_nodes parent_id { existing_parent with pmr = true }
+          end
         with _ -> ())
       s_csv;
     close_in s_ic
@@ -413,16 +423,16 @@ end;
                     with Not_found -> [ 0 ]
                   in
                   match Hashtbl.find_opt edges_acc key with
-                  | Some (_, _, _, _, _, schedules_ref, dist_ref,_) ->
+                  | Some (_, _, _, _, _, schedules_ref, dist_ref, _) ->
                       List.iter
                         (fun offset ->
-                          schedules_ref := (prev_dep + offset) :: !schedules_ref)
+                          schedules_ref := (tid, prev_dep + offset) :: !schedules_ref)
                         active_offsets;
                       if !dist_ref = None then dist_ref := edge_gtfs_dist
                   | None ->
                       let initial_schedules =
                         List.map
-                          (fun offset -> prev_dep + offset)
+                          (fun offset -> (tid, prev_dep + offset))
                           active_offsets
                       in
                       Hashtbl.add edges_acc key
@@ -445,7 +455,7 @@ end;
   (* G. Construction finale des arêtes avec listes triées *)
   Hashtbl.iter
     (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref, term_station) ->
-      let sorted_schedules = List.sort compare !schedules_ref in
+      let sorted_schedules = List.sort (fun (_, temps1) (_, temps2) -> compare temps1 temps2) !schedules_ref in
       let dist_meters =
         match !dist_ref with
         | Some d -> d
