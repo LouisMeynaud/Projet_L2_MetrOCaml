@@ -36,13 +36,18 @@ let geocode_address_lwt address =
       (fun () ->
         Lwt_unix.with_timeout 6.0 (fun () ->
             Lwt.bind (Http_client.get ~headers uri) (fun (resp, body) ->
+                Printf.printf "Requête Nominatim pour '%s' : %s\n%!" address (Cohttp.Code.string_of_status (Cohttp.Response.status resp));
                 let code = resp |> Cohttp.Response.status |> Cohttp.Code.code_of_status in
                 if Cohttp.Code.is_success code then
                   Lwt.bind (Cohttp_lwt.Body.to_string body) (fun payload ->
                       Lwt.return (try parse_nominatim_coordinates payload with _ -> None))
-                else Lwt.return_none))
+                else (
+                  Printf.eprintf "Erreur HTTP pour '%s': %d %s\n%!" address code (Cohttp.Code.reason_phrase_of_code code);
+                  Lwt.return_none)))
               )
-      (fun _ -> Lwt.return_none)
+      (fun exn ->
+        Printf.eprintf "Échec Cohttp pour '%s': %s\n%!" address (Printexc.to_string exn);
+        Lwt.return_none)
 
 let geocode_address address =
   let query = String.trim address in
