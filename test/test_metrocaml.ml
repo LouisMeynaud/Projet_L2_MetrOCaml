@@ -226,8 +226,7 @@ let test_distance_arithmetic () =
   let w1 = force_traverse DW.traverse (DW.start_at 0) conn1 in
   let w2 = force_traverse DW.traverse w1 conn2 in
   Alcotest.(check string)
-    "400m + 800m = 1.2 km" "1.2 km (Aujourd'hui à 00h02m00s)"
-    (DW.to_string w2)
+    "400m + 800m = 1.2 km" "1.2 km (Aujourd'hui à 00h02m00s)" (DW.to_string w2)
 
 let test_distance_tie_breaker () =
   let open DW in
@@ -255,11 +254,9 @@ let test_distance_tie_breaker () =
       }
   in
   Alcotest.(check bool)
-    "A distance egale, le temps le plus court gagne (<)" true
-    (w_fast < w_slow);
+    "A distance egale, le temps le plus court gagne (<)" true (w_fast < w_slow);
   Alcotest.(check bool)
-    "A distance egale, le temps le plus long perd (>)" true
-    (w_slow > w_fast)
+    "A distance egale, le temps le plus long perd (>)" true (w_slow > w_fast)
 
 let test_distance_infinity () =
   let dummy_conn =
