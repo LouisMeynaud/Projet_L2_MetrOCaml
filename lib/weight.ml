@@ -1,6 +1,7 @@
 open Network
 
 let transfer_penalty = 180
+let transfer_time_tradeoff = 900
 
 let excluded_modes = ref []
 
@@ -223,7 +224,9 @@ struct
     | None -> None
     | Some (next_time, wait_time, next_line) ->
         let is_transfer =
-          match w.line_name with Some l when l <> e.line.name -> 1 | _ -> 0
+          match w.line_name with
+          | Some l when e.mode <> Walk && e.mode <> Transfert && l <> e.line.name -> 1
+          | _ -> 0
         in
         let new_w =
           {
@@ -239,13 +242,9 @@ struct
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
-      let diff = w1.transfers - w2.transfers in
-      if diff = 0 then
-        float_of_int (w1.time - w2.time)
-        /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
-      else
-        float_of_int diff
-        /. float_of_int (Int.max 1 (Int.max w1.transfers w2.transfers))
+      let cost1 = (w1.transfers * transfer_time_tradeoff) + w1.time in
+      let cost2 = (w2.transfers * transfer_time_tradeoff) + w2.time in
+      float_of_int (cost1 - cost2) /. float_of_int (Int.max 1 (Int.max cost1 cost2))
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
