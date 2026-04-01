@@ -33,7 +33,9 @@ let test_hop_of_edge () =
     }
   in
   let expected = force_traverse HW.traverse (HW.start_at 0) dummy_conn in
-  Alcotest.(check string) "Un segment vaut 1 arrêt" "1 arrêts (Aujourd'hui à 00h02m00s)" (HW.to_string expected)
+  Alcotest.(check string)
+    "Un segment vaut 1 arrêt" "1 arrêts (Aujourd'hui à 00h02m00s)"
+    (HW.to_string expected)
 
 let test_hop_arithmetic () =
   let dummy_conn =
@@ -48,8 +50,11 @@ let test_hop_arithmetic () =
   in
   let one = force_traverse HW.traverse (HW.start_at 0) dummy_conn in
   let two = force_traverse HW.traverse one dummy_conn in
-  Alcotest.(check string) "1 + 1 = 2" "2 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string two);
-  Alcotest.(check hop_weight_t) "Vérifie l'accumulation" two (force_traverse HW.traverse one dummy_conn)
+  Alcotest.(check string)
+    "1 + 1 = 2" "2 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string two);
+  Alcotest.(check hop_weight_t)
+    "Vérifie l'accumulation" two
+    (force_traverse HW.traverse one dummy_conn)
 
 let test_hop_infinity () =
   let dummy_conn =
@@ -93,7 +98,8 @@ let test_time_of_edge () =
   in
   Alcotest.(check string)
     "Extraction de la duree" "Aujourd'hui à 00h02m00s"
-    (TimeW.to_string (force_traverse TimeW.traverse (TimeW.start_at 0) dummy_conn))
+    (TimeW.to_string
+       (force_traverse TimeW.traverse (TimeW.start_at 0) dummy_conn))
 
 let test_time_arithmetic () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
@@ -137,19 +143,37 @@ let test_time_compare () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
   let w_60 =
     force_traverse traverse (start_at 0)
-      { line = dummy_line; duration = 60; distance = 0.; mode = Walk; schedules = []; terminus = dummy_station }
+      {
+        line = dummy_line;
+        duration = 60;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+        terminus = dummy_station;
+      }
   in
   let w_120 =
     force_traverse traverse (start_at 0)
-      { line = dummy_line; duration = 120; distance = 0.; mode = Walk; schedules = []; terminus = dummy_station }
+      {
+        line = dummy_line;
+        duration = 120;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+        terminus = dummy_station;
+      }
   in
   Alcotest.(check bool) "Moins de temps gagne (<)" true (w_60 < w_120);
   Alcotest.(check bool) "Plus de temps perd (>)" true (w_120 > w_60);
   Alcotest.(check bool) "Temps egaux (=)" true (w_60 = w_60)
 
 let test_time_to_string () =
-  Alcotest.(check string) "Formatage 0s" "Aujourd'hui à 00h00m00s" (TimeW.to_string (TimeW.start_at 0));
-  Alcotest.(check string) "Formatage minutes exactes (2m00s)" "Aujourd'hui à 00h02m00s" (TimeW.to_string (TimeW.start_at 120))
+  Alcotest.(check string)
+    "Formatage 0s" "Aujourd'hui à 00h00m00s"
+    (TimeW.to_string (TimeW.start_at 0));
+  Alcotest.(check string)
+    "Formatage minutes exactes (2m00s)" "Aujourd'hui à 00h02m00s"
+    (TimeW.to_string (TimeW.start_at 120))
 
 (* ========================================================== *)
 (* TESTS: DistanceWeight                                      *)
@@ -161,9 +185,18 @@ let distance_weight_t =
   Alcotest.testable (fun ppf w -> Fmt.string ppf (DW.to_string w)) DW.( = )
 
 let test_distance_of_edge () =
-  let dummy_line : Metrocaml.Network.line = { name = "Ligne 1"; color = "#FFBE00" } in
+  let dummy_line : Metrocaml.Network.line =
+    { name = "Ligne 1"; color = "#FFBE00" }
+  in
   let dummy_conn : Metrocaml.Network.connection =
-    { line = dummy_line; duration = 120; distance = 1500.0; mode = Walk; schedules = []; terminus = dummy_station }
+    {
+      line = dummy_line;
+      duration = 120;
+      distance = 1500.0;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
   in
   Alcotest.(check string)
     "Extraction de la distance" "1.5 km (Aujourd'hui à 00h02m00s)"
@@ -174,11 +207,25 @@ let test_distance_compare () =
   let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
   let w_500 =
     force_traverse traverse (start_at 0)
-      { line = dummy_line; duration = 0; distance = 500.0; mode = Walk; schedules = []; terminus = dummy_station }
+      {
+        line = dummy_line;
+        duration = 0;
+        distance = 500.0;
+        mode = Walk;
+        schedules = [];
+        terminus = dummy_station;
+      }
   in
   let w_750 =
     force_traverse traverse (start_at 0)
-      { line = dummy_line; duration = 0; distance = 750.0; mode = Walk; schedules = []; terminus = dummy_station }
+      {
+        line = dummy_line;
+        duration = 0;
+        distance = 750.0;
+        mode = Walk;
+        schedules = [];
+        terminus = dummy_station;
+      }
   in
   Alcotest.(check bool) "Moins de distance gagne (<)" true (w_500 < w_750)
 
@@ -192,17 +239,31 @@ let test_cw_transfer_penalty () =
   let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
   let line_b = { Metrocaml.Network.name = "Ligne B"; color = "#0000FF" } in
   let conn_a : Metrocaml.Network.connection =
-      { line = line_a; duration = 60; distance = 100.; mode = Metro; schedules = [0; 60; 120]; terminus = dummy_station }
+    {
+      line = line_a;
+      duration = 60;
+      distance = 100.;
+      mode = Metro;
+      schedules = [ 0; 60; 120 ];
+      terminus = dummy_station;
+    }
   in
   let conn_b : Metrocaml.Network.connection =
-      { line = line_b; duration = 60; distance = 100.; mode = Metro; schedules = [0; 60; 120; 180; 240; 300]; terminus = dummy_station }
+    {
+      line = line_b;
+      duration = 60;
+      distance = 100.;
+      mode = Metro;
+      schedules = [ 0; 60; 120; 180; 240; 300 ];
+      terminus = dummy_station;
+    }
   in
 
   let w_a = force_traverse CW.traverse (CW.start_at 0) conn_a in
   let total = force_traverse CW.traverse w_a conn_b in
   Alcotest.(check string)
-    "Changement de ligne : +1 correspondance" "1 correspondances (Aujourd'hui à 00h05m00s)"
-    (CW.to_string total)
+    "Changement de ligne : +1 correspondance"
+    "1 correspondances (Aujourd'hui à 00h05m00s)" (CW.to_string total)
 
 (* ========================================================== *)
 (* TESTS: BFS (Parcours en largeur)                           *)
@@ -211,6 +272,7 @@ let test_cw_transfer_penalty () =
 module BFS_Tests = struct
   module TestNode = struct
     type t = string
+
     let equal = String.equal
     let hash = Hashtbl.hash
     let compare = String.compare
@@ -218,15 +280,32 @@ module BFS_Tests = struct
 
   module TestEdge = struct
     type t = Metrocaml.Network.connection
+
     let compare = compare
-    let default = { Metrocaml.Network.line = { name = ""; color = "" }; duration = 0; distance = 0.; mode = Walk; schedules = []; terminus = dummy_station }
+
+    let default =
+      {
+        Metrocaml.Network.line = { name = ""; color = "" };
+        duration = 0;
+        distance = 0.;
+        mode = Walk;
+        schedules = [];
+        terminus = dummy_station;
+      }
   end
 
   module TestGraph = Routing.Graph.Make (TestNode) (TestEdge)
   module BFS = Routing.Bfs.Make (TestGraph) (HW)
 
   let dummy_conn : Metrocaml.Network.connection =
-    { line = { name = "Test"; color = "#000000" }; duration = 60; distance = 1000.0; mode = Walk; schedules = []; terminus = dummy_station }
+    {
+      line = { name = "Test"; color = "#000000" };
+      duration = 60;
+      distance = 1000.0;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
 
   let test_bfs_simple_path () =
     let g = TestGraph.create () in
@@ -235,7 +314,8 @@ module BFS_Tests = struct
     TestGraph.add_edge g "A" "B" dummy_conn;
 
     match BFS.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B" with
-    | Some path -> Alcotest.(check int) "Chemin direct (1 saut)" 1 (List.length path.steps)
+    | Some path ->
+        Alcotest.(check int) "Chemin direct (1 saut)" 1 (List.length path.steps)
     | None -> Alcotest.fail "Un chemin direct A->B devrait exister"
 end
 
@@ -251,13 +331,24 @@ module Dijkstra_Tests = struct
   module Dijkstra = Routing.Dijkstra.Make (TestGraph) (TW)
 
   let conn dur : Metrocaml.Network.connection =
-    { line = { name = "Test"; color = "#000000" }; duration = dur; distance = 0.; mode = Walk; schedules = []; terminus = dummy_station }
+    {
+      line = { name = "Test"; color = "#000000" };
+      duration = dur;
+      distance = 0.;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
 
   let test_simple_path () =
     let g = TestGraph.create () in
     TestGraph.add_edge g "A" "B" (conn 60);
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B" with
-    | Some path -> Alcotest.(check int) "Chemin direct (1 étape)" 1 (List.length path.steps)
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B"
+    with
+    | Some path ->
+        Alcotest.(check int)
+          "Chemin direct (1 étape)" 1 (List.length path.steps)
     | None -> Alcotest.fail "Un chemin direct A->B devrait exister"
 
   let test_weighted_optimal () =
@@ -265,10 +356,13 @@ module Dijkstra_Tests = struct
     TestGraph.add_edge g "A" "C" (conn 100);
     TestGraph.add_edge g "A" "B" (conn 10);
     TestGraph.add_edge g "B" "C" (conn 10);
-    match Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"C" with
+    match
+      Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"C"
+    with
     | None -> Alcotest.fail "Chemin A->C introuvable"
     | Some path ->
-        Alcotest.(check int) "Chemin optimal: 2 étapes (via B)" 2 (List.length path.steps)
+        Alcotest.(check int)
+          "Chemin optimal: 2 étapes (via B)" 2 (List.length path.steps)
 end
 
 (* ========================================================== *)
@@ -302,12 +396,11 @@ let () =
           test_case "Pénalité de correspondance" `Quick test_cw_transfer_penalty;
         ] );
       ( "BFS",
-        [
-          test_case "Chemin simple" `Quick BFS_Tests.test_bfs_simple_path;
-        ] );
+        [ test_case "Chemin simple" `Quick BFS_Tests.test_bfs_simple_path ] );
       ( "Dijkstra",
         [
           test_case "Chemin simple" `Quick Dijkstra_Tests.test_simple_path;
-          test_case "Chemin optimal pondéré" `Quick Dijkstra_Tests.test_weighted_optimal;
+          test_case "Chemin optimal pondéré" `Quick
+            Dijkstra_Tests.test_weighted_optimal;
         ] );
     ]

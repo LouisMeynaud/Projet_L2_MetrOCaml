@@ -2,11 +2,13 @@
 module type WEIGHT = sig
   type t
   type edge
-  type step_data 
+
+  type step_data
   (** Opaque payload generated during edge traversal (e.g., wait times). *)
 
   type state_key
-  (** NEW: Opaque key used to differentiate states at the same node (State-Space Routing). *)
+  (** NEW: Opaque key used to differentiate states at the same node (State-Space
+      Routing). *)
 
   val start_at : int -> t
   (** Initialize the weight with a departure time (in seconds from midnight). *)
@@ -29,11 +31,12 @@ module type WEIGHT = sig
   val ( = ) : t -> t -> bool
   val get_time : t -> int
   val to_string : t -> string
-  
+
   val step_data_to_string : step_data -> string
   (** Formats the opaque step_data into a printable string for UI/Show. *)
 
   val get_state_key : t -> state_key
-  (** NEW: Extracts the state key from the current weight to prevent Dijkstra from prematurely 
-      pruning paths that have different context (e.g. different subway lines). *)
+  (** NEW: Extracts the state key from the current weight to prevent Dijkstra
+      from prematurely pruning paths that have different context (e.g. different
+      subway lines). *)
 end

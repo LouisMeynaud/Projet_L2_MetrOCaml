@@ -5,7 +5,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
   module P = Path.Make (G) (W)
 
   type path = P.t
-  
+
   module PQ = struct
     type state_tuple = G.Node.t * W.state_key
     type t = Empty | Node of W.t * G.Node.t * state_tuple * t list
@@ -13,7 +13,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
     let empty = Empty
 
     let merge h1 h2 =
-      match h1, h2 with
+      match (h1, h2) with
       | Empty, h | h, Empty -> h
       | Node (w1, n1, s1, l1), Node (w2, n2, s2, l2) ->
           if W.(w1 < w2) then Node (w1, n1, s1, h2 :: l1)
@@ -23,7 +23,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
 
     let rec merge_pairs = function
       | [] -> Empty
-      | [h] -> h
+      | [ h ] -> h
       | h1 :: h2 :: rest -> merge (merge h1 h2) (merge_pairs rest)
 
     let pop = function
@@ -41,9 +41,9 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
       else
         let dist = Hashtbl.create 10000 in
         let prev = Hashtbl.create 10000 in
-        
+
         let initial_state = (source, W.get_state_key initial_weight) in
-        
+
         let pq = ref (PQ.push initial_weight source initial_state PQ.empty) in
         Hashtbl.add dist initial_state initial_weight;
 
@@ -56,9 +56,17 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                 let rec build_steps acc state =
                   match Hashtbl.find_opt prev state with
                   | None -> acc
-                  | Some (pred_state, pred_node, current_node, edge, w, step_data) ->
+                  | Some
+                      (pred_state, pred_node, current_node, edge, w, step_data)
+                    ->
                       let step =
-                        { P.from = pred_node; to_node = current_node; edge; weight = w; data = step_data }
+                        {
+                          P.from = pred_node;
+                          to_node = current_node;
+                          edge;
+                          weight = w;
+                          data = step_data;
+                        }
                       in
                       build_steps (step :: acc) pred_state
                 in
@@ -75,11 +83,15 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                     | None -> ()
                     | Some (new_dist, step_data) ->
                         let v_state = (v, W.get_state_key new_dist) in
-                        let old_dist = Option.value ~default:W.infinity (Hashtbl.find_opt dist v_state) in
+                        let old_dist =
+                          Option.value ~default:W.infinity
+                            (Hashtbl.find_opt dist v_state)
+                        in
                         if W.(new_dist < old_dist) then begin
                           Hashtbl.replace dist v_state new_dist;
-                          Hashtbl.replace prev v_state (u_state, u, v, edge, new_dist, step_data);
-                          
+                          Hashtbl.replace prev v_state
+                            (u_state, u, v, edge, new_dist, step_data);
+
                           pq := PQ.push new_dist v v_state !pq
                         end)
                   (G.neighbors graph u);

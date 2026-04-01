@@ -26,7 +26,8 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
           if Queue.is_empty queue then None
           else
             let current, current_state, current_weight = Queue.take queue in
-            if G.Node.equal current destination then reconstruct_path current_state
+            if G.Node.equal current destination then
+              reconstruct_path current_state
             else begin
               let neighbors = G.neighbors graph current in
               List.iter
@@ -34,10 +35,18 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                   match W.traverse current_weight edge with
                   | None -> ()
                   | Some (edge_weight, step_data) ->
-                      let neighbor_state = (neighbor, W.get_state_key edge_weight) in
+                      let neighbor_state =
+                        (neighbor, W.get_state_key edge_weight)
+                      in
                       if not (Hashtbl.mem visited neighbor_state) then begin
                         Hashtbl.add visited neighbor_state ();
-                        Hashtbl.add prev neighbor_state (current_state, current, neighbor, edge, edge_weight, step_data);
+                        Hashtbl.add prev neighbor_state
+                          ( current_state,
+                            current,
+                            neighbor,
+                            edge,
+                            edge_weight,
+                            step_data );
                         Queue.add (neighbor, neighbor_state, edge_weight) queue
                       end)
                 neighbors;
@@ -46,8 +55,18 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
         and reconstruct_path final_state =
           let rec build_steps acc state =
             try
-              let pred_state, pred_node, current_node, edge, weight, step_data = Hashtbl.find prev state in
-              let step = { P.from = pred_node; to_node = current_node; edge; weight; data = step_data } in
+              let pred_state, pred_node, current_node, edge, weight, step_data =
+                Hashtbl.find prev state
+              in
+              let step =
+                {
+                  P.from = pred_node;
+                  to_node = current_node;
+                  edge;
+                  weight;
+                  data = step_data;
+                }
+              in
               build_steps (step :: acc) pred_state
             with Not_found -> acc
           in

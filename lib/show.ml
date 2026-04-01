@@ -41,14 +41,15 @@ module Make (P : Routing.PATH) = struct
         (t + edge_to_duration step.edge, d +. edge_to_distance step.edge))
       (0, 0.0) steps
 
-  let print_path node_to_string edge_to_string weight_to_string
-      edge_to_color edge_to_duration edge_to_distance details
-      (path : P.t) =
+  let print_path node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance details (path : P.t) =
     match path.steps with
     | [] -> Printf.printf "Chemin vide\n"
     | first_step :: _ ->
-        
-        let start = node_to_string first_step.from ^ P.Weight.step_data_to_string first_step.data in
+        let start =
+          node_to_string first_step.from
+          ^ P.Weight.step_data_to_string first_step.data
+        in
 
         let ( _,
               final_step_to,
@@ -139,6 +140,6 @@ module Make (P : Routing.PATH) = struct
 
   let print_path_detail node_to_string edge_to_string weight_to_string
       edge_to_color edge_to_duration edge_to_distance (path : P.t) =
-    print_path node_to_string edge_to_string weight_to_string 
-      edge_to_color edge_to_duration edge_to_distance true path
+    print_path node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance true path
 end

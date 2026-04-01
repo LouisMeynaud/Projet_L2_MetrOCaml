@@ -40,7 +40,7 @@ let combine (type e) (criteria : e criterion list) :
       (module struct
         type t = e entry array
         type edge = e
-        type step_data = string 
+        type step_data = string
         type state_key = Obj.t array
 
         let start_at time =
@@ -76,17 +76,18 @@ let combine (type e) (criteria : e criterion list) :
           let possible = ref true in
           for i = 0 to n - 1 do
             if !possible then
-              match slots.(i), a.(i) with
-              | Criterion c, Entry (_, va) ->
+              match (slots.(i), a.(i)) with
+              | Criterion c, Entry (_, va) -> (
                   let module W = (val c.weight) in
                   let va_typed : W.t = Obj.magic va in
-                  if W.is_inf va_typed then new_states.(i) <- Entry (c, W.infinity)
+                  if W.is_inf va_typed then
+                    new_states.(i) <- Entry (c, W.infinity)
                   else
                     match W.traverse va_typed e with
                     | None -> possible := false
                     | Some (new_va, s_data) ->
                         if i = 0 then step_str := W.step_data_to_string s_data;
-                        new_states.(i) <- Entry (c, new_va)
+                        new_states.(i) <- Entry (c, new_va))
           done;
           if !possible then Some (new_states, !step_str) else None
 

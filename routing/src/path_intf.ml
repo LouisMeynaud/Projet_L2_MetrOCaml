@@ -13,11 +13,17 @@ module type PATH = sig
   module Weight : WEIGHT
 
   type weight = Weight.t
-  
+
   type step_data = Weight.step_data
   (** The opaque payload generated during edge traversal *)
 
-  type step = { from : node; to_node : node; edge : edge; weight : weight; data : step_data }
+  type step = {
+    from : node;
+    to_node : node;
+    edge : edge;
+    weight : weight;
+    data : step_data;
+  }
   (** A single step in a path, representing a traversal from one node to another
       containing a source, destination edge, weight, and step data *)
 
