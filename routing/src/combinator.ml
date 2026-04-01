@@ -23,8 +23,6 @@ let combine (type e) (criteria : e criterion list) :
       let slots = Array.of_list criteria in
       let n = Array.length slots in
 
-      (* Normalise the coefficients to ensure they sum to 1
-         NB. Negative coefficients are treated as zero *)
       let total_coeff =
         Array.fold_left
           (fun acc slot ->
@@ -42,6 +40,8 @@ let combine (type e) (criteria : e criterion list) :
       (module struct
         type t = e entry array
         type edge = e
+        type step_data = string 
+        type state_key = Obj.t array
 
         let start_at time =
           Array.init n (fun i ->
@@ -70,21 +70,26 @@ let combine (type e) (criteria : e criterion list) :
                   W.is_inf v)
             t
 
-        let add (a : t) (e : edge) : t =
-          Array.init n (fun i ->
-              match (slots.(i), a.(i)) with
+        let traverse (a : t) (e : edge) : (t * step_data) option =
+          let new_states = Array.copy a in
+          let step_str = ref "" in
+          let possible = ref true in
+          for i = 0 to n - 1 do
+            if !possible then
+              match slots.(i), a.(i) with
               | Criterion c, Entry (_, va) ->
                   let module W = (val c.weight) in
-                  let va : W.t = Obj.magic va in
-                  if W.is_inf va then Entry (c, W.infinity)
-                  else Entry (c, W.add va e))
+                  let va_typed : W.t = Obj.magic va in
+                  if W.is_inf va_typed then new_states.(i) <- Entry (c, W.infinity)
+                  else
+                    match W.traverse va_typed e with
+                    | None -> possible := false
+                    | Some (new_va, s_data) ->
+                        if i = 0 then step_str := W.step_data_to_string s_data;
+                        new_states.(i) <- Entry (c, new_va)
+          done;
+          if !possible then Some (new_states, !step_str) else None
 
-        (* Process:
-          - For each criterion, compare the corresponding weights from a and b using that criterion's weight module.
-          - Multiply the comparison result by the criterion's normalised coefficient.
-          - Sum these weighted comparisons to get an overall score.
-          - The final comparison is based on this overall score.
-       *)
         let compare (a : t) (b : t) : float =
           if is_inf a && is_inf b then 0.0
           else if is_inf a then 1.0
@@ -130,5 +135,14 @@ let combine (type e) (criteria : e criterion list) :
                    t)
             in
             String.concat " | " parts
+
+        let step_data_to_string (s : step_data) = s
+
+        let get_state_key (t : t) : state_key =
+          Array.init n (fun i ->
+              match t.(i) with
+              | Entry (c, v) ->
+                  let module W = (val c.weight) in
+                  Obj.repr (W.get_state_key (Obj.magic v)))
       end : WEIGHT
         with type edge = e)

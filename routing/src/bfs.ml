@@ -14,40 +14,44 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
       if G.Node.equal source destination then
         Some { P.steps = []; total_weight = initial_weight }
       else
-        let visited = Hashtbl.create (List.length (G.nodes graph)) in
-        let prev = Hashtbl.create (List.length (G.nodes graph)) in
+        let visited = Hashtbl.create 10000 in
+        let prev = Hashtbl.create 10000 in
         let queue = Queue.create () in
+        let initial_state = (source, W.get_state_key initial_weight) in
 
-        Hashtbl.add visited source ();
-        Queue.add (source, initial_weight) queue;
+        Hashtbl.add visited initial_state ();
+        Queue.add (source, initial_state, initial_weight) queue;
 
         let rec bfs () =
           if Queue.is_empty queue then None
           else
-            let current, current_weight = Queue.take queue in
-            if G.Node.equal current destination then reconstruct_path ()
+            let current, current_state, current_weight = Queue.take queue in
+            if G.Node.equal current destination then reconstruct_path current_state
             else begin
               let neighbors = G.neighbors graph current in
               List.iter
                 (fun (neighbor, edge) ->
-                  if not (Hashtbl.mem visited neighbor) then begin
-                    Hashtbl.add visited neighbor ();
-                    let edge_weight = W.add current_weight edge in
-                    Hashtbl.add prev neighbor (current, edge, edge_weight);
-                    Queue.add (neighbor, edge_weight) queue
-                  end)
+                  match W.traverse current_weight edge with
+                  | None -> ()
+                  | Some (edge_weight, step_data) ->
+                      let neighbor_state = (neighbor, W.get_state_key edge_weight) in
+                      if not (Hashtbl.mem visited neighbor_state) then begin
+                        Hashtbl.add visited neighbor_state ();
+                        Hashtbl.add prev neighbor_state (current_state, current, neighbor, edge, edge_weight, step_data);
+                        Queue.add (neighbor, neighbor_state, edge_weight) queue
+                      end)
                 neighbors;
               bfs ()
             end
-        and reconstruct_path () =
-          let rec build_steps acc node =
+        and reconstruct_path final_state =
+          let rec build_steps acc state =
             try
-              let pred, edge, weight = Hashtbl.find prev node in
-              let step = { P.from = pred; to_node = node; edge; weight } in
-              build_steps (step :: acc) pred
+              let pred_state, pred_node, current_node, edge, weight, step_data = Hashtbl.find prev state in
+              let step = { P.from = pred_node; to_node = current_node; edge; weight; data = step_data } in
+              build_steps (step :: acc) pred_state
             with Not_found -> acc
           in
-          let steps = build_steps [] destination in
+          let steps = build_steps [] final_state in
           let total_weight =
             match List.rev steps with
             | [] -> initial_weight
