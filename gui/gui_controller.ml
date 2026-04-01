@@ -33,6 +33,12 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		|> List.map (fun (n : noeud) -> n.id)
 	in
 
+	let name_for_id id =
+    match List.find_opt (fun (n : noeud) -> n.id = id) noeuds with
+    | Some n -> n.nom
+    | None -> id
+	in
+
 	(* Retourne l'ID si [raw] est deja un ID valide de station. *)
 	let station_id_if_valid raw =
 		let q = String.trim raw in
@@ -412,14 +418,14 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			| None ->
 				(match station_id_if_valid raw_dep with
 				| Some id ->
-					Widget.set_text view.input_depart id;
+					Widget.set_text view.input_depart (name_for_id id);
 					set_depart_id id;
 					clear_route_depart_suggestions ();
 					Some id
 				| None ->
 					(match exact_ids_for_name raw_dep with
 					| [id] ->
-						Widget.set_text view.input_depart id;
+						Widget.set_text view.input_depart (name_for_id id);
 						set_depart_id id;
 						clear_route_depart_suggestions ();
 						Some id
@@ -435,14 +441,14 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			| None ->
 				(match station_id_if_valid raw_arr with
 				| Some id ->
-					Widget.set_text view.input_arrivee id;
+					Widget.set_text view.input_arrivee (name_for_id id);
 					set_arrivee_id id;
 					clear_route_arrivee_suggestions ();
 					Some id
 				| None ->
 					(match exact_ids_for_name raw_arr with
 					| [id] ->
-						Widget.set_text view.input_arrivee id;
+						Widget.set_text view.input_arrivee (name_for_id id);
 						set_arrivee_id id;
 						clear_route_arrivee_suggestions ();
 						Some id
@@ -563,7 +569,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 				match view.route_depart_keys.(i) with
 				| Some id ->
 					set_depart_id id;
-					Widget.set_text view.input_depart id;
+					Widget.set_text view.input_depart (name_for_id id);
 					clear_route_depart_suggestions ()
 				| None -> ()
 			) Trigger.buttons_down
@@ -576,7 +582,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 				match view.route_arrivee_keys.(i) with
 				| Some id ->
 					set_arrivee_id id;
-					Widget.set_text view.input_arrivee id;
+					Widget.set_text view.input_arrivee (name_for_id id);
 					clear_route_arrivee_suggestions ()
 				| None -> ()
 			) Trigger.buttons_down
@@ -627,14 +633,14 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			let selection =
 				match !mode_selection_carte, get_noeud_clique mx my etat with
 				| `Depart, Some id ->
-					Widget.set_text view.input_depart id;
+					Widget.set_text view.input_depart (name_for_id id);
 					clear_route_depart_suggestions ();
 					Widget.set_text view.button_select_departure_on_map "Selection carte";
 					mode_selection_carte := `Aucun;
 					set_depart_id id;
 					true
 				| `Arrivee, Some id ->
-					Widget.set_text view.input_arrivee id;
+					Widget.set_text view.input_arrivee(name_for_id id);
 					clear_route_arrivee_suggestions ();
 					Widget.set_text view.button_select_arrival_on_map "Selection carte";
 					mode_selection_carte := `Aucun;
