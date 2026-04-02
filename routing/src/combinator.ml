@@ -8,6 +8,7 @@ type ('edge, 'w) criterion_t = {
 
 type 'edge criterion = Criterion : ('edge, 'w) criterion_t -> 'edge criterion
 
+(** Crée un critère pondéré à partir d'un module de Poids. *)
 let criterion (type e w)
     (weight : (module WEIGHT with type edge = e and type t = w))
     ~(coefficient : float) ~(label : string) : e criterion =
@@ -15,6 +16,7 @@ let criterion (type e w)
 
 type 'edge entry = Entry : ('edge, 'w) criterion_t * 'w -> 'edge entry
 
+(** Compile plusieurs critères en un seul "Super Poids" abstrait. *)
 let combine (type e) (criteria : e criterion list) :
     (module WEIGHT with type edge = e) =
   match criteria with
@@ -23,6 +25,8 @@ let combine (type e) (criteria : e criterion list) :
       let slots = Array.of_list criteria in
       let n = Array.length slots in
 
+      (* Calcule la somme des coefficients pour normaliser l'importance
+      NB. Les coefficients négatifs sont traités comme des 0. *)
       let total_coeff =
         Array.fold_left
           (fun acc slot ->
@@ -70,10 +74,13 @@ let combine (type e) (criteria : e criterion list) :
                   W.is_inf v)
             t
 
+        (** Traversée combinée : interroge chaque sous-poids. Si un seul bloque
+            (None), l'arête entière est bloquée. *)
         let traverse (a : t) (e : edge) : (t * step_data) option =
           let new_states = Array.copy a in
           let step_str = ref "" in
           let possible = ref true in
+
           for i = 0 to n - 1 do
             if !possible then
               match (slots.(i), a.(i)) with
@@ -86,11 +93,18 @@ let combine (type e) (criteria : e criterion list) :
                     match W.traverse va_typed e with
                     | None -> possible := false
                     | Some (new_va, s_data) ->
+                        (* On ne garde la donnée d'affichage que du premier critère (souvent le Temps) *)
                         if i = 0 then step_str := W.step_data_to_string s_data;
                         new_states.(i) <- Entry (c, new_va))
           done;
           if !possible then Some (new_states, !step_str) else None
 
+        (* Processus:
+          - Pour chaque critère, compare les poids correspondant de a à b en utilisant son module [WEIGHT].
+          - Multiplie le résultat des comparaisons par le coefficient de critère normalisé.
+          - Somme ces comparaisons pour obtenir le score général.
+          - La comparaison finale est basée sur ce score général.
+       *)
         let compare (a : t) (b : t) : float =
           if is_inf a && is_inf b then 0.0
           else if is_inf a then 1.0
@@ -130,15 +144,13 @@ let combine (type e) (criteria : e criterion list) :
           else
             let parts =
               Array.to_list
-                (Array.map
-                   (fun v ->
-                     match v with Entry (c, value) -> entry_to_string c value)
-                   t)
+                (Array.map (fun (Entry (c, v)) -> entry_to_string c v) t)
             in
             String.concat " | " parts
 
         let step_data_to_string (s : step_data) = s
 
+        (** La clé combinée contient les clés de tous les sous-poids. *)
         let get_state_key (t : t) : state_key =
           Array.init n (fun i ->
               match t.(i) with

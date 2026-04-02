@@ -1,7 +1,21 @@
 open Network
 
+(** Moteur Physique et Modèles de Poids
+
+    Ce fichier contient la logique métier (physique et temporelle) du réseau. Il
+    gère la lecture des horaires, les pénalités de correspondances, les marges
+    de tolérance, et le filtrage dynamique des modes de transport. *)
+
+(** Temps de marche simulé (en secondes) ajouté lors d'un changement de ligne.
+*)
 let transfer_penalty = 180
+
+(** Équivalent-temps (en secondes) d'une correspondance. Fixé à 15 minutes
+    (900s). Sert à évaluer s'il vaut mieux faire un long trajet direct ou un
+    trajet plus court mais avec des correspondances. *)
 let transfer_time_tradeoff = 900
+
+(** Liste globale des modes de transport désactivés par l'utilisateur. *)
 let excluded_modes = ref []
 
 let set_excluded_modes modes =
@@ -12,6 +26,8 @@ let set_excluded_modes modes =
 let is_mode_excluded mode =
   let key = String.lowercase_ascii (string_of_mode mode) in
   List.mem key !excluded_modes
+
+(** Outils de Formatage *)
 
 let time_to_string time =
   if time = max_int then "∞"
@@ -32,6 +48,8 @@ let format_metro_step_data s =
   if s.wait_time > 0 then Printf.sprintf " [attente %d min]" (s.wait_time / 60)
   else ""
 
+(** Évaluation Physique de l'Arête *)
+
 let eval_edge current_time current_line_name (edge : connection) =
   if current_time = max_int then None
   else if edge.mode = Walk || edge.mode = Transfert then
@@ -43,6 +61,9 @@ let eval_edge current_time current_line_name (edge : connection) =
       | _ -> false
     in
 
+    (* Pour pallier les approximations de `edge.duration` des fichiers GTFS, 
+       on accorde un recul de la montre de 3 minutes si l'usager est déjà dans la rame. 
+       Cela évite de rater un train à cause d'une erreur d'arrondi sur le tronçon précédent. *)
     let margin =
       match current_line_name with
       | None -> 0
@@ -55,6 +76,9 @@ let eval_edge current_time current_line_name (edge : connection) =
       else current_time - margin
     in
 
+    (* Puisque les fichiers horaires GTFS ne sont pas garantis d'être triés,
+       le fold_left scanne tout le tableau pour dénicher le départ valide 
+       le plus proche de notre heure d'arrivée. *)
     let next_dep =
       List.fold_left
         (fun best t -> if t >= ready_time && t < best then t else best)
@@ -63,13 +87,17 @@ let eval_edge current_time current_line_name (edge : connection) =
 
     if next_dep = max_int then None
     else
+      (* Même si la "marge" nous a fait accrocher un train parti avant notre heure
+         d'arrivée théorique, l'heure ne doit jamais reculer. On force l'heure 
+         à current_time minimum pour ne pas déclencher de cycle infini de poids 
+         négatif dans Dijkstra. *)
       let actual_dep = max current_time next_dep in
       let wait = max 0 (next_dep - current_time) in
 
       Some (actual_dep + edge.duration, wait, Some edge.line.name)
 
 (* ========================================================== *)
-(* LES MODULES DE POIDS *)
+(* Les Modules de Poids                                       *)
 (* ========================================================== *)
 
 module TimeWeight : Routing.WEIGHT with type edge = connection = struct
@@ -83,6 +111,7 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   let is_inf w = w.time = max_int
 
   let traverse w e =
+    (* Filtrage dynamique : Si le mode est exclu (ex: bus), l'arête est coupée. *)
     if is_mode_excluded e.mode then None
     else
       match eval_edge w.time w.line_name e with
@@ -138,6 +167,7 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
     else if is_inf w2 then -1.0
     else
       let diff = w1.distance -. w2.distance in
+      (* Tie-Breaker : À distance très proche, le trajet le plus court en temps gagne. *)
       if Float.abs diff < 0.1 then
         float_of_int (w1.time - w2.time)
         /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
@@ -186,6 +216,7 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
     else if is_inf w2 then -1.0
     else
       let diff = w1.hops - w2.hops in
+      (* Tie-Breaker : À nombre d'arrêts équivalent, le trajet le plus court en temps gagne. *)
       if diff = 0 then
         float_of_int (w1.time - w2.time)
         /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
@@ -222,6 +253,9 @@ struct
       match eval_edge w.time w.line_name e with
       | None -> None
       | Some (next_time, wait_time, next_line) ->
+          (* On ne compte une "correspondance" que si l'on monte dans un nouveau véhicule. 
+             Si le segment est purement piéton (Walk ou Transfert), on ne l'ajoute 
+             pas au compteur de correspondances. *)
           let is_transfer =
             match w.line_name with
             | Some l
@@ -243,6 +277,9 @@ struct
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
+      (* Chaque correspondance ajoute un "coût virtuel" de 15 minutes (transfer_time_tradeoff).
+         Permet à l'algorithme d'accepter une correspondance si et seulement si elle fait gagner
+         plus de 15 minutes sur le temps de trajet direct. *)
       let cost1 = (w1.transfers * transfer_time_tradeoff) + w1.time in
       let cost2 = (w2.transfers * transfer_time_tradeoff) + w2.time in
       float_of_int (cost1 - cost2)
