@@ -1,6 +1,8 @@
 open Graph_intf
 open Weight_intf
 
+(** Algorithme de Parcours en Largeur (Breadth-First Search). Utile pour trouver
+    le chemin avec le moins d'arêtes sans tenir compte des distances réelles. *)
 module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
   module P = Path.Make (G) (W)
 
@@ -38,6 +40,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                       let neighbor_state =
                         (neighbor, W.get_state_key edge_weight)
                       in
+                      (* On vérifie si l'état (Noeud + Ligne) a déjà été visité *)
                       if not (Hashtbl.mem visited neighbor_state) then begin
                         Hashtbl.add visited neighbor_state ();
                         Hashtbl.add prev neighbor_state
