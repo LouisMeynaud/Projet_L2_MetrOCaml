@@ -422,13 +422,21 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
 	let conn_input_depart = Widget.connect view.input_depart view.input_depart (fun _ _ _ ->
 		selected_depart_id := None;
-		current_etat := { !current_etat with source = None };
+		current_etat := { !current_etat with
+			source = None; 
+			highlighted_edges = []
+			};
+		rafraichir_ecran !current_etat;
 		show_route_depart_suggestions (Widget.get_text view.input_depart)
 	) [Trigger.text_input; Trigger.key_up] in
 
 	let conn_input_arrivee = Widget.connect view.input_arrivee view.input_arrivee (fun _ _ _ ->
 		selected_arrivee_id := None;
-		current_etat := { !current_etat with dest = None };
+		current_etat := { !current_etat with
+			dest = None; 
+			highlighted_edges = [] 
+			};
+		rafraichir_ecran !current_etat;
 		show_route_arrivee_suggestions (Widget.get_text view.input_arrivee)
 	) [Trigger.text_input; Trigger.key_up] in
 
