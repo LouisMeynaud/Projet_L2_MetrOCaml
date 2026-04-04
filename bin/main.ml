@@ -32,14 +32,15 @@ let affichage_interface graphe =
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
         let cli_callback src dest algo poids coeffs =
-          Runner.search_callback src dest algo poids coeffs (8 * 3600) graphe false
+          let results = Runner.search_callback src dest algo poids coeffs (8 * 3600) graphe false true in
+          List.iter (fun (nom, details, _) -> Printf.printf "%s:\n%s\n\n%!" nom details) results
         in
         Cli.Console.run_console graphe cli_callback
 
     | _ ->
         Printf.printf "Lancement de l'interface graphique...\n%!";
         let gui_callback src dest algo poids coeffs start_time =
-          Runner.search_callback src dest algo poids coeffs start_time graphe false
+          Runner.search_callback src dest algo poids coeffs start_time graphe false false
         in
         Gui.Transport_view.affiche graphe gui_callback; ()
 

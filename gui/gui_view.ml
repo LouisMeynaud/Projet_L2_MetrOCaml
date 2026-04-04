@@ -42,6 +42,8 @@ type t = {
   input_schedule_stop : Widget.t;
   label_schedule_info : Widget.t;
   label_schedule_table : Widget.t;
+  input_result_details : Widget.t;
+  result_display : Widget.t;
   result_keys : (string * string * string) option array;
   result_buttons : Widget.t array;
   color_cells : Layout.t array;
@@ -53,9 +55,11 @@ type t = {
   tab_content_settings : Layout.t;
   tab_content_route : Layout.t;
   tab_content_schedules : Layout.t;
+  tab_content_results : Layout.t;
   tab_settings : Widget.t;
   tab_route : Widget.t;
   tab_schedules : Widget.t;
+  tab_results : Widget.t;
   tabs_bar : Layout.t;
   tabs_content_scroll : Layout.t;
   spacer : Layout.t;
@@ -269,17 +273,39 @@ let build ~panel_width ~(etat_initial : etat) =
     table_box_clip;
   ] in
 
+  (* ================================================== *)
+  (*                 ONGLET RESULTATS                   *)
+  (* ================================================== *)
+
+  let label_resultats = Widget.label "Resultats de recherche" in
+  let input_result_details = Widget.text_input ~prompt:"Details du chemin..." () in
+  let barre_details = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_result_details in
+
+  (* Zone pour afficher les resultats verticalement *)
+  let result_display = Widget.text_display "" in
+  let resultats_w = max resultats_min_width (panel_width - resultats_width_margin) in
+  let resultats_row_width = max resultats_row_min_width (panel_width - resultats_row_width_margin) in
+  let result_layout = Layout.resident ~w:resultats_w ~h:resultats_height result_display in
+
+  let tab_content_results = Layout.tower ~align:Draw.Center [
+    Layout.resident label_resultats;
+    Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
+    barre_details;
+    Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
+    result_layout;
+  ] in
+
   let tab_content_route = Layout.tower ~align:Draw.Center [
     Layout.resident label_recherche;
-    Layout.empty ~w:1 ~h:8 ();
+    Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
     Layout.resident label_depart;
     Layout.flat [barre_depart; Layout.resident button_select_departure_on_map];
-    Layout.empty ~w:1 ~h:8 ();
+    Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
     Layout.resident label_arrivee;
     Layout.flat [barre_arrivee; Layout.resident button_select_arrival_on_map];
-    Layout.empty ~w:1 ~h:10 ();
+    Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
     block_horaire;
-    Layout.empty ~w:1 ~h:10 ();
+    Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
     Layout.resident button_validate_search;
   ] in
 
@@ -299,12 +325,13 @@ let build ~panel_width ~(etat_initial : etat) =
 
   Layout.set_show tab_content_route false;
   Layout.set_show tab_content_schedules false;
+  Layout.set_show tab_content_results false;
 
   (* ================================================== *)
   (*                 BARRE D'ONGLETS                   *)
   (* ================================================== *)
 
-  let zone_onglet = Layout.superpose [tab_content_settings; tab_content_route; tab_content_schedules] in
+  let zone_onglet = Layout.superpose [tab_content_settings; tab_content_route; tab_content_schedules; tab_content_results] in
   let h_zone_onglet = max tab_zone_min_height (!hauteur - tab_zone_height_margin) in
   let tabs_content_scroll =
     Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:h_zone_onglet zone_onglet
@@ -313,11 +340,13 @@ let build ~panel_width ~(etat_initial : etat) =
   let tab_settings = Widget.button "[ REGLAGE ]" in
   let tab_route = Widget.button "[ ITINÉRAIRE ]" in
   let tab_schedules = Widget.button "[ HORAIRES ]" in
+  let tab_results = Widget.button "[ RESULTATS ]" in
 
   let tabs_bar = Layout.flat ~align:Draw.Center [
     Layout.resident ~w:tab_button_width tab_settings;
     Layout.resident ~w:tab_button_width tab_route;
     Layout.resident ~w:tab_button_width tab_schedules;
+    Layout.resident ~w:tab_button_width tab_results;
   ] in
 
   (* ================================================== *)
@@ -378,6 +407,8 @@ let build ~panel_width ~(etat_initial : etat) =
     input_schedule_stop;
     label_schedule_info;
     label_schedule_table;
+    input_result_details;
+    result_display;
     result_keys;
     result_buttons;
     color_cells;
@@ -389,9 +420,11 @@ let build ~panel_width ~(etat_initial : etat) =
     tab_content_settings;
     tab_content_route;
     tab_content_schedules;
+    tab_content_results;
     tab_settings;
     tab_route;
     tab_schedules;
+    tab_results;
     tabs_bar;
     tabs_content_scroll;
     spacer;

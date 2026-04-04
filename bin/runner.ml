@@ -83,14 +83,14 @@ let choose_weight poids coeffs =
 
 
 
-let affichage details_mode start_time source destination graph_for_search routeurs = 
+let affichage details_mode use_color start_time source destination graph_for_search routeurs = 
   (* Accumulation fonctionnelle des détails d'affichage *)
-          let details_afficheurs = List.fold_left (fun acc (nom_algo, (module Routeur : ALGO)) ->
+          let results = List.fold_left (fun acc (nom_algo, (module Routeur : ALGO)) ->
             let module ShowPath = Show.Make (Routeur.P) in
-            Printf.printf "\n=== Résultat avec %s ===\n%!" nom_algo;
+            let open Routeur.P in
             match Routeur.find_path ~start_time ~graph:graph_for_search ~source ~destination with
             | Some p ->
-                ShowPath.print_path
+                let details = ShowPath.string_of_path
                   (fun s -> s.name)
                   (fun (c : Network.connection) -> c.line.name)
                   Routeur.P.Weight.to_string
@@ -100,27 +100,14 @@ let affichage details_mode start_time source destination graph_for_search routeu
                   (fun (c : Network.connection) -> c.distance)
                   start_time
                   details_mode
-                  p;
-                flush stdout;
-                (* Créer une fermeture pour afficher le détail *)
-                let afficher_detail () =
-                  Printf.printf "\n=== Détails du chemin avec %s ===\n%!" nom_algo;
-                  ShowPath.print_path_detail
-                    (fun s -> s.name)
-                    (fun (c : Network.connection) -> c.line.name)
-                    Routeur.P.Weight.to_string
-                    (fun (c : Network.connection) -> c.line.color)
-                    (fun (c : Network.connection) -> c.duration)
-                    (fun (c : Network.connection) -> c.distance)
-                    p
-                in
-                (* Ajouter à l'accumulateur *)
-                acc @ [(nom_algo, afficher_detail)]
+                  use_color
+                  p in
+                let edges = List.map (fun step -> (step.from.id, step.to_node.id)) p.steps in
+                acc @ [(nom_algo, details, Some edges)]
             | None -> 
-                Printf.printf "Aucun chemin trouvé avec %s.\n%!" nom_algo;
-                acc
+                acc @ [(nom_algo, "Aucun chemin trouvé.", None)]
           ) [] routeurs in 
-          (details_afficheurs)
+          results
 
 
 let show_details details_afficheurs =
@@ -136,7 +123,7 @@ let show_details details_afficheurs =
 
 
 
-   let search_callback source_query dest_query algo poids coeffs start_time graphe details_mode =
+   let search_callback source_query dest_query algo poids coeffs start_time graphe details_mode use_color =
       match Endpoint.build_routing_context graphe source_query dest_query with
       | Some (graph_for_search, source, destination) ->
           let routeurs : (string * (module ALGO)) list =
@@ -149,8 +136,8 @@ let show_details details_afficheurs =
             else 
               choose_weight poids coeffs
             in
-          let details_afficheurs = affichage details_mode start_time source destination graph_for_search routeurs
+          let details = affichage details_mode use_color start_time source destination graph_for_search routeurs
           in
-          show_details details_afficheurs
-      | None -> Printf.printf "Erreur: Stations introuvables ou coordonnées invalides.\n%!"
+          details
+      | None -> [("Erreur", "Erreur: Stations introuvables ou coordonnées invalides.", None)]
 

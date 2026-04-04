@@ -63,6 +63,7 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     camera_x = 0.;
     camera_y = 0.;
     zoom = 1.0;
+    highlighted_edges = [];
   } |> rebuild_render in
 
   let current_etat = ref etat_initial in

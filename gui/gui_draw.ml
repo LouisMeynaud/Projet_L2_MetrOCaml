@@ -279,7 +279,13 @@ let dessiner_texte x y texte (r, g, b) =
       if x1i = x2i && y1i = y2i then 
         ()
       else 
-        let r, g, b = hex_to_rgb arete.couleur in
+        let r, g, b =
+          if etat.highlighted_edges <> [] then
+            if List.mem (arete.source, arete.destination) etat.highlighted_edges ||
+               List.mem (arete.destination, arete.source) etat.highlighted_edges then (255, 0, 0) (* rouge *)
+            else (128, 128, 128) (* gris *)
+          else hex_to_rgb arete.couleur
+        in
         Sdl_area.add (get_canvas ()) (fun renderer ->
           ignore (Tsdl.Sdl.set_render_draw_color renderer r g b 255);
           ignore (Tsdl.Sdl.render_draw_line renderer x1i y1i x2i y2i);
