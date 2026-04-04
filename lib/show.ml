@@ -14,22 +14,21 @@ let hex_to_rgb hex =
   (r, g, b)
 
 let colorize_rgb use_color (r, g, b) text =
-  if use_color then
-    Printf.sprintf "\x1b[38;2;%d;%d;%dm%s\x1b[0m" r g b text
+  if use_color then Printf.sprintf "\x1b[38;2;%d;%d;%dm%s\x1b[0m" r g b text
   else text
 
 let colorize_hex use_color hex text =
   let rgb = hex_to_rgb hex in
   colorize_rgb use_color rgb text
 
-let change_arrow ?(use_color=true) node_name line nb_stops temps color =
+let change_arrow ?(use_color = true) node_name line nb_stops temps color =
   let arrow =
     Printf.sprintf " --[%s | %d arrets | %d min] --> " line nb_stops temps
   in
   let colored_arrow = colorize_hex use_color color arrow in
   Printf.sprintf "%s%s\n" colored_arrow node_name
 
-let simple_arrow ?(use_color=true) node_name color =
+let simple_arrow ?(use_color = true) node_name color =
   let arrow = Printf.sprintf " ---> " in
   let colored_arrow = colorize_hex use_color color arrow in
   Printf.sprintf "%s%s" colored_arrow node_name
@@ -43,9 +42,8 @@ module Make (P : Routing.PATH) = struct
         (t + edge_to_duration step.edge, d +. edge_to_distance step.edge))
       (0, 0.0) steps
 
-let get_chemin node_to_string edge_to_string weight_to_string 
-      edge_to_color edge_to_duration edge_to_distance details use_color
-      (path : P.t) =
+  let get_chemin node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance details use_color (path : P.t) =
     match path.steps with
     | [] -> (0, "", 0, 0.0)
     | first_step :: _ ->
@@ -86,7 +84,8 @@ let get_chemin node_to_string edge_to_string weight_to_string
               | Some prev_l when prev_l = current_line ->
                   let new_acc =
                     if details then
-                      simple_arrow ~use_color (node_to_string step.from) color :: acc
+                      simple_arrow ~use_color (node_to_string step.from) color
+                      :: acc
                     else acc
                   in
                   ( Some current_line,
@@ -100,8 +99,8 @@ let get_chemin node_to_string edge_to_string weight_to_string
                   let wait_str = P.Weight.step_data_to_string step.data in
                   let onboard_time = line_minutes_from_seconds onboard_secs in
                   let arrow =
-                    change_arrow ~use_color prev_step_to prev_l stops onboard_time
-                      prev_color
+                    change_arrow ~use_color prev_step_to prev_l stops
+                      onboard_time prev_color
                   in
                   let transition =
                     arrow ^ node_to_string step.from ^ wait_str
@@ -133,35 +132,59 @@ let get_chemin node_to_string edge_to_string weight_to_string
         in
         (transferts, route, total_time, total_distance)
 
-
-  let string_of_path node_to_string edge_to_string weight_to_string weight_get_time
-      edge_to_color edge_to_duration edge_to_distance start_time details use_color
-      (path : P.t) =
-      let (transferts, route, total_time, total_distance) = get_chemin node_to_string edge_to_string weight_to_string edge_to_color edge_to_duration edge_to_distance details use_color path in
-      let lines = [] in 
-      let add_line s lines = s :: lines in
-      match(route) with
-      | "" -> let lines = add_line "Chemin vide" lines in String.concat "\n" lines
-      | _ -> 
-        let lines = add_line (Printf.sprintf "Chemin trouvé en %d étapes (en %d correspondances) :"
-          (List.length path.steps) transferts) lines in
+  let string_of_path node_to_string edge_to_string weight_to_string
+      weight_get_time edge_to_color edge_to_duration edge_to_distance start_time
+      details use_color (path : P.t) =
+    let transferts, route, total_time, total_distance =
+      get_chemin node_to_string edge_to_string weight_to_string edge_to_color
+        edge_to_duration edge_to_distance details use_color path
+    in
+    let lines = [] in
+    let add_line s lines = s :: lines in
+    match route with
+    | "" ->
+        let lines = add_line "Chemin vide" lines in
+        String.concat "\n" lines
+    | _ ->
+        let lines =
+          add_line
+            (Printf.sprintf
+               "Chemin trouvé en %d étapes (en %d correspondances) :"
+               (List.length path.steps) transferts)
+            lines
+        in
         let lines = add_line route lines in
-        let lines = add_line (Printf.sprintf "Poids total : %s" (weight_to_string path.total_weight)) lines in
-        let lines = add_line (Printf.sprintf "Temps total passé dans les rames : %dh %dmin %ds"
-          (total_time / 3600)
-          (total_time / 60 mod 60)
-          (total_time mod 60)) lines in
-        let lines = add_line (Printf.sprintf "Distance totale : %f km" (total_distance /. 1000.)) lines in
+        let lines =
+          add_line
+            (Printf.sprintf "Poids total : %s"
+               (weight_to_string path.total_weight))
+            lines
+        in
+        let lines =
+          add_line
+            (Printf.sprintf "Temps total passé dans les rames : %dh %dmin %ds"
+               (total_time / 3600)
+               (total_time / 60 mod 60)
+               (total_time mod 60))
+            lines
+        in
+        let lines =
+          add_line
+            (Printf.sprintf "Distance totale : %f km" (total_distance /. 1000.))
+            lines
+        in
         String.concat "\n" (List.rev lines)
 
-  let print_path node_to_string edge_to_string weight_to_string
-      edge_to_color edge_to_duration edge_to_distance details use_color
-      (path : P.t) =
-      let (transferts, route, total_time, total_distance) = get_chemin node_to_string edge_to_string weight_to_string edge_to_color edge_to_duration edge_to_distance details use_color path in
+  let print_path node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance details use_color (path : P.t) =
+    let transferts, route, total_time, total_distance =
+      get_chemin node_to_string edge_to_string weight_to_string edge_to_color
+        edge_to_duration edge_to_distance details use_color path
+    in
     match route with
     | "" -> Printf.printf "Chemin vide\n"
-    | _ -> 
-          Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
+    | _ ->
+        Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
           (List.length path.steps) transferts;
         Printf.printf "%s\n" route;
         Printf.printf "Poids total : %s\n" (weight_to_string path.total_weight);
