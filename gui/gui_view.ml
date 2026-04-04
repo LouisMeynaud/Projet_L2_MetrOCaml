@@ -35,6 +35,12 @@ type t = {
   combination_block : Layout.t;
   input_depart : Widget.t;
   input_arrivee : Widget.t;
+  route_depart_keys : string option array;
+  route_depart_buttons : Widget.t array;
+  route_depart_rows : Layout.t array;
+  route_arrivee_keys : string option array;
+  route_arrivee_buttons : Widget.t array;
+  route_arrivee_rows : Layout.t array;
   button_select_departure_on_map : Widget.t;
   button_select_arrival_on_map : Widget.t;
   button_validate_search : Widget.t;
@@ -183,6 +189,32 @@ let build ~panel_width ~(etat_initial : etat) =
   let barre_depart = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_depart in
   let barre_arrivee = Layout.resident ~w:search_input_w ~background:fond_barre_recherche input_arrivee in
 
+  let route_depart_keys = Array.make route_max_suggestions None in
+  let route_depart_buttons = Array.init route_max_suggestions (fun _ -> Widget.button "") in
+  let route_depart_rows =
+    Array.init route_max_suggestions (fun i ->
+      let row = Layout.resident ~w:search_input_w ~h:route_suggestion_row_height route_depart_buttons.(i) in
+      Layout.set_show row false;
+      row)
+  in
+  let route_depart_box = Layout.tower (Array.to_list route_depart_rows) in
+  let route_depart_clip =
+    Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:route_suggestion_clip_height route_depart_box
+  in
+
+  let route_arrivee_keys = Array.make route_max_suggestions None in
+  let route_arrivee_buttons = Array.init route_max_suggestions (fun _ -> Widget.button "") in
+  let route_arrivee_rows =
+    Array.init route_max_suggestions (fun i ->
+      let row = Layout.resident ~w:search_input_w ~h:route_suggestion_row_height route_arrivee_buttons.(i) in
+      Layout.set_show row false;
+      row)
+  in
+  let route_arrivee_box = Layout.tower (Array.to_list route_arrivee_rows) in
+  let route_arrivee_clip =
+    Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:route_suggestion_clip_height route_arrivee_box
+  in
+
   (* ================================================== *)
   (*                 ONGLET HORAIRES                   *)
   (* ================================================== *)
@@ -300,10 +332,12 @@ let build ~panel_width ~(etat_initial : etat) =
     Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
     Layout.resident label_depart;
     Layout.flat [barre_depart; Layout.resident button_select_departure_on_map];
-    Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
+    route_depart_clip;
+    Layout.empty ~w:1 ~h:8 ();
     Layout.resident label_arrivee;
     Layout.flat [barre_arrivee; Layout.resident button_select_arrival_on_map];
-    Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
+    route_arrivee_clip;
+    Layout.empty ~w:1 ~h:10 ();
     block_horaire;
     Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
     Layout.resident button_validate_search;
@@ -400,6 +434,12 @@ let build ~panel_width ~(etat_initial : etat) =
     combination_block;
     input_depart;
     input_arrivee;
+    route_depart_keys;
+    route_depart_buttons;
+    route_depart_rows;
+    route_arrivee_keys;
+    route_arrivee_buttons;
+    route_arrivee_rows;
     button_select_departure_on_map;
     button_select_arrival_on_map;
     button_validate_search;

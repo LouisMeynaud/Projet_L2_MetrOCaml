@@ -80,41 +80,39 @@ let build_routing_context graph source_query dest_query =
   match
     (resolve_endpoint graph source_query, resolve_endpoint graph dest_query)
   with
-  | Some source_ep, Some dest_ep -> (
-      match (source_ep, dest_ep) with
-      | Station source, Station destination -> Some (graph, source, destination)
-      | _ ->
-          let routing_graph = Util.clone_graph graph in
-          let base_stations = Network.TransportGraph.nodes graph in
-          let source, source_links =
-            match source_ep with
-            | Station station -> (station, 0)
-            | Geo (lat, lon) ->
-                add_virtual_station_with_walk_edges routing_graph base_stations
-                  ~id:"__source__" ~name:"Point de départ" ~lat ~lon
-                  ~walk_radius
-          in
-          let dest, dest_links =
-            match dest_ep with
-            | Station station -> (station, 0)
-            | Geo (lat, lon) ->
-                add_virtual_station_with_walk_edges routing_graph base_stations
-                  ~id:"__destination__" ~name:"Point d'arrivée" ~lat ~lon
-                  ~walk_radius
-          in
-          if
-            source_links = 0
-            && match source_ep with Geo _ -> true | Station _ -> false
-          then
-            Printf.printf
-              "Aucune station trouvée à moins de %.0fm du point de départ.\n%!"
-              walk_radius;
-          if
-            dest_links = 0
-            && match dest_ep with Geo _ -> true | Station _ -> false
-          then
-            Printf.printf
-              "Aucune station trouvée à moins de %.0fm du point d'arrivée.\n%!"
-              walk_radius;
-          Some (routing_graph, source, dest))
+  | Some source_ep, Some dest_ep ->
+      let routing_graph = Util.clone_graph graph in
+      let base_stations = Network.TransportGraph.nodes graph in
+      let source, source_links =
+        match source_ep with
+        | Station station ->
+            add_virtual_station_with_walk_edges routing_graph base_stations
+              ~id:"__source__"
+              ~name:("Départ: " ^ station.name)
+              ~lat:station.latitude ~lon:station.longitude ~walk_radius
+        | Geo (lat, lon) ->
+            add_virtual_station_with_walk_edges routing_graph base_stations
+              ~id:"__source__" ~name:"Point de départ" ~lat ~lon ~walk_radius
+      in
+      let dest, dest_links =
+        match dest_ep with
+        | Station station ->
+            add_virtual_station_with_walk_edges routing_graph base_stations
+              ~id:"__destination__"
+              ~name:("Arrivée: " ^ station.name)
+              ~lat:station.latitude ~lon:station.longitude ~walk_radius
+        | Geo (lat, lon) ->
+            add_virtual_station_with_walk_edges routing_graph base_stations
+              ~id:"__destination__" ~name:"Point d'arrivée" ~lat ~lon
+              ~walk_radius
+      in
+      if source_links = 0 then
+        Printf.printf
+          "Aucune station trouvée à moins de %.0fm du point de départ.\n%!"
+          walk_radius;
+      if dest_links = 0 then
+        Printf.printf
+          "Aucune station trouvée à moins de %.0fm du point d'arrivée.\n%!"
+          walk_radius;
+      Some (routing_graph, source, dest)
   | _ -> None

@@ -338,7 +338,6 @@ stop_point:SP_1173,stop_point:SP_3647,2,180
 stop_point:SP_1174,stop_point:SP_1174,2,180
 stop_point:SP_1174,stop_point:SP_205,2,180
 stop_point:SP_1175,stop_point:SP_1175,2,180
-stop_point:SP_1175,stop_point:SP_1804,2,180
 stop_point:SP_1175,stop_point:SP_2016,2,180
 stop_point:SP_1175,stop_point:SP_2297,2,180
 stop_point:SP_1175,stop_point:SP_2490,2,180
@@ -1627,13 +1626,6 @@ stop_point:SP_1802,stop_point:SP_1802,2,180
 stop_point:SP_1802,stop_point:SP_3895,2,180
 stop_point:SP_1803,stop_point:SP_1803,2,180
 stop_point:SP_1803,stop_point:SP_1959,2,180
-stop_point:SP_1804,stop_point:SP_1175,2,180
-stop_point:SP_1804,stop_point:SP_1804,2,180
-stop_point:SP_1804,stop_point:SP_2016,2,180
-stop_point:SP_1804,stop_point:SP_2297,2,180
-stop_point:SP_1804,stop_point:SP_2490,2,180
-stop_point:SP_1804,stop_point:SP_3102,2,180
-stop_point:SP_1804,stop_point:SP_4090,2,180
 stop_point:SP_1806,stop_point:SP_1806,2,180
 stop_point:SP_1806,stop_point:SP_508,2,180
 stop_point:SP_1808,stop_point:SP_1228,2,180
@@ -2068,7 +2060,6 @@ stop_point:SP_2014,stop_point:SP_2014,2,180
 stop_point:SP_2014,stop_point:SP_2826,2,180
 stop_point:SP_2015,stop_point:SP_2015,2,180
 stop_point:SP_2016,stop_point:SP_1175,2,180
-stop_point:SP_2016,stop_point:SP_1804,2,180
 stop_point:SP_2016,stop_point:SP_2016,2,180
 stop_point:SP_2016,stop_point:SP_2297,2,180
 stop_point:SP_2016,stop_point:SP_2490,2,180
@@ -2663,7 +2654,6 @@ stop_point:SP_2294,stop_point:SP_2294,2,180
 stop_point:SP_2295,stop_point:SP_1552,2,180
 stop_point:SP_2295,stop_point:SP_2295,2,180
 stop_point:SP_2297,stop_point:SP_1175,2,180
-stop_point:SP_2297,stop_point:SP_1804,2,180
 stop_point:SP_2297,stop_point:SP_2016,2,180
 stop_point:SP_2297,stop_point:SP_2297,2,180
 stop_point:SP_2297,stop_point:SP_2490,2,180
@@ -3011,7 +3001,6 @@ stop_point:SP_2489,stop_point:SP_2489,2,180
 stop_point:SP_249,stop_point:SP_249,2,180
 stop_point:SP_249,stop_point:SP_440,2,180
 stop_point:SP_2490,stop_point:SP_1175,2,180
-stop_point:SP_2490,stop_point:SP_1804,2,180
 stop_point:SP_2490,stop_point:SP_2016,2,180
 stop_point:SP_2490,stop_point:SP_2297,2,180
 stop_point:SP_2490,stop_point:SP_2490,2,180
@@ -4353,7 +4342,6 @@ stop_point:SP_3100,stop_point:SP_654,2,180
 stop_point:SP_3101,stop_point:SP_2439,2,180
 stop_point:SP_3101,stop_point:SP_3101,2,180
 stop_point:SP_3102,stop_point:SP_1175,2,180
-stop_point:SP_3102,stop_point:SP_1804,2,180
 stop_point:SP_3102,stop_point:SP_2016,2,180
 stop_point:SP_3102,stop_point:SP_2297,2,180
 stop_point:SP_3102,stop_point:SP_2490,2,180
@@ -6287,7 +6275,6 @@ stop_point:SP_4083,stop_point:SP_4083,2,180
 stop_point:SP_409,stop_point:SP_1698,2,180
 stop_point:SP_409,stop_point:SP_409,2,180
 stop_point:SP_4090,stop_point:SP_1175,2,180
-stop_point:SP_4090,stop_point:SP_1804,2,180
 stop_point:SP_4090,stop_point:SP_2016,2,180
 stop_point:SP_4090,stop_point:SP_2297,2,180
 stop_point:SP_4090,stop_point:SP_2490,2,180
@@ -8799,6 +8786,7 @@ stop_point:SP_5671,stop_point:SP_4423,2,180
 stop_point:SP_5671,stop_point:SP_5250,2,180
 stop_point:SP_5671,stop_point:SP_5262,2,180
 stop_point:SP_5671,stop_point:SP_5671,2,180
+stop_point:SP_5672,stop_point:SP_5672,2,180
 stop_point:SP_568,stop_point:SP_568,2,180
 stop_point:SP_568,stop_point:SP_743,2,180
 stop_point:SP_569,stop_point:SP_2288,3,

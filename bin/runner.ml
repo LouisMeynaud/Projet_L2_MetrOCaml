@@ -21,20 +21,15 @@ module type ALGO = sig
 end
 
 (* Fonction pour charger les données GTFS *)
-let load_gtfs_data town url date_cible = 
+let load_gtfs_data town url date_cible loading_mode = 
   let local_data_dir =  "data/" ^ town in
-  let local_data_exists =
-    try (Unix.stat ("data/" ^ town )).Unix.st_kind = Unix.S_DIR (* verif si le dossier existe et si c'est bien un dossier (S_DIR)*)
-    with _ -> false (*plutot que planter on retourne false*)
-  in
-
   try
     let graphe =
-      if local_data_exists then begin
-        Printf.printf "Chargement local GTFS depuis %s\n%!" local_data_dir;
+      if loading_mode == "Local" then begin
+        Printf.printf "Chargement local GTFS depuis %s...\n%!" local_data_dir;
         Gtfs_adapter.load_network_gtfs local_data_dir date_cible
       end else begin
-        Printf.printf "Aucun GTFS local pour %s, telechargement en cours...\n%!" town;
+        Printf.printf "Téléchargement en cours...\n%!";
         Gtfs_adapter.load_network_from_url url date_cible
       end
     in
@@ -123,9 +118,10 @@ let show_details details_afficheurs =
 
 
 
-   let search_callback source_query dest_query algo poids coeffs start_time graphe details_mode use_color =
+   let search_callback source_query dest_query algo poids coeffs excluded_modes start_time graphe details_mode use_color =
       match Endpoint.build_routing_context graphe source_query dest_query with
       | Some (graph_for_search, source, destination) ->
+          Weight.set_excluded_modes excluded_modes;
           let routeurs : (string * (module ALGO)) list =
             if algo = "BFS" then
               [("BFS", (module struct

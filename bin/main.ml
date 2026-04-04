@@ -11,17 +11,27 @@ let choose_city () = let town = Cli.Console.raw_select "Choisissez la ville : " 
   let url =
     match town with
     | "Toulouse" -> "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77"
-    | "Montpellier" -> "https://www.data.gouv.fr/api/1/datasets/r/85ef3b33-2289-4d19-b479-276e5b1c5a52"
+    | "Montpellier" -> "https://data.montpellier3m.fr/sites/default/files/ressources/TAM_MMM_GTFS.zip"
     | "Marseille" -> "https://www.data.gouv.fr/api/1/datasets/r/ab931edc-0bc1-4c66-960a-dc546b46df03"
     | "Ile-de-France" -> "https://eu.ftp.opendatasoft.com/stif/GTFS/IDFM-gtfs.zip"
+    | "SNCF" -> "https://www.data.gouv.fr/api/1/datasets/r/9ae758ec-cd7a-40cd-a890-bb3963224942"
+    | "Corsica" -> "https://www.data.gouv.fr/api/1/datasets/r/b95d6838-1143-4653-840f-eebc33c16fa7"
     | _ -> failwith "Ville inconnue"
   in (town, url)
 
+let choose_load_mode () = let loading_mode = Cli.Console.raw_select "\nChoisissez le mode de chargement : " [ "En ligne"; "Local"] in
+  loading_mode
 
-let date_choose = let date_cible = today_yyyymmdd ()
+
+let date_choose loading_mode = let date_cible =
+  match loading_mode with
+  | "En ligne" -> today_yyyymmdd ()
+  | "Local" -> "20260330"
+  | _ -> failwith "Mode de chargement inconnu"
   in Printf.printf "=== Lancement de MetroCaml ===\n%!";
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
+
 
 
 let affichage_interface graphe =
@@ -31,24 +41,23 @@ let affichage_interface graphe =
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
-        let cli_callback src dest algo poids coeffs =
-          let results = Runner.search_callback src dest algo poids coeffs (8 * 3600) graphe false true in
-          List.iter (fun (nom, details, _) -> Printf.printf "%s:\n%s\n\n%!" nom details) results
-        in
-        Cli.Console.run_console graphe cli_callback
-
-    | _ ->
-        Printf.printf "Lancement de l'interface graphique...\n%!";
-        let gui_callback src dest algo poids coeffs start_time =
-          Runner.search_callback src dest algo poids coeffs start_time graphe false false
-        in
-        Gui.Transport_view.affiche graphe gui_callback; ()
+  let cli_callback src dest algo poids coeffs excluded_modes =
+    let results = Runner.search_callback src dest algo poids coeffs excluded_modes (8 * 3600) graphe false true in
+      List.iter (fun (nom, details, _) -> Printf.printf "%s:\n%s\n\n%!" nom details) results
+    in
+      Cli.Console.run_console graphe cli_callback
+    | _ -> Printf.printf "Lancement de l'interface graphique...\n%!";
+    let gui_callback src dest algo poids coeffs excluded_modes start_time =
+      Runner.search_callback src dest algo poids coeffs excluded_modes start_time graphe false false
+    in
+      Gui.Transport_view.affiche graphe gui_callback; ()
 
 
 let () =
   let (town, url) = choose_city () in
-  let date_cible = date_choose in
-  let graph = Runner.load_gtfs_data town url date_cible in
+  let loading_mode = choose_load_mode () in
+  let date_cible = date_choose loading_mode in
+  let graph = Runner.load_gtfs_data town url date_cible loading_mode in
   Printf.printf "\nGraphe chargé avec succès !\n%!";
   affichage_interface graph;
 

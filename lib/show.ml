@@ -1,7 +1,6 @@
 open Routing
 open Network
 
-(* Functions of conversion of colors *)
 let hex_to_rgb hex =
   let hex =
     if String.length hex > 0 && hex.[0] = '#' then
@@ -44,21 +43,16 @@ module Make (P : Routing.PATH) = struct
         (t + edge_to_duration step.edge, d +. edge_to_distance step.edge))
       (0, 0.0) steps
 
-let get_chemin node_to_string edge_to_string weight_to_string weight_get_time
-      edge_to_color edge_to_duration edge_to_distance start_time details use_color
+let get_chemin node_to_string edge_to_string weight_to_string 
+      edge_to_color edge_to_duration edge_to_distance details use_color
       (path : P.t) =
     match path.steps with
     | [] -> (0, "", 0, 0.0)
     | first_step :: _ ->
-        let first_arrival = weight_get_time first_step.weight in
-        let first_duration = edge_to_duration first_step.edge in
-        let first_wait = first_arrival - first_duration - start_time in
-        let first_wait_str =
-          if first_wait > 0 then
-            Printf.sprintf " [attente %d min]" (first_wait / 60)
-          else ""
+        let start =
+          node_to_string first_step.from
+          ^ P.Weight.step_data_to_string first_step.data
         in
-        let start = node_to_string first_step.from ^ first_wait_str in
 
         let ( _,
               final_step_to,
@@ -66,7 +60,6 @@ let get_chemin node_to_string edge_to_string weight_to_string weight_get_time
               final_stops,
               final_onboard_secs,
               transferts,
-              _,
               segments ) =
           List.fold_left
             (fun ( prev_line,
@@ -75,26 +68,20 @@ let get_chemin node_to_string edge_to_string weight_to_string weight_get_time
                    stops,
                    onboard_secs,
                    transferts,
-                   prev_time,
                    acc ) (step : P.step) ->
               let current_line = edge_to_string step.edge in
               let color = edge_to_color step.edge in
               let step_to = node_to_string step.to_node in
-
-              let current_arrival = weight_get_time step.weight in
               let duration = edge_to_duration step.edge in
-              let wait_time = current_arrival - duration - prev_time in
 
               match prev_line with
               | None ->
-                  (* Tout premier arrêt du trajet *)
                   ( Some current_line,
                     step_to,
                     color,
                     1,
                     duration,
                     transferts,
-                    current_arrival,
                     acc )
               | Some prev_l when prev_l = current_line ->
                   let new_acc =
@@ -108,14 +95,9 @@ let get_chemin node_to_string edge_to_string weight_to_string weight_get_time
                     stops + 1,
                     onboard_secs + duration,
                     transferts,
-                    current_arrival,
                     new_acc )
               | Some prev_l ->
-                  let wait_str =
-                    if wait_time > 0 then
-                      Printf.sprintf " [attente %d min]" (wait_time / 60)
-                    else ""
-                  in
+                  let wait_str = P.Weight.step_data_to_string step.data in
                   let onboard_time = line_minutes_from_seconds onboard_secs in
                   let arrow =
                     change_arrow ~use_color prev_step_to prev_l stops onboard_time
@@ -130,9 +112,8 @@ let get_chemin node_to_string edge_to_string weight_to_string weight_get_time
                     1,
                     duration,
                     transferts + 1,
-                    current_arrival,
                     transition :: acc ))
-            (None, "", "", 0, 0, 0, start_time, [])
+            (None, "", "", 0, 0, 0, [])
             path.steps
         in
 
@@ -156,7 +137,7 @@ let get_chemin node_to_string edge_to_string weight_to_string weight_get_time
   let string_of_path node_to_string edge_to_string weight_to_string weight_get_time
       edge_to_color edge_to_duration edge_to_distance start_time details use_color
       (path : P.t) =
-      let (transferts, route, total_time, total_distance) = get_chemin node_to_string edge_to_string weight_to_string weight_get_time edge_to_color edge_to_duration edge_to_distance start_time details use_color path in
+      let (transferts, route, total_time, total_distance) = get_chemin node_to_string edge_to_string weight_to_string edge_to_color edge_to_duration edge_to_distance details use_color path in
       let lines = [] in 
       let add_line s lines = s :: lines in
       match(route) with
@@ -173,10 +154,10 @@ let get_chemin node_to_string edge_to_string weight_to_string weight_get_time
         let lines = add_line (Printf.sprintf "Distance totale : %f km" (total_distance /. 1000.)) lines in
         String.concat "\n" (List.rev lines)
 
-  let print_path node_to_string edge_to_string weight_to_string weight_get_time
-      edge_to_color edge_to_duration edge_to_distance start_time details use_color
+  let print_path node_to_string edge_to_string weight_to_string
+      edge_to_color edge_to_duration edge_to_distance details use_color
       (path : P.t) =
-      let (transferts, route, total_time, total_distance) = get_chemin node_to_string edge_to_string weight_to_string weight_get_time edge_to_color edge_to_duration edge_to_distance start_time details use_color path in
+      let (transferts, route, total_time, total_distance) = get_chemin node_to_string edge_to_string weight_to_string edge_to_color edge_to_duration edge_to_distance details use_color path in
     match route with
     | "" -> Printf.printf "Chemin vide\n"
     | _ -> 
@@ -192,7 +173,6 @@ let get_chemin node_to_string edge_to_string weight_to_string weight_get_time
 
   let print_path_detail node_to_string edge_to_string weight_to_string
       edge_to_color edge_to_duration edge_to_distance (path : P.t) =
-    let weight_get_time (_ : P.Weight.t) = 0 in
-    print_path node_to_string edge_to_string weight_to_string weight_get_time
-      edge_to_color edge_to_duration edge_to_distance 0 true true path
+    print_path node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance true true path
 end
