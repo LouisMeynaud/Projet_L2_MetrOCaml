@@ -30,10 +30,10 @@ depends: [
   "csv"
   "ocamlformat"
   "lwt"
-  "lwt_ssl"
   "cohttp-lwt-unix"
   "uri"
   "yojson"
+  "gmp"
   "odoc" {with-doc}
 ]
 build: [
