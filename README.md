@@ -7,5 +7,5 @@
 
 ```sh
 opam install . --deps-only --with-test --with-doc --yes
-opam install graphics cohttp-lwt-unix
+opam install graphics
 ```
