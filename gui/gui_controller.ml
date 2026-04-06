@@ -468,7 +468,17 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		current_etat := { !current_etat with source = source_opt; dest = dest_opt };
 		update_ui_buttons ();
 		rafraichir_ecran !current_etat;
-		match source_opt, dest_opt with
+		let source_query_opt =
+			match source_opt with
+			| Some source -> Some source
+			| None -> if raw_dep = "" then None else Some raw_dep
+		in
+		let dest_query_opt =
+			match dest_opt with
+			| Some dest -> Some dest
+			| None -> if raw_arr = "" then None else Some raw_arr
+		in
+		match source_query_opt, dest_query_opt with
 		| Some source, Some dest -> launch_search source dest
 		| _ -> Printf.printf "Erreur: point source/destination manquant dans l'interface graphique.\n%!"
 
