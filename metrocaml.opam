@@ -30,7 +30,6 @@ depends: [
   "csv"
   "ocamlformat"
   "lwt"
-  "cohttp-lwt-unix"
   "uri"
   "yojson"
   "odoc" {with-doc}

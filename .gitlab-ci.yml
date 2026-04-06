@@ -22,7 +22,6 @@ setup:
   stage: setup
   <<: *opam_cache
   script:
-    - rm -rf _opam
     - opam switch create --yes --no-install . 5.3.0 || true
     - opam update
     - eval $(opam env)
