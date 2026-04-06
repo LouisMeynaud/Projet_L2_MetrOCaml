@@ -33,7 +33,6 @@ depends: [
   "cohttp-lwt-unix"
   "uri"
   "yojson"
-  "gmp"
   "odoc" {with-doc}
 ]
 build: [
