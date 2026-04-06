@@ -22,8 +22,9 @@ setup:
   stage: setup
   <<: *opam_cache
   script:
-    - sudo apt-get update -qq
-    - sudo apt-get install -y -qq libgmp-dev pkg-config
+    - env | grep -i proxy
+    - sudo -E apt-get update -qq
+    - sudo -E apt-get install -y -qq libgmp-dev pkg-config
     - opam switch create --yes --no-install . 5.3.0 2>/dev/null || opam switch set .
     - opam update
     - eval $(opam env)
