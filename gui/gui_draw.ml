@@ -155,6 +155,7 @@ let clear_label_cache () =
       "C:/Windows/Fonts/arial.ttf"; 
       "/Windows/Fonts/arial.ttf"; 
       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; 
+      "/usr/share/fonts/liberation/LiberationSans-Regular.ttf";
       "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"] in
       let rec trouver_police = function
         | [] -> Printf.printf "Aucune police système trouvée.\n%!"
