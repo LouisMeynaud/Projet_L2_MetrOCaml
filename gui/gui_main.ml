@@ -60,6 +60,7 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     source = None; dest = None; show_names = false;
     algos; algo_actif = List.hd algos;
     poids_list; poids_actif = List.hd poids_list;
+    pmr_transfer = false;
     camera_x = 0.;
     camera_y = 0.;
     zoom = 1.0;

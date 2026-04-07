@@ -20,6 +20,7 @@ type etat = {
   algo_actif : string;
   poids_list : string list;
   poids_actif : string;
+  pmr_transfer : bool;
   camera_x : float;
   camera_y : float;
   zoom : float;

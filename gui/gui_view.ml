@@ -43,6 +43,7 @@ type t = {
   route_arrivee_rows : Layout.t array;
   button_select_departure_on_map : Widget.t;
   button_select_arrival_on_map : Widget.t;
+  button_pmr_transfers : Widget.t;
   button_validate_search : Widget.t;
   input_schedule_line : Widget.t;
   input_schedule_stop : Widget.t;
@@ -178,6 +179,11 @@ let build ~panel_width ~(etat_initial : etat) =
   let label_arrivee = Widget.label "Arrivee" in
   let input_arrivee = Widget.text_input ~prompt:"Ex: Bastille" () in
   let button_select_arrival_on_map = Widget.button "Selection carte" in
+  let button_pmr_transfers =
+    Widget.button
+      (text_select "Correspondance PMR uniquement"
+         etat_initial.pmr_transfer)
+  in
   let button_validate_search = Widget.button "Rechercher" in
 
   let fond_barre_recherche = Layout.color_bg (rgb_to_bogue (218, 223, 230)) in
@@ -313,6 +319,8 @@ let build ~panel_width ~(etat_initial : etat) =
     route_arrivee_clip;
     Layout.empty ~w:1 ~h:10 ();
     block_horaire;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident button_pmr_transfers;
     Layout.empty ~w:1 ~h:10 ();
     Layout.resident button_validate_search;
   ] in
@@ -413,6 +421,7 @@ let build ~panel_width ~(etat_initial : etat) =
     route_arrivee_rows;
     button_select_departure_on_map;
     button_select_arrival_on_map;
+    button_pmr_transfers;
     button_validate_search;
     input_schedule_line;
     input_schedule_stop;
