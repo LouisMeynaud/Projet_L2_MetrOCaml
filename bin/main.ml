@@ -171,8 +171,8 @@ let () =
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
-        let cli_callback src dest algo poids coeffs excluded_modes =
-          search_callback src dest algo poids coeffs excluded_modes (8 * 3600) false
+        let cli_callback src dest algo poids coeffs excluded_modes start_time =
+          search_callback src dest algo poids coeffs excluded_modes start_time false
         in
         Cli.Console.run_console graphe cli_callback
 
