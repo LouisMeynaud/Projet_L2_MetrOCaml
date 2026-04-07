@@ -41,11 +41,11 @@ let affichage_interface graphe =
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
-  let cli_callback src dest algo poids coeffs excluded_modes =
-    let results = Runner.search_callback src dest algo poids coeffs excluded_modes (8 * 3600) graphe false true in
+  let cli_callback src dest algo poids coeffs excluded_modes start_time =
+    let results = Runner.search_callback src dest algo poids coeffs excluded_modes start_time graphe false true in
       List.iter (fun (nom, details, _) -> Printf.printf "%s:\n%s\n\n%!" nom details) results
     in
-      Cli.Console.run_console graphe cli_callback
+      Cli.Console.run_console graphe cli_callback; ()
     | _ -> Printf.printf "Lancement de l'interface graphique...\n%!";
     let gui_callback src dest algo poids coeffs excluded_modes start_time =
       Runner.search_callback src dest algo poids coeffs excluded_modes start_time graphe false false

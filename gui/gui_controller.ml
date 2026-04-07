@@ -504,9 +504,18 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		current_etat := { !current_etat with source = source_opt; dest = dest_opt };
 		update_ui_buttons ();
 		rafraichir_ecran !current_etat;
-		match source_opt, dest_opt with
-		| Some source, Some dest -> 
-			let results = launch_search source dest in
+		let source_query_opt =
+			match source_opt with
+			| Some source -> Some source
+			| None -> if raw_dep = "" then None else Some raw_dep
+		in
+		let dest_query_opt =
+			match dest_opt with
+			| Some dest -> Some dest
+			| None -> if raw_arr = "" then None else Some raw_arr
+		in
+		match source_query_opt, dest_query_opt with
+		| Some source, Some dest -> let results = launch_search source dest in
 			found_paths := results;
 			let last_edges = List.fold_left (fun acc (_, _, edges_opt) -> match edges_opt with Some e -> Some e | None -> acc) None (List.rev results) in
 			current_etat := { !current_etat with highlighted_edges = match last_edges with Some e -> e | None -> [] };
