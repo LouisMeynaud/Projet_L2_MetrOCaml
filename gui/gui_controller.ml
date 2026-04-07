@@ -294,7 +294,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		Widget.set_text view.button_station_names (if etat.show_names then "Noms des stations : ON" else "Noms des stations : OFF");
 
 		List.iter (fun (nom, w) ->
-			let actif = cherche nom etat.categories true in
+			let actif = Option.value ~default:true (List.assoc_opt nom etat.categories) in
 			Widget.set_text w (text_toggle nom actif)
 		) view.category_buttons;
 

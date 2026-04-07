@@ -5,48 +5,45 @@ open Gui_view
 
 
 
-(** Point d'entrée principal de l'interface graphique.
+(** entré de l'interface graphique.
     
-    Cette fonction initialise le moteur vidéo (SDL/Bogue), configure les dimensions 
+    Cette fonction initialise le moteur graphique (SDL/Bogue), configure les dimensions 
     de la fenêtre en s'adaptant à l'écran de l'utilisateur, assemble l'architecture MVC 
-    (Modèle-Vue-Contrôleur) et lance la boucle d'événements principale.
+    et lance la boucle principale.
 
-    @param noeuds La liste de toutes les stations (nœuds) du graphe.
-    @param aretes La liste de tous les segments (arêtes) reliant les stations.
-    @param algos La liste des noms d'algorithmes de recherche disponibles.
-    @param poids_list La liste des critères de poids applicables (temps, distance, etc.).
-    @param schedule_items Les horaires pré-calculés des transports.
-    @param on_search La fonction de rappel exécutant l'algorithme de plus court chemin.
+    @param noeuds La liste de toutes les stations du graphe.
+    @param aretes La liste de tous les segments reliant les stations.
+    @param algos La liste des algorithmes de recherche disponibles.
+    @param poids_list La liste des poids applicables (temps, distance, etc.).
+    @param schedule_items Les horaires des transports.
+    @param on_search La fonction exécutant l'algorithme choisie.
 *)
 let run noeuds aretes algos poids_list schedule_items on_search =
-  ignore (Tsdl.Sdl.init Tsdl.Sdl.Init.video);
+  ignore (Tsdl.Sdl.init Tsdl.Sdl.Init.video); (* Initialisation de SDL pour la vidéo *)
 
-  (*recupere la taille de l'écran*)
+  (**
+    @param screen_w La largeur de l'écran
+    @param screen_h La hauteur de l'écran
+  *)
   let screen_w, screen_h =
-    match Tsdl.Sdl.get_display_usable_bounds 0 with
-    | Ok rect -> (Tsdl.Sdl.Rect.w rect, Tsdl.Sdl.Rect.h rect)
-    | Error _ ->
-      (match Tsdl.Sdl.get_desktop_display_mode 0 with
-       | Ok mode -> (mode.Tsdl.Sdl.dm_w, mode.Tsdl.Sdl.dm_h)
-       | Error _ -> (!largeur, !hauteur))
+    match Tsdl.Sdl.get_desktop_display_mode 0 with (* récupère les dimensions de l'écran *)
+      | Ok mode -> (mode.Tsdl.Sdl.dm_w, mode.Tsdl.Sdl.dm_h)(*si succès on recup les dimensions*)
+      | Error _ -> (!largeur, !hauteur)
   in
 
-  largeur := max window_min_width (screen_w - window_screen_padding);
-  hauteur := max window_min_height (screen_h - window_screen_padding);
+  largeur := max window_min_width screen_w ;
+  hauteur := max window_min_height screen_h ;
 
   (* Calcule la largeur du panneau latéral en fonction du ratio et des limites *)
   let panel_width =
     let preferred = !largeur * panel_ratio_percent / 100 in
     max panel_min_width (min panel_max_width preferred)
   in
-
   canvas_w := max canvas_min_width (!largeur - panel_width);
   canvas_h := !hauteur;
 
-  (*calcule les coordonée gps max et min pour apres mettre a l'echelle notre graphe*)
-  let bornes = calcule_bornes noeuds in
-  (*extraire les catégories de transport*)
-  let cats = List.sort_uniq String.compare (List.map (fun (a : arete) -> a.categorie) aretes) in
+  let bornes = calcule_bornes noeuds in (*calcule les coordonée gps max et min pour apres mettre a l'echelle notre graphe*)
+  let cats = List.sort_uniq String.compare (List.map (fun (a : arete) -> a.categorie) aretes) in   (*extraire les catégories de transport*)
 
   (*etat initial de l'application*)
   let etat_initial = {
@@ -64,7 +61,7 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     camera_x = 0.;
     camera_y = 0.;
     zoom = 1.0;
-  } |> rebuild_render in
+  } |> rebuild_render in (*on construit l'etat initial de l'application, avec les données du graphe et les paramètres par défaut*)
 
   let current_etat = ref etat_initial in
 

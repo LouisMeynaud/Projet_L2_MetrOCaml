@@ -90,17 +90,6 @@ let () =
                       ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
                     (preset.name, (module D : ALGO))
                   ) Presets.all
-             (* | "Distance"        -> [("Distance", (module DIJKSTRA_DistanceWeight))]
-                | "Arrets"          -> [("Arrêts", (module DIJKSTRA_HopWeight))]
-                | "Temps"           -> [("Temps", (module DIJKSTRA_TimeWeight))]
-                | "Correspondances" -> [("Correspondances", (module DIJKSTRA_CorrespondenceWeight))]
-                | "Rapide" | "Confort" | "Court chemin" | "Equilibre" | "Explorateur" ->
-                (match Presets.find_by_name poids with
-                  | Some preset ->
-                    let module W = (val Presets.to_weight preset) in
-                    let module D = Dijkstra.Make(Network.TransportGraph)(W) in
-                    [(poids, (module D : ALGO))]
-                  | None -> [("Temps", (module DIJKSTRA_TimeWeight))]) *)
                 | "Combinaison"     -> 
                       (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
                      let ct, cd, ca, cc = match coeffs with 
