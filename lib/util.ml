@@ -59,4 +59,4 @@ let haversine_distance lat1 lon1 lat2 lon2 =
   r *. c
 
 (** Vérifie si une station est accessible aux personnes à mobilité réduite *)
-  let is_pmr (s : station) = s.pmr
+let is_pmr (s : station) = s.pmr
