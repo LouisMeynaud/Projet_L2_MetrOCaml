@@ -306,7 +306,7 @@ in
     );
     
     if etat.show_names then begin
-      dessiner_texte (cx + 12) (cy - 4) noeud.nom (0,0,0)
+      dessiner_texte (cx + 12) (cy - 4) (noeud.nom ^ (if etat.pmr_transfer && noeud.pmr then " (PMR)" else ""))  (0,0,0)
     end
 
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.
