@@ -16,6 +16,7 @@ module type ALGO = sig
     graph:Network.TransportGraph.t ->
     source:Network.station ->
     destination:Network.station ->
+    transfer_allowed:(Network.station -> bool) ->
     P.t option
 end
 
@@ -70,7 +71,7 @@ let () =
     in
     flush stdout;
     
-    let search_callback source_query dest_query algo poids coeffs excluded_modes start_time details_mode =
+    let search_callback source_query dest_query algo poids coeffs excluded_modes start_time pmr_transfer details_mode =
       match Endpoint.build_routing_context graphe source_query dest_query with
       | Some (graph_for_search, source, destination) ->
           Weight.set_excluded_modes excluded_modes;
@@ -78,7 +79,7 @@ let () =
             if algo = "BFS" then
               [("BFS", (module struct
                 module P = BFS_HopWeight.P
-                let find_path ~start_time ~graph ~source ~destination =
+                let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
                   BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
               end))]
             else
@@ -88,17 +89,6 @@ let () =
                     let module D = Dijkstra.Make(Network.TransportGraph)(W) in
                     (preset.name, (module D : ALGO))
                   ) Presets.all
-             (* | "Distance"        -> [("Distance", (module DIJKSTRA_DistanceWeight))]
-                | "Arrets"          -> [("Arrêts", (module DIJKSTRA_HopWeight))]
-                | "Temps"           -> [("Temps", (module DIJKSTRA_TimeWeight))]
-                | "Correspondances" -> [("Correspondances", (module DIJKSTRA_CorrespondenceWeight))]
-                | "Rapide" | "Confort" | "Court chemin" | "Equilibre" | "Explorateur" ->
-                (match Presets.find_by_name poids with
-                  | Some preset ->
-                    let module W = (val Presets.to_weight preset) in
-                    let module D = Dijkstra.Make(Network.TransportGraph)(W) in
-                    [(poids, (module D : ALGO))]
-                  | None -> [("Temps", (module DIJKSTRA_TimeWeight))]) *)
                 | "Combinaison"     -> 
                       (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
                      let ct, cd, ca, cc = match coeffs with 
@@ -113,14 +103,15 @@ let () =
                      let module CombinedWeight = (val Combinator.combine critere : Routing.WEIGHT with type edge = Network.connection) in
                      let module DIJKSTRA_CombinedWeight = Dijkstra.Make(Network.TransportGraph)(CombinedWeight) in
                      [("Combinaison", (module DIJKSTRA_CombinedWeight))]
-                | _                 -> [("Temps", (module DIJKSTRA_TimeWeight))]
+                | _                 ->
+                    [("Temps", (module DIJKSTRA_TimeWeight))]
               in
 
           (* Accumulation fonctionnelle des détails d'affichage *)
           let details_afficheurs = List.fold_left (fun acc (nom_algo, (module Routeur : ALGO)) ->
             let module ShowPath = Show.Make (Routeur.P) in
             Printf.printf "\n=== Résultat avec %s ===\n%!" nom_algo;
-            match Routeur.find_path ~start_time ~graph:graph_for_search ~source ~destination with
+            match Routeur.find_path ~start_time ~graph:graph_for_search ~source ~destination ~transfer_allowed:(if pmr_transfer then Util.is_pmr else fun _ -> true) with
             | Some p ->
                 ShowPath.print_path
                   (fun s -> s.name)
@@ -172,14 +163,14 @@ let () =
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
         let cli_callback src dest algo poids coeffs excluded_modes start_time =
-          search_callback src dest algo poids coeffs excluded_modes start_time false
+          search_callback src dest algo poids coeffs excluded_modes start_time false false
         in
         Cli.Console.run_console graphe cli_callback
 
     | _ ->
         Printf.printf "Lancement de l'interface graphique...\n%!";
-        let gui_callback src dest algo poids coeffs excluded_modes start_time =
-          search_callback src dest algo poids coeffs excluded_modes start_time false
+        let gui_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
+          search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer false
         in
         Gui.Transport_view.affiche graphe gui_callback;
 

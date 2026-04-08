@@ -294,7 +294,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		Widget.set_text view.button_station_names (if etat.show_names then "Noms des stations : ON" else "Noms des stations : OFF");
 
 		List.iter (fun (nom, w) ->
-			let actif = cherche nom etat.categories true in
+			let actif = Option.value ~default:true (List.assoc_opt nom etat.categories) in
 			Widget.set_text w (text_toggle nom actif)
 		) view.category_buttons;
 
@@ -305,6 +305,9 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		List.iter (fun (nom, w) ->
 			Widget.set_text w (text_select nom (nom = etat.poids_actif))
 		) view.weight_buttons;
+
+		Widget.set_text view.button_pmr_transfers
+			(text_select "Correspondance PMR uniquement" etat.pmr_transfer);
 
 		(* Visibilite conditionnelle des sections selon algo + poids *)
 		let show_poids = (etat.algo_actif = "Dijkstra") in
@@ -371,7 +374,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		let c_dist = float_of_int (Slider.value (Widget.get_slider view.slider_distance)) /. 100.0 in
 		let c_arrets = float_of_int (Slider.value (Widget.get_slider view.slider_stops)) /. 100.0 in
 		let c_corresp = float_of_int (Slider.value (Widget.get_slider view.slider_transfers)) /. 100.0 in
-		on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp] excluded_modes time_in_secondes
+		on_search source dest !current_etat.algo_actif !current_etat.poids_actif [c_temps; c_dist; c_arrets; c_corresp] excluded_modes time_in_secondes !current_etat.pmr_transfer
 	in
 
 	(* ---------connexions onglets et boutons--------- *)
@@ -519,6 +522,11 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	let conn_mp = Widget.connect view.button_minute_plus view.button_minute_plus (fun _ _ _ ->
 		view.current_minute := if !(view.current_minute) = 59 then 0 else !(view.current_minute) + 1;
 		view.update_time_display ()
+	) Trigger.buttons_down in
+
+	let conn_pmr_transfers = Widget.connect view.button_pmr_transfers view.button_pmr_transfers (fun _ _ _ ->
+		current_etat := { !current_etat with pmr_transfer = not !current_etat.pmr_transfer };
+		update_ui_buttons ()
 	) Trigger.buttons_down in
 
 
@@ -750,7 +758,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		end
 	in
 
-	let connections = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_input_depart :: conn_input_arrivee :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows @ conn_route_depart_rows @ conn_route_arrivee_rows) in
+	let connections = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_input_depart :: conn_input_arrivee :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: conn_pmr_transfers :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows @ conn_route_depart_rows @ conn_route_arrivee_rows) in
 
 	let before_display () =
 		if !needs_redraw then begin

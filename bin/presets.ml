@@ -18,13 +18,13 @@ let preset_rapide =
       [
         Combinator.criterion
           (module TimeWeight)
-          ~coefficient:0.70 ~label:"Temps";
+          ~coefficient:0.75 ~label:"Temps";
         Combinator.criterion
           (module CorrespondenceWeight)
-          ~coefficient:0.20 ~label:"Correspondances";
+          ~coefficient:0.25 ~label:"Correspondances";
         Combinator.criterion
           (module HopWeight)
-          ~coefficient:0.10 ~label:"Arrêts";
+          ~coefficient:0.00 ~label:"Arrêts";
         Combinator.criterion
           (module DistanceWeight)
           ~coefficient:0.00 ~label:"Distance";
@@ -41,13 +41,13 @@ let preset_confort =
       [
         Combinator.criterion
           (module CorrespondenceWeight)
-          ~coefficient:0.60 ~label:"Correspondances";
+          ~coefficient:0.50 ~label:"Correspondances";
         Combinator.criterion
           (module HopWeight)
           ~coefficient:0.00 ~label:"Arrêts";
         Combinator.criterion
           (module TimeWeight)
-          ~coefficient:0.40 ~label:"Temps";
+          ~coefficient:0.50 ~label:"Temps";
         Combinator.criterion
           (module DistanceWeight)
           ~coefficient:0.00 ~label:"Distance";
