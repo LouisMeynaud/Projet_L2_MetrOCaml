@@ -1,8 +1,25 @@
 open Lwt.Infix
 open Cohttp
 open Cohttp_lwt_unix
+open Yojson.Basic.Util
 
-(* 0. Utiliraires *)
+(* ================================================== *)
+(* 0. TYPES ET ÉTAT GLOBAL                            *)
+(* ================================================== *)
+type alerte = {
+  id : string;
+  cause : string;
+  severite : string;
+  titre : string;
+  message : string;
+  lignes_impactees : string list;
+}
+
+let liste_alertes : alerte list ref = ref []
+
+(* ================================================== *)
+(* 1. UTILITAIRES                                     *)
+(* ================================================== *)
 let nettoyer_id s =
   let parts = String.split_on_char ':' s in
   let rec find_num = function
@@ -20,16 +37,18 @@ let nettoyer_id s =
           Unix.tm_sec=sec; tm_min=min; tm_hour=h; tm_mday=d; 
           tm_mon=m-1; tm_year=y-1900; tm_wday=0; tm_yday=0; tm_isdst=false 
         } in
-        fst (Unix.mktime tm)
+        int_of_float (fst (Unix.mktime tm))
       )
-    with _ -> 0.0
+    with _ -> 0
 
-(* 1. La fonction qui télécharge et écrit dans le fichier *)
+(* ================================================== *)
+(* 2. TÉLÉCHARGEMENT                                  *)
+(* ================================================== *)
 let fetch_and_save_disruptions filename =
   let uri = Uri.of_string "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2" in
   let headers = Header.add_list (Header.init ()) [
     ("User-Agent", "insomnia/12.4.0");
-    ("apiKey", "xt1T5slHhtOGGTo61qd7jWT0kOTwRQKv");
+    ("apiKey", "GBsIolemaspJPcsW7HbwQTp4RaiaBTQk");
   ] in
 
   Client.call ~headers `GET uri
@@ -44,8 +63,6 @@ let fetch_and_save_disruptions filename =
       let oc = open_out filename in
       output_string oc body_str;
       close_out oc;
-      
-      Printf.printf "Succès : %s généré avec succès (%d octets) !\n%!" filename (String.length body_str);
       Lwt.return_unit
       
     else
@@ -56,4 +73,71 @@ let fetch_and_save_disruptions filename =
 
 (* 2. La fonction  à appeler dans ton code principal *)
 let actualiser_fichier_alertes () =
-  Lwt_main.run (fetch_and_save_disruptions "../data/rt/alertes.json")
+  Lwt_main.run (fetch_and_save_disruptions "data/rt/alertes.json")
+
+(* ================================================== *)
+(* 3. LECTURE ET PARSING DU JSON                      *)
+(* ================================================== *)
+
+let charger_alertes_en_memoire () =
+  let filename = "data/rt/alertes.json" in
+  if Sys.file_exists filename then begin
+    try
+      let json = Yojson.Basic.from_file filename in
+      
+      (* On rentre dans le tableau "disruptions" *)
+      let disruptions = json |> member "disruptions" |> to_list in
+      
+      let nouvelles_alertes = List.fold_left (fun acc disruption ->
+        try
+          (* --- 1. Extraction des infos de base --- *)
+          let d_id = disruption |> member "id" |> to_string in
+          let d_cause = try disruption |> member "cause" |> to_string with _ -> "Inconnue" in
+          let d_severity = try disruption |> member "severity" |> to_string with _ -> "PERTURBATION" in
+          let d_title = try disruption |> member "title" |> to_string with _ -> "Information Trafic" in
+          let d_message = try disruption |> member "message" |> to_string with _ -> "" in
+          
+          (* --- 2. Extraction des lignes impactées --- *)
+          let lignes_touchees = ref [] in
+          
+          let sections = 
+            try disruption |> member "impactedSections" |> to_list 
+            with _ -> [] 
+          in
+          
+          List.iter (fun section ->
+            try
+              let raw_line = section |> member "lineId" |> to_string in
+              lignes_touchees := (nettoyer_id raw_line) :: !lignes_touchees
+            with _ -> ()
+          ) sections;
+          
+          (* On enlève les doublons si l'API liste l'aller et le retour *)
+          let lignes_uniques = List.sort_uniq String.compare !lignes_touchees in
+          
+          (* --- 3. Création de l'objet --- *)
+          let obj = {
+            id = d_id;
+            cause = d_cause;
+            severite = d_severity;
+            titre = d_title;
+            message = d_message;
+            lignes_impactees = lignes_uniques;
+          } in
+          
+          obj :: acc
+          
+        with _ -> acc 
+      ) [] disruptions in
+      liste_alertes := nouvelles_alertes;
+    with _ -> Printf.printf "[Erreur] Impossible de parser le fichier %s.\n%!" filename
+  end else
+    Printf.printf "[Avertissement] Le fichier %s n'existe pas encore.\n%!" filename
+    let start_auto_refresh () =
+      let rec loop () =
+        actualiser_fichier_alertes ();
+        charger_alertes_en_memoire ();
+        Unix.sleep 45;
+        loop ()
+      in
+      ignore (Thread.create loop ())

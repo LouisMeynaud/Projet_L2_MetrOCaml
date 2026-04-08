@@ -43,16 +43,6 @@ type connection = {
 }
 (** Connection (edge) information. *)
 
-type etat_trajet =
-  | Retard of int   
-  | Supprime        
-(** State of the connection. *)
-
-type notification = {
-  line : line;
-  message : string;
-}
-
 (** Nodes module implementation for the routing library. Stations are the nodes
     in the transport graph. *)
 module StationNode : Routing.NODE with type t = station = struct
@@ -71,8 +61,3 @@ end
 
 (** A TransportGraph instance that enables network modelling. *)
 module TransportGraph = Routing.Graph.Make (StationNode) (ConnectionEdge)
-
-type notificationEtEtatTrajet = {
-  notification_table : (line, notification) Hashtbl.t;
-  etat_trajet_table : (string, etat_trajet) Hashtbl.t;
-}
