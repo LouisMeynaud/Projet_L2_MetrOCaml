@@ -123,7 +123,7 @@ let make_walk_connection ~to_station ~distance =
 let add_virtual_station_with_walk_edges graph (stations : Network.station list)
     ~id ~name ~lat ~lon ~walk_radius =
   let virtual_station =
-    { Network.id; name; latitude = lat; longitude = lon; pmr = false }
+    { Network.id; name; latitude = lat; longitude = lon; pmr = true }
   in
   TransportGraph.add_node graph virtual_station;
   let nearby_count = ref 0 in
