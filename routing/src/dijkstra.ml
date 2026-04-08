@@ -57,6 +57,14 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
       | Node (w, n, s, l) -> Some (w, n, s, merge_pairs l)
   end
 
+  (*restriction pmr false par defaut , et fonction renvoir true par defaut *)
+  let pmr_transfer = ref false
+  let station_is_pmr = ref (fun _ -> true)
+  (* on active les restriction pmr si voulu , et on donne la fonction de vérification*)
+  let set_pmr_transfer ~pmr_transfer:enabled ~station_is_pmr:is_pmr =
+    pmr_transfer := enabled;
+    station_is_pmr := is_pmr
+
   (** Trouve le chemin optimal de la [source] à la [destination].
       @param start_time L'heure de départ (sert de poids initial).
       @param graph Le graphe pré-construit du réseau. *)
@@ -116,23 +124,29 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                     match W.traverse d edge with
                     | None -> ()
                     | Some (new_dist, step_data) ->
-                        let v_state = (v, W.get_state_key new_dist) in
-                        let old_dist =
-                          Option.value ~default:W.infinity
-                            (Hashtbl.find_opt dist v_state)
-                        in
+                        let next_state_key = W.get_state_key new_dist in
+                        let _, current_state_key = u_state in
+                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in (*detecte si on a changer de ligne ou pas*)
+                        let is_transfer = is_line_change && not (G.Node.equal u source) in (*on considère que le changement de ligne à la station de départ n'est pas une correspondance*)
+                        let transfer_allowed = (not !pmr_transfer) || (not is_transfer) || (!station_is_pmr) u in
+                        if transfer_allowed then (
+                          let v_state = (v, next_state_key) in
+                          let old_dist =
+                            Option.value ~default:W.infinity
+                              (Hashtbl.find_opt dist v_state)
+                          in
 
-                        (* Si le passage par cette arête nous offre un meilleur score (new_dist < old_dist) 
-                           que notre précédent record pour cet état, on procède à une "Relaxation" :
-                           1. On met à jour le record officiel dans 'dist'.
-                           2. On lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
-                           3. On propulse ce nouvel état prometteur dans le tas 'pq'. *)
-                        if W.(new_dist < old_dist) then begin
-                          Hashtbl.replace dist v_state new_dist;
-                          Hashtbl.replace prev v_state
-                            (u_state, u, v, edge, new_dist, step_data);
-                          pq := PQ.push new_dist v v_state !pq
-                        end)
+                          (* Si le passage par cette arête nous offre un meilleur score (new_dist < old_dist) 
+                             que notre précédent record pour cet état, on procède à une "Relaxation" :
+                             1. On met à jour le record officiel dans 'dist'.
+                             2. On lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
+                             3. On propulse ce nouvel état prometteur dans le tas 'pq'. *)
+                          if W.(new_dist < old_dist) then begin
+                            Hashtbl.replace dist v_state new_dist;
+                            Hashtbl.replace prev v_state
+                              (u_state, u, v, edge, new_dist, step_data);
+                            pq := PQ.push new_dist v v_state !pq
+                          end))
                   (G.neighbors graph u);
 
                 (* Boucle récursive : on passe au nœud suivant dans le tas *)

@@ -8,6 +8,7 @@ let text_toggle name is_active =
 let text_select name is_active =
   if is_active then "[*] " ^ name else "[ ] " ^ name
 
+(** Type pour représenter les éléments de l'interface graphique. *)
 type t = {
   widget_canvas : Widget.t;
   button_station_names : Widget.t;
@@ -43,6 +44,7 @@ type t = {
   route_arrivee_rows : Layout.t array;
   button_select_departure_on_map : Widget.t;
   button_select_arrival_on_map : Widget.t;
+  button_pmr_transfers : Widget.t;
   button_validate_search : Widget.t;
   input_schedule_line : Widget.t;
   input_schedule_stop : Widget.t;
@@ -104,6 +106,7 @@ let build ~panel_width ~(etat_initial : etat) =
       (name, Widget.button (text_select name (name = etat_initial.poids_actif)))) etat_initial.poids_list
   in
 
+  (* -------------------- Etat horaire (utilise par l'onglet Itineraire) -------------------- *)
   let tm = Unix.localtime (Unix.time ()) in
   let current_hour = ref tm.Unix.tm_hour in
   let current_minute = ref tm.Unix.tm_min in
@@ -152,12 +155,6 @@ let build ~panel_width ~(etat_initial : etat) =
 
   let block_actions = Layout.tower_of_w [button_station_names] in
 
-  let ligne_dep_maint = Layout.flat_of_w [button_departure_arrival; button_now] in
-  let ligne_h = Layout.flat_of_w [button_hour_minus; label_hour; button_hour_plus] in
-  let ligne_m = Layout.flat_of_w [button_minute_minus; label_minute; button_minute_plus] in
-  let ligne_temps = Layout.flat ~align:Draw.Center [ligne_h; Layout.empty ~w:5 ~h:1 (); ligne_m] in
-  let block_horaire = Layout.tower ~align:Draw.Center [Layout.resident label_horaire; ligne_dep_maint; ligne_temps] in
-
   let block_algo = Layout.tower_of_w (label_algo :: List.map snd algorithm_buttons) in
   let weights_block = Layout.tower_of_w (label_poids :: List.map snd weight_buttons) in
   let block_cat = Layout.tower_of_w (label_cat :: List.map snd category_buttons) in
@@ -182,6 +179,17 @@ let build ~panel_width ~(etat_initial : etat) =
   let label_arrivee = Widget.label "Arrivee" in
   let input_arrivee = Widget.text_input ~prompt:"Ex: Bastille" () in
   let button_select_arrival_on_map = Widget.button "Selection carte" in
+  
+  let ligne_dep_maint = Layout.flat_of_w [button_departure_arrival; button_now] in
+  let ligne_h = Layout.flat_of_w [button_hour_minus; label_hour; button_hour_plus] in
+  let ligne_m = Layout.flat_of_w [button_minute_minus; label_minute; button_minute_plus] in
+  let ligne_temps = Layout.flat ~align:Draw.Center [ligne_h; Layout.empty ~w:5 ~h:1 (); ligne_m] in
+  let block_horaire = Layout.tower ~align:Draw.Center [Layout.resident label_horaire; ligne_dep_maint; ligne_temps] in
+  let button_pmr_transfers =
+    Widget.button
+      (text_select "Correspondance PMR uniquement"
+         etat_initial.pmr_transfer)
+  in
   let button_validate_search = Widget.button "Rechercher" in
 
   let fond_barre_recherche = Layout.color_bg (rgb_to_bogue (218, 223, 230)) in
@@ -340,6 +348,9 @@ let build ~panel_width ~(etat_initial : etat) =
     Layout.empty ~w:1 ~h:10 ();
     block_horaire;
     Layout.empty ~w:resultats_row_width ~h:resultats_row_height ();
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident button_pmr_transfers;
+    Layout.empty ~w:1 ~h:10 ();
     Layout.resident button_validate_search;
   ] in
 
@@ -442,6 +453,7 @@ let build ~panel_width ~(etat_initial : etat) =
     route_arrivee_rows;
     button_select_departure_on_map;
     button_select_arrival_on_map;
+    button_pmr_transfers;
     button_validate_search;
     input_schedule_line;
     input_schedule_stop;

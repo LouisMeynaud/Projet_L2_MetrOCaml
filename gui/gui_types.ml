@@ -20,6 +20,7 @@ type etat = {
   algo_actif : string;
   poids_list : string list;
   poids_actif : string;
+  pmr_transfer : bool;
   camera_x : float;
   camera_y : float;
   zoom : float;
@@ -46,7 +47,6 @@ let canvas_h = ref !hauteur (* Hauteur de la zone de carte. *)
 
 let window_min_width = 720 (* Largeur minimale pour la fenetre. *)
 let window_min_height = 520 (* Hauteur minimale pour la fenetre. *)
-let window_screen_padding = 16 (* Marge retiree des dimensions ecran detectees. *)
 
 let panel_ratio_percent = 30 (* Ratio du panneau sur la largeur totale. *)
 let panel_min_width = 210 (* Largeur minimale du panneau gauche. *)
@@ -66,11 +66,10 @@ let draw_edge_thickness = 3 (* Epaisseur des traits d'aretes. *)
 let draw_edge_parallel_offset = 4.0 (* Decalage entre aretes paralleles. *)
 let draw_edge_clip_padding = 32.0 (* Marge de clipping pour le dessin des aretes. *)
 let draw_node_clip_padding = 20.0 (* Marge de clipping pour le dessin des noeuds. *)
-let draw_node_radius_outer = 5 (* Rayon externe d'un noeud standard. *)
-let draw_node_radius_inner = 4 (* Rayon interne d'un noeud standard. *)
+let draw_node_radius_outer = 5 (* Rayon externe d'un noeud. *)
+let draw_node_radius_inner = 4 (* Rayon interne d'un noeud. *)
 let draw_node_selected_radius_outer = 9 (* Rayon externe d'un noeud selectionne. *)
 let draw_node_selected_radius_inner = 8 (* Rayon interne d'un noeud selectionne. *)
-let draw_click_radius_squared = 400.0 (* Distance max de selection au carre. *)
 
 let panel_slider_min_length = 80 (* Longueur minimale d'un slider dans le panneau. *)
 let panel_slider_width_margin = 140 (* Espace reserve dans la ligne slider (labels + marge). *)

@@ -59,13 +59,15 @@ let load_gtfs_data town url date_cible loading_mode =
 
 (* Fonction pour lancer la recherche de trajet *)
 
-let choose_weight poids coeffs =
+let choose_weight poids coeffs pmr_transfer =
   match poids with
   | "Default" ->
       List.map
         (fun (preset : Presets.preset) ->
           let module W = (val Presets.to_weight preset) in
           let module D = Dijkstra.Make (Network.TransportGraph) (W) in
+          D.set_pmr_transfer ~pmr_transfer
+          ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
           (preset.name, (module D : ALGO)))
         Presets.all
   | "Distance" -> [ ("Distance", (module DIJKSTRA_DistanceWeight)) ]
@@ -108,10 +110,13 @@ let choose_weight poids coeffs =
             : Routing.WEIGHT with type edge = Network.connection)
       in
       let module DIJKSTRA_CombinedWeight =
-        Dijkstra.Make (Network.TransportGraph) (CombinedWeight)
-      in
+        Dijkstra.Make (Network.TransportGraph) (CombinedWeight) in
+        DIJKSTRA_CombinedWeight.set_pmr_transfer ~pmr_transfer
+                       ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
       [ ("Combinaison", (module DIJKSTRA_CombinedWeight)) ]
-  | _ -> [ ("Temps", (module DIJKSTRA_TimeWeight)) ]
+  | _ ->  DIJKSTRA_TimeWeight.set_pmr_transfer ~pmr_transfer
+            ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
+          [ ("Temps", (module DIJKSTRA_TimeWeight)) ]
 
 let affichage details_mode use_color start_time source destination
     graph_for_search routeurs =
@@ -162,7 +167,7 @@ let show_details details_afficheurs =
     with Not_found -> Printf.printf "Algorithme non trouvé.\n%!"
 
 let search_callback source_query dest_query algo poids coeffs excluded_modes
-    start_time graphe details_mode use_color =
+    start_time pmr_transfer graphe details_mode use_color =
   match Endpoint.build_routing_context graphe source_query dest_query with
   | Some (graph_for_search, source, destination) ->
       Weight.set_excluded_modes excluded_modes;
@@ -178,7 +183,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
                     ~destination
               end) );
           ]
-        else choose_weight poids coeffs
+        else choose_weight poids coeffs pmr_transfer
       in
       let details =
         affichage details_mode use_color start_time source destination
