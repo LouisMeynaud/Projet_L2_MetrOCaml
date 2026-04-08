@@ -44,6 +44,18 @@ let () =
     | "Ile-de-France" -> "https://eu.ftp.opendatasoft.com/stif/GTFS/IDFM-gtfs.zip"
     | _ -> failwith "Ville inconnue"
   in
+  let (rt_url_retards, rt_url_alertes, rt_header) = 
+    match town with
+    | "Ile-de-France" -> 
+        ( "https://prim.iledefrance-mobilites.fr/marketplace/estimated-timetable", (* URL 1: Retards *)
+          "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2",       (* URL 2: Alertes *)
+          Some ("apikey", "xt1T5slHhtOGGTo61qd7jWT0kOTwRQKv") )
+    | _ -> ("", "", None) 
+  in
+  if rt_url_retards <> "" || rt_url_alertes <> "" then begin
+    Printf.printf "\n[Système] Démarrage du moteur Temps Réel en arrière-plan...\n%!";
+    Gtfs_rt.start_auto_refresh rt_url_retards rt_url_alertes rt_header;
+  end;
 
   let date_cible = 
     match loading_mode with
