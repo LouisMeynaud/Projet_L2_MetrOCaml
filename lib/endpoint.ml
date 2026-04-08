@@ -2,7 +2,13 @@ open Network
 open Lwt.Infix
 module Http_client = Cohttp_lwt_unix.Client
 
+(* Type représentant un point dans l'espace (station ou coordonnées géographiques) *)
 type endpoint = Station of Network.station | Geo of float * float
+
+
+(* ----- NOMINATIM ----- *)
+(* Fonctions auxiliaires pour récupérer les coordonnées d'une adresse via l'API Nominatim d'OpenStreetMap. *)
+(* cf. opam cookbook pour la doc Cohttp et lwt *)
 
 let json_number_to_float = function
   | `Float f -> Some f
@@ -23,7 +29,6 @@ let parse_nominatim_coordinates payload =
       | _ -> None)
   | _ -> None
 
-(* cf. opam cookbook pour la doc Cohttp et lwt *)
 let geocode_address_lwt address =
   let query = String.trim address in
   if query = "" then Lwt.return_none
@@ -62,10 +67,22 @@ let geocode_address_lwt address =
           (Printexc.to_string exn);
         Lwt.return_none)
 
+
+(** Géocode une adresse en utilisant l'API Nominatim
+  * @param address L'adresse à géocoder
+  * @return Un tuple contenant les coordonnées (latitude, longitude) ou None si non trouvées
+*)
 let geocode_address address =
   let query = String.trim address in
   if query = "" then None else Lwt_main.run (geocode_address_lwt query)
 
+(* --------------------- *)
+
+
+(** Parse les coordonnées GPS d'une chaîne de caractères
+  * @param input La chaîne de caractères contenant les coordonnées
+  * @return Un tuple contenant les coordonnées (latitude, longitude) ou None si non valides
+*)
 let parse_coordinates input =
   let cleaned =
     String.trim input |> String.map (fun c -> if c = ';' then ',' else c)
@@ -91,6 +108,12 @@ let parse_coordinates input =
       |> List.filter (fun s -> String.trim s <> "")
       |> parse_parts
 
+
+(** Résout un endpoint en fonction de la requête (id, nom, coordonnées ou adresse)
+  * @param graphe Le graphe de transport
+  * @param query La requête à résoudre
+  * @return L'endpoint résolu ou None si non trouvé
+*)
 let resolve_endpoint graphe query =
   let q = String.trim query in
   if q = "" then None
@@ -103,12 +126,18 @@ let resolve_endpoint graphe query =
         | None -> (
             match parse_coordinates q with
             | Some (lat, lon) -> Some (Geo (lat, lon))
-            | None ->
-                geocode_address q
-                |> Option.map (fun (lat, lon) -> Geo (lat, lon))))
+            | None -> (
+              match geocode_address q with
+              | Some (lat, lon) -> Some (Geo (lat, lon))
+              | None -> None)))
 
-let walk_speed_m_per_s = 1.4
+let walk_speed_m_per_s = 1.0
 
+(** Crée une connexion de liaison à pied entre deux stations
+  * @param to_station La station de destination
+  * @param distance La distance entre les stations
+  * @return La connexion à pied
+*)
 let make_walk_connection ~to_station ~distance =
   {
     Network.line = { name = "Marche"; color = "AAAAAA" };
@@ -120,15 +149,22 @@ let make_walk_connection ~to_station ~distance =
     Network.terminus = to_station;
   }
 
-let add_virtual_station_with_walk_edges graph (stations : Network.station list)
-    ~id ~name ~lat ~lon ~walk_radius =
-  let virtual_station =
-    { Network.id; name; latitude = lat; longitude = lon; pmr = true }
+(** Ajoute une station "virtuelle" avec des liens à pied pour représenter le point de départ ou d'arrivée de la recherche courante
+  * @param graph Le graphe de transport
+  * @param id L'ID de la station à créer
+  * @param name Le nom de la station à créer
+  * @param lat La latitude de la station à créer
+  * @param lon La longitude de la station à créer
+  * @param walk_radius Le rayon de marche autour de la station à créer
+  * @return La station virtuelle créée et le nombre de stations proches (avec lequelles elle est désormais connectée)
+*)
+let add_virtual_station_with_walk_edges graph ~id ~name ~lat ~lon ~walk_radius =
+  let virtual_station = { Network.id; name; latitude = lat; longitude = lon; pmr = true }
   in
   TransportGraph.add_node graph virtual_station;
   let nearby_count = ref 0 in
   List.iter
-    (fun (station : Network.station) ->
+    (fun station ->
       let distance =
         Util.haversine_distance lat lon station.latitude station.longitude
       in
@@ -138,48 +174,48 @@ let add_virtual_station_with_walk_edges graph (stations : Network.station list)
           (make_walk_connection ~to_station:station ~distance);
         TransportGraph.add_edge graph station virtual_station
           (make_walk_connection ~to_station:virtual_station ~distance)))
-    stations;
+    (TransportGraph.nodes graph);
   (virtual_station, !nearby_count)
 
 let walk_radius = 1000.0
 
+(** Construit le contexte de routage de la recherche courante à partir des requêtes de départ et d'arrivée
+  * Lors d'une recherche, on construit des stations "virtuelles" pour représenter le point de départ et d'arrivée,
+  * avec des connexions à pied vers les stations réelles proches pour les relier au graphe.
+  * @param graph Le graphe de transport
+  * @param source_query La requête de départ
+  * @param dest_query La requête d'arrivée
+  * @return Le contexte de routage ou None si requêtes invalides ou inaccessibles
+*)
 let build_routing_context graph source_query dest_query =
-  match
-    (resolve_endpoint graph source_query, resolve_endpoint graph dest_query)
-  with
+  match (resolve_endpoint graph source_query, resolve_endpoint graph dest_query) with
   | Some source_ep, Some dest_ep ->
       let routing_graph = Util.clone_graph graph in
-      let base_stations = Network.TransportGraph.nodes graph in
       let source, source_links =
         match source_ep with
         | Station station ->
-            add_virtual_station_with_walk_edges routing_graph base_stations
+            add_virtual_station_with_walk_edges routing_graph
               ~id:"__source__"
               ~name:("Départ: " ^ station.name)
               ~lat:station.latitude ~lon:station.longitude ~walk_radius
         | Geo (lat, lon) ->
-            add_virtual_station_with_walk_edges routing_graph base_stations
+            add_virtual_station_with_walk_edges routing_graph
               ~id:"__source__" ~name:"Point de départ" ~lat ~lon ~walk_radius
       in
       let dest, dest_links =
         match dest_ep with
         | Station station ->
-            add_virtual_station_with_walk_edges routing_graph base_stations
+            add_virtual_station_with_walk_edges routing_graph
               ~id:"__destination__"
               ~name:("Arrivée: " ^ station.name)
               ~lat:station.latitude ~lon:station.longitude ~walk_radius
         | Geo (lat, lon) ->
-            add_virtual_station_with_walk_edges routing_graph base_stations
-              ~id:"__destination__" ~name:"Point d'arrivée" ~lat ~lon
-              ~walk_radius
+            add_virtual_station_with_walk_edges routing_graph
+              ~id:"__destination__" ~name:"Point d'arrivée" ~lat ~lon ~walk_radius
       in
       if source_links = 0 then
-        Printf.printf
-          "Aucune station trouvée à moins de %.0fm du point de départ.\n%!"
-          walk_radius;
+        Printf.printf "Aucune station trouvée à moins de %.0fm du point de départ.\n%!" walk_radius;
       if dest_links = 0 then
-        Printf.printf
-          "Aucune station trouvée à moins de %.0fm du point d'arrivée.\n%!"
-          walk_radius;
+        Printf.printf "Aucune station trouvée à moins de %.0fm du point d'arrivée.\n%!" walk_radius;
       Some (routing_graph, source, dest)
   | _ -> None
