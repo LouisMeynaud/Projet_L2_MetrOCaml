@@ -27,12 +27,12 @@ let () =
 
   let loading_mode = Cli.Console.raw_select "\nChoisissez le mode de chargement : " [ "En ligne"; "Local"] in
   let town = match loading_mode with
-    | "En ligne" -> Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"]
+    | "En ligne" -> Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"]
     | "Local" -> 
       Cli.Console.raw_select "Choisissez la ville : "
       (List.filter(fun ville -> try (Unix.stat ("data/" ^ ville )).Unix.st_kind = Unix.S_DIR (*Vérifie si le dossier existe et si c'est bien un dossier (S_DIR)*)
                                 with _ -> false (*Plutôt que de planter on retourne false.*))
-      [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"])
+      [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"])
     | _ -> failwith "Mode de chargement inconnu"
   in
 
@@ -42,6 +42,8 @@ let () =
     | "Montpellier" -> "https://data.montpellier3m.fr/sites/default/files/ressources/TAM_MMM_GTFS.zip"
     | "Marseille" -> "https://www.data.gouv.fr/api/1/datasets/r/ab931edc-0bc1-4c66-960a-dc546b46df03"
     | "Ile-de-France" -> "https://eu.ftp.opendatasoft.com/stif/GTFS/IDFM-gtfs.zip"
+    | "SNCF" -> "https://www.data.gouv.fr/api/1/datasets/r/9ae758ec-cd7a-40cd-a890-bb3963224942"
+    | "Corsica" -> "https://www.data.gouv.fr/api/1/datasets/r/b95d6838-1143-4653-840f-eebc33c16fa7"
     | _ -> failwith "Ville inconnue"
   in
 
@@ -68,9 +70,10 @@ let () =
     in
     flush stdout;
     
-    let search_callback source_query dest_query algo poids coeffs start_time details_mode =
+    let search_callback source_query dest_query algo poids coeffs excluded_modes start_time details_mode =
       match Endpoint.build_routing_context graphe source_query dest_query with
       | Some (graph_for_search, source, destination) ->
+          Weight.set_excluded_modes excluded_modes;
           let routeurs : (string * (module ALGO)) list =
             if algo = "BFS" then
               [("BFS", (module struct
@@ -123,11 +126,9 @@ let () =
                   (fun s -> s.name)
                   (fun (c : Network.connection) -> c.line.name)
                   Routeur.P.Weight.to_string
-                  Routeur.P.Weight.get_time
                   (fun (c : Network.connection) -> c.line.color)
                   (fun (c : Network.connection) -> c.duration)
                   (fun (c : Network.connection) -> c.distance)
-                  start_time
                   details_mode
                   p;
                 flush stdout;
@@ -170,15 +171,15 @@ let () =
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
-        let cli_callback src dest algo poids coeffs =
-          search_callback src dest algo poids coeffs (8 * 3600) false
+        let cli_callback src dest algo poids coeffs excluded_modes start_time =
+          search_callback src dest algo poids coeffs excluded_modes start_time false
         in
         Cli.Console.run_console graphe cli_callback
 
     | _ ->
         Printf.printf "Lancement de l'interface graphique...\n%!";
-        let gui_callback src dest algo poids coeffs start_time =
-          search_callback src dest algo poids coeffs start_time false
+        let gui_callback src dest algo poids coeffs excluded_modes start_time =
+          search_callback src dest algo poids coeffs excluded_modes start_time false
         in
         Gui.Transport_view.affiche graphe gui_callback;
 
