@@ -36,7 +36,7 @@ type station = {
 type connection = {
   line : line;
   duration : int;
-  schedules : int list;
+  schedules : (string*int) list;
   distance : float;
   mode : transport_mode;
   terminus : station;
