@@ -298,7 +298,8 @@ let test_cw_transfer_penalty () =
       duration = 60;
       distance = 100.;
       mode = Metro;
-      schedules = [ ("x", 0); ("y", 60); ("z", 120); ("w", 180); ("v", 240); ("u", 300) ];
+      schedules =
+        [ ("x", 0); ("y", 60); ("z", 120); ("w", 180); ("v", 240); ("u", 300) ];
       terminus = dummy_station;
     }
   in
