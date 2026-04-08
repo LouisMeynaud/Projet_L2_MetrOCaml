@@ -7,7 +7,16 @@ let today_yyyymmdd () =
   Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 
 
-let choose_city () = let town = Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica" ] in
+let choose_city loading_mode = 
+    let town = match loading_mode with
+    | "En ligne" -> Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"]
+    | "Local" -> 
+      Cli.Console.raw_select "Choisissez la ville : "
+      (List.filter(fun ville -> try (Unix.stat ("data/" ^ ville )).Unix.st_kind = Unix.S_DIR (*Vérifie si le dossier existe et si c'est bien un dossier (S_DIR)*)
+                                with _ -> false (*Plutôt que de planter on retourne false.*))
+      [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"])
+    | _ -> failwith "Mode de chargement inconnu"
+  in
   let url =
     match town with
     | "Toulouse" -> "https://www.data.gouv.fr/api/1/datasets/r/64318177-f5b5-4144-a6be-2d0f22d26c77"
@@ -33,7 +42,7 @@ let date_choose loading_mode = let date_cible =
   (date_cible)
 
 
-let affichage_interface graphe =
+  let affichage_interface graphe =
     Printf.printf "Choisissez l'interface à lancer :\n%!";
     Printf.printf "  1 - Interface Graphique (GUI)\n%!";
     Printf.printf "  2 - Interface Ligne de Commande (CLI)\n%!";
@@ -53,8 +62,8 @@ let affichage_interface graphe =
 
 
 let () =
-  let (town, url) = choose_city () in
   let loading_mode = choose_load_mode () in
+  let (town, url) = choose_city loading_mode in
   let date_cible = date_choose loading_mode in
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
   Printf.printf "\nGraphe chargé avec succès !\n%!";

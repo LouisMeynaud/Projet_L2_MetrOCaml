@@ -27,7 +27,9 @@ module type ALGO = sig
     graph:Network.TransportGraph.t ->
     source:Network.station ->
     destination:Network.station ->
+    transfer_allowed:(Network.station -> bool) ->
     P.t option
+
 end
 
 (* Fonction pour charger les données GTFS *)
@@ -66,22 +68,8 @@ let choose_weight poids coeffs pmr_transfer =
         (fun (preset : Presets.preset) ->
           let module W = (val Presets.to_weight preset) in
           let module D = Dijkstra.Make (Network.TransportGraph) (W) in
-          D.set_pmr_transfer ~pmr_transfer
-          ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
           (preset.name, (module D : ALGO)))
         Presets.all
-  | "Distance" -> [ ("Distance", (module DIJKSTRA_DistanceWeight)) ]
-  | "Arrets" -> [ ("Arrêts", (module DIJKSTRA_HopWeight)) ]
-  | "Temps" -> [ ("Temps", (module DIJKSTRA_TimeWeight)) ]
-  | "Correspondances" ->
-      [ ("Correspondances", (module DIJKSTRA_CorrespondenceWeight)) ]
-  | "Rapide" | "Confort" | "Court chemin" | "Equilibre" | "Explorateur" -> (
-      match Presets.find_by_name poids with
-      | Some preset ->
-          let module W = (val Presets.to_weight preset) in
-          let module D = Dijkstra.Make (Network.TransportGraph) (W) in
-          [ (poids, (module D : ALGO)) ]
-      | None -> [ ("Temps", (module DIJKSTRA_TimeWeight)) ])
   | "Combinaison" ->
       (* Création dynamique du module CombinedWeight avec les coefficients récupérés des Sliders *)
       let ct, cd, ca, cc =
@@ -111,15 +99,12 @@ let choose_weight poids coeffs pmr_transfer =
       in
       let module DIJKSTRA_CombinedWeight =
         Dijkstra.Make (Network.TransportGraph) (CombinedWeight) in
-        DIJKSTRA_CombinedWeight.set_pmr_transfer ~pmr_transfer
-                       ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
       [ ("Combinaison", (module DIJKSTRA_CombinedWeight)) ]
-  | _ ->  DIJKSTRA_TimeWeight.set_pmr_transfer ~pmr_transfer
-            ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
+  | _ -> 
           [ ("Temps", (module DIJKSTRA_TimeWeight)) ]
 
 let affichage details_mode use_color start_time source destination
-    graph_for_search routeurs =
+    graph_for_search routeurs pmr_transfer =
   (* Accumulation fonctionnelle des détails d'affichage *)
   let results =
     List.fold_left
@@ -128,7 +113,7 @@ let affichage details_mode use_color start_time source destination
         let open Routeur.P in
         match
           Routeur.find_path ~start_time ~graph:graph_for_search ~source
-            ~destination
+            ~destination ~transfer_allowed:(if pmr_transfer then Util.is_pmr else fun _ -> true)
         with
         | Some p ->
             let details =
@@ -178,7 +163,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
               (module struct
                 module P = BFS_HopWeight.P
 
-                let find_path ~start_time ~graph ~source ~destination =
+                let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
                   BFS_HopWeight.find_path ~start_time ~graph ~source
                     ~destination
               end) );
@@ -187,7 +172,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
       in
       let details =
         affichage details_mode use_color start_time source destination
-          graph_for_search routeurs
+          graph_for_search routeurs pmr_transfer
       in
       details
   | None ->

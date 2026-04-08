@@ -463,6 +463,7 @@ module Dijkstra_Tests = struct
     TestGraph.add_edge g "A" "B" (conn 60);
     match
       Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"B"
+        ~transfer_allowed:(fun _ -> true)
     with
     | Some path ->
         Alcotest.(check int)
@@ -476,6 +477,7 @@ module Dijkstra_Tests = struct
     TestGraph.add_edge g "B" "C" (conn 10);
     match
       Dijkstra.find_path ~start_time:0 ~graph:g ~source:"A" ~destination:"C"
+        ~transfer_allowed:(fun _ -> true)
     with
     | None -> Alcotest.fail "Chemin A->C introuvable"
     | Some path ->
