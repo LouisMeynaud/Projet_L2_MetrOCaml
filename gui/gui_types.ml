@@ -104,3 +104,4 @@ let resultats_height = 200 (* Hauteur de la zone d'affichage des resultats de re
 let resultats_row_min_width = 150 (* Largeur minimale d'une ligne de resultats de recherche. *)
 let resultats_row_width_margin = 26 (* Marge retiree pour calculer la largeur des lignes de resultats de recherche. *)
 let resultats_row_height = 30 (* Hauteur d'une ligne de resultats de recherche. *)
+let color_others = (125, 125, 125) (* Couleur des autres lignes du graphe gris *)
