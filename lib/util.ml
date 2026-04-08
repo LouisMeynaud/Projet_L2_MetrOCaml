@@ -1,18 +1,16 @@
 open Network
 
 (** Recherche une station par son ID
-  * @param graphe Le graphe de transport
-  * @param id L'ID de la station
-  * @return La station correspondante, ou None si non trouvée
-  *)
+    @param graphe Le graphe de transport
+    @param id L'ID de la station
+    @return La station correspondante, ou None si non trouvée *)
 let find_station graphe id =
   List.find_opt (fun (s : station) -> s.id = id) (TransportGraph.nodes graphe)
 
 (** Recherche une station par son nom
-  * @param graphe Le graphe de transport
-  * @param name Le nom de la station
-  * @return La station correspondante, ou None si non trouvée
-  *)
+    @param graphe Le graphe de transport
+    @param name Le nom de la station
+    @return La station correspondante, ou None si non trouvée *)
 let find_station_by_name graphe name =
   List.find_opt
     (fun (s : station) ->
@@ -21,9 +19,8 @@ let find_station_by_name graphe name =
     (TransportGraph.nodes graphe)
 
 (** Clone un graphe de transport 
-  * @param graph Le graphe à cloner
-  * @return Un nouveau graphe identique au graphe d'origine, mais indépendant.
-*)
+    @param graph Le graphe à cloner
+    @return Un nouveau graphe identique au graphe d'origine, mais indépendant *)
 let clone_graph graph =
   let clone = TransportGraph.create () in
   let nodes = TransportGraph.nodes graph in
@@ -39,12 +36,11 @@ let clone_graph graph =
 let to_radians deg = deg *. (4.0 *. atan 1.0) /. 180.0
 
 (** Calcule la distance entre deux couples de coordonnées en utilisant la formule de Haversine
-  * @param lat1 Latitude du point 1
-  * @param lon1 Longitude du point 1
-  * @param lat2 Latitude du point 2
-  * @param lon2 Longitude du point 2
-  * @return La distance en mètres entre les deux points
-*)
+    @param lat1 Latitude du point 1
+    @param lon1 Longitude du point 1
+    @param lat2 Latitude du point 2
+    @param lon2 Longitude du point 2
+    @return La distance en mètres entre les deux points *)
 let haversine_distance lat1 lon1 lat2 lon2 =
   let r = 6371000.0 in
   let phi1 = to_radians lat1 in
@@ -59,4 +55,4 @@ let haversine_distance lat1 lon1 lat2 lon2 =
   r *. c
 
 (** Vérifie si une station est accessible aux personnes à mobilité réduite *)
-let is_pmr (s : station) = s.pmr
+  let is_pmr (s : station) = s.pmr
