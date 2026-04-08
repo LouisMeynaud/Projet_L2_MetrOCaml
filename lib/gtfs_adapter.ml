@@ -1,6 +1,16 @@
 open Network
 
-(* --- 1. Utilitaires --- *)
+(* ================================================== *)
+(* 1. UTILITAIRES                                     *)
+(* ================================================== *)
+
+(** [normalize_name s] nettoie une chaîne de caractères en la passant en minuscules 
+    et en conservant uniquement les lettres et les chiffres.
+    Essentiel pour faire correspondre des noms de stations saisis par l'utilisateur 
+    avec ceux du GTFS, en ignorant la casse, les espaces et les tirets.
+    
+    @param s La chaîne de caractères brute.
+    @return La chaîne normalisée (ex: "Châtelet - Les Halles" -> "chteletleshalles"). *)
 let normalize_name s =
   let s = String.lowercase_ascii s in
   let buffer = Buffer.create (String.length s) in
@@ -10,6 +20,12 @@ let normalize_name s =
     | _ -> ()
   ) s;
   Buffer.contents buffer
+(** [time_to_seconds time_str] convertit une heure GTFS au format "HH:MM:SS" 
+    en un nombre total de secondes écoulées depuis minuit.
+    NB: Le standard GTFS autorise des heures > 24h.
+    
+    @param time_str L'heure sous forme de texte.
+    @return L'équivalent en secondes (entier). Renvoie 0 en cas d'erreur de format. *)
 let time_to_seconds time_str =
   try
     let clean_str = String.trim time_str in
@@ -22,12 +38,19 @@ let time_to_seconds time_str =
     | _ -> 0
   with _ -> 0
 
+(** [clean_header_col s] nettoie le nom d'une colonne CSV.
+    Permet de retirer les espaces et les  caractères invisibles (\xEF\xBB\xBF) *)
 let clean_header_col s =
   let s = String.trim s in
   if String.length s >= 3 && String.sub s 0 3 = "\xEF\xBB\xBF" then
     String.trim (String.sub s 3 (String.length s - 3))
   else s
 
+(** [get_index header field] trouve l'indice d'une colonne [field] dans la ligne d'en-tête [header].
+    
+    @param header La liste des noms de colonnes.
+    @param field Le nom exact de la colonne recherchée.
+    @raise Failure si la colonne est introuvable (utilisé pour les champs GTFS obligatoires). *)
 let get_index header field =
   let field = String.trim field in
   match
@@ -36,10 +59,19 @@ let get_index header field =
   | Some i -> i
   | None -> failwith ("Colonne OBLIGATOIRE manquante : " ^ field)
 
+
+(** [get_index_opt header field] trouve l'indice d'une colonne optionnelle [field] dans [header].
+    
+    @return [Some index] si la colonne existe, [None] sinon. *)
 let get_index_opt header field =
   let field = String.trim field in
   List.find_index (fun h -> String.trim (clean_header_col h) = field) header
 
+(** [day_of_week date_str] calcule le jour de la semaine à partir d'une date "YYYYMMDD".
+    Utilise  la congruence de Zeller.
+    
+    @param date_str La date au format texte.
+    @return Un entier représentant le jour (0 = dimanche, 1 = lundi, ..., 6 = samedi). *)
 let day_of_week date_str =
   try
     let year = int_of_string (String.sub date_str 0 4) in
@@ -56,6 +88,11 @@ let day_of_week date_str =
     sum mod 7
   with _ -> 0
 
+(** [next_day_str yyyymmdd] calcule la date du lendemain pour anticiper les trajets nocturnes.
+    Prend en charge les changements de mois, d'années, et les années bissextiles.
+    
+    @param yyyymmdd La date actuelle au format "YYYYMMDD".
+    @return La date du lendemain au même format. *)
 let next_day_str yyyymmdd =
   try
     let y = int_of_string (String.sub yyyymmdd 0 4) in
@@ -75,18 +112,20 @@ let next_day_str yyyymmdd =
     else Printf.sprintf "%04d0101" (y + 1)
   with _ -> yyyymmdd
 
-(** Convertit des degrés en radians *)
+(** [to_radians deg] convertit des degrés décimaux en radians pour les calculs géospatiaux. *)
 let to_radians deg = deg *. (4.0 *. atan 1.0) /. 180.0
 
-(** Calcule la distance en mètres entre deux coordonnées GPS (Formule de
-    Haversine) *)
+(** [haversine_distance lat1 lon1 lat2 lon2] calcule la distance physique réelle 
+    (à vol d'oiseau) entre deux points GPS sur la surface de la Terre.
+    
+    @return La distance en mètres (float). Utilisée pour évaluer les correspondances à pied 
+            ou le poids kilométrique d'une arête du graphe. *)
 let haversine_distance lat1 lon1 lat2 lon2 =
   let r = 6371000.0 in
   let phi1 = to_radians lat1 in
   let phi2 = to_radians lat2 in
   let delta_phi = to_radians (lat2 -. lat1) in
   let delta_lambda = to_radians (lon2 -. lon1) in
-
   let a =
     (sin (delta_phi /. 2.0) ** 2.0)
     +. (cos phi1 *. cos phi2 *. (sin (delta_lambda /. 2.0) ** 2.0))
@@ -94,12 +133,22 @@ let haversine_distance lat1 lon1 lat2 lon2 =
   let c = 2.0 *. atan2 (sqrt a) (sqrt (1.0 -. a)) in
   r *. c
 
-(* --- 2. Chargement --- *)
+(* ================================================== *)
+(* 2. CHARGEMENT DU GRAPHE            *)
+(* ================================================== *)
+
+(** [load_network_gtfs directory target_date] est le moteur de construction principal du graphe.
+    Il parcourt tous les fichiers normés GTFS d'un répertoire pour extraire le réseau 
+    de transport valable à une date précise (et sur les 48h suivantes pour gérer les vo-yages nécessitant plusieurs jours).
+      
+    @param directory Le chemin du dossier contenant les fichiers .txt du GTFS.
+    @param target_date La date ciblée au format "YYYYMMDD".
+    @return Un [Network.TransportGraph.t].*)
 let load_network_gtfs directory target_date =
   Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
-  let valid_services = Hashtbl.create 1000 in
+  let valid_services = Hashtbl.create 50000 in
   let date_0 = target_date in
   let date_1 = next_day_str date_0 in
   let date_2 = next_day_str date_1 in
@@ -195,7 +244,7 @@ let load_network_gtfs directory target_date =
   end;
 
   (* B. Routes *)
-  let route_info = Hashtbl.create 1000 in
+  let route_info = Hashtbl.create 50000 in
   let r_csv = Csv.load (Filename.concat directory "routes.txt") in
   let r_header = List.hd r_csv in
   let i_rid = get_index r_header "route_id" in
@@ -231,7 +280,7 @@ let load_network_gtfs directory target_date =
     (List.tl r_csv);
 
   (* C. Trips *)
-  let valid_trips = Hashtbl.create 5000 in
+  let valid_trips = Hashtbl.create 200000 in
   let trip_to_block = Hashtbl.create 5000 in
   let t_path = Filename.concat directory "trips.txt" in
   if Sys.file_exists t_path then begin
@@ -270,9 +319,9 @@ let load_network_gtfs directory target_date =
   end;
 
   (* D. Stops *)
-  let stop_to_area = Hashtbl.create 5000 in
-  let area_nodes = Hashtbl.create 1000 in
-  let name_to_station = Hashtbl.create 1000 in
+  let stop_to_area = Hashtbl.create 15000 in
+  let area_nodes = Hashtbl.create 20000 in
+  let name_to_station = Hashtbl.create 20000 in
   let s_path = Filename.concat directory "stops.txt" in
   if Sys.file_exists s_path then begin
     let s_ic = open_in s_path in
@@ -283,6 +332,7 @@ let load_network_gtfs directory target_date =
     let i_lat = get_index s_header "stop_lat" in
     let i_lon = get_index s_header "stop_lon" in
     let i_parent_opt = get_index_opt s_header "parent_station" in
+    let i_wheelchair_opt = get_index_opt s_header "wheelchair_boarding" in
 
     Csv.iter
       ~f:(fun row ->
@@ -297,13 +347,18 @@ let load_network_gtfs directory target_date =
           in
           Hashtbl.replace stop_to_area raw_id parent_id;
           let station_name = List.nth row i_sname in
+          let is_pmr =
+            match i_wheelchair_opt with
+            | Some idx -> (try String.trim (List.nth row idx) = "1" with _ -> false)
+            | None -> false
+          in
           let station =
             {
               Network.id = parent_id;
               name = List.nth row i_sname;
               latitude = float_of_string (List.nth row i_lat);
               longitude = float_of_string (List.nth row i_lon);
-              pmr = false;
+              pmr = is_pmr;
             }
           in
           let norm_name = normalize_name station_name in
@@ -314,6 +369,10 @@ let load_network_gtfs directory target_date =
             Hashtbl.replace area_nodes parent_id station
           else if not (Hashtbl.mem area_nodes parent_id) then
             Hashtbl.add area_nodes parent_id station
+          else if is_pmr then begin
+            let existing_parent = Hashtbl.find area_nodes parent_id in
+            Hashtbl.replace area_nodes parent_id { existing_parent with pmr = true }
+          end
         with _ -> ())
       s_csv;
     close_in s_ic
@@ -413,16 +472,16 @@ end;
                     with Not_found -> [ 0 ]
                   in
                   match Hashtbl.find_opt edges_acc key with
-                  | Some (_, _, _, _, _, schedules_ref, dist_ref,_) ->
+                  | Some (_, _, _, _, _, schedules_ref, dist_ref, _) ->
                       List.iter
                         (fun offset ->
-                          schedules_ref := (prev_dep + offset) :: !schedules_ref)
+                          schedules_ref := (tid, prev_dep + offset) :: !schedules_ref)
                         active_offsets;
                       if !dist_ref = None then dist_ref := edge_gtfs_dist
                   | None ->
                       let initial_schedules =
                         List.map
-                          (fun offset -> prev_dep + offset)
+                          (fun offset -> (tid, prev_dep + offset))
                           active_offsets
                       in
                       Hashtbl.add edges_acc key
@@ -445,7 +504,7 @@ end;
   (* G. Construction finale des arêtes avec listes triées *)
   Hashtbl.iter
     (fun _ (f, t, line_obj, duration, m, schedules_ref, dist_ref, term_station) ->
-      let sorted_schedules = List.sort compare !schedules_ref in
+      let sorted_schedules = List.sort (fun (_, temps1) (_, temps2) -> compare temps1 temps2) !schedules_ref in
       let dist_meters =
         match !dist_ref with
         | Some d -> d
@@ -512,8 +571,21 @@ end;
   end; 
   graph
 
+(* ================================================== *)
+(* 3. TÉLÉCHARGEMENT ET SYNCHRONISATION               *)
+(* ================================================== *)
+
+(** Exception levée lorsque l'URL cible (pour le GTFS) est injoignable, 
+    incorrecte, ou renvoie une erreur (ex: Erreur404). *)
 exception Invalid_GTFS_URL of string
 
+(** [download_and_extract_gtfs url dest_dir] télécharge un flux GTFS distant 
+    compressé (.zip) et l'extrait localement. 
+    Utilisable sur MacOs,Windows et Linux.
+    
+    @param url L'URL de téléchargement direct du fichier ZIP.
+    @param dest_dir Le répertoire cible où seront extraits les fichiers CSV.
+    @raise Invalid_GTFS_URL si le téléchargement échoue. *)
 let download_and_extract_gtfs url dest_dir =
   Printf.printf "\n=== Récupération du GTFS ===\n";
   Printf.printf "URL : %s\n" url;
@@ -567,6 +639,14 @@ let download_and_extract_gtfs url dest_dir =
 
   Printf.printf "Données prêtes dans le dossier : %s\n\n" dest_dir
 
+(** [load_network_from_url url target_date] est la fonction principale.
+    Elle crée un dossier temporaire sur la machine, y télécharge et extrait les données via 
+    [download_and_extract_gtfs], compile le graphe en mémoire avec [load_network_gtfs], 
+    puis efface intelligemment les fichiers temporaires de l'ordinateur de l'utilisateur.
+    
+    @param url L'URL pointant vers le ZIP du GTFS.
+    @param target_date La date de référence pour le calendrier.
+    @return Le [TransportGraph] fini, stocké uniquement en RAM. *)
 let load_network_from_url url target_date =
   let temp_base = Filename.get_temp_dir_name () in
   let temp_dir = Filename.concat temp_base "metrocaml_gtfs" in
@@ -589,4 +669,4 @@ let load_network_from_url url target_date =
   | e ->
       Printf.printf "\n[ERREUR] Un problème inattendu est survenu : %s\n"
         (Printexc.to_string e);
-      raise e
+      raise e;
