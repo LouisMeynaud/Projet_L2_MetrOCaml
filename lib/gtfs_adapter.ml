@@ -364,15 +364,21 @@ let load_network_gtfs directory target_date =
           let norm_name = normalize_name station_name in
           if not (Hashtbl.mem name_to_station norm_name) then
             Hashtbl.add name_to_station norm_name station;
-
-          if raw_id = parent_id then
-            Hashtbl.replace area_nodes parent_id station
-          else if not (Hashtbl.mem area_nodes parent_id) then
-            Hashtbl.add area_nodes parent_id station
-          else if is_pmr then begin
-            let existing_parent = Hashtbl.find area_nodes parent_id in
-            Hashtbl.replace area_nodes parent_id { existing_parent with pmr = true }
-          end
+            if raw_id = parent_id then begin
+              let final_pmr = 
+                match Hashtbl.find_opt area_nodes parent_id with
+                | Some existing_node -> existing_node.pmr || is_pmr
+                | None -> is_pmr
+              in
+              Hashtbl.replace area_nodes parent_id { station with pmr = final_pmr }
+            end
+            else if not (Hashtbl.mem area_nodes parent_id) then begin
+              Hashtbl.add area_nodes parent_id station
+            end
+            else if is_pmr then begin
+              let existing_parent = Hashtbl.find area_nodes parent_id in
+              Hashtbl.replace area_nodes parent_id { existing_parent with pmr = true }
+            end
         with _ -> ())
       s_csv;
     close_in s_ic
