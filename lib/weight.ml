@@ -82,7 +82,8 @@ let eval_edge current_time current_line_name (edge : connection) =
     let next_dep =
       List.fold_left
         (fun best t -> if t >= ready_time && t < best then t else best)
-        max_int edge.schedules
+        max_int
+        (List.map snd edge.schedules)
     in
 
     if next_dep = max_int then None

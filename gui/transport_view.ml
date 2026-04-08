@@ -69,7 +69,7 @@ let extraire_horaires graph =
               station_id = source.id;
               station_name = source.name;
               direction = conn.terminus.name;
-              times = conn.schedules;
+              times = (List.map snd conn.schedules);
             })
           voisins)
       stations in
