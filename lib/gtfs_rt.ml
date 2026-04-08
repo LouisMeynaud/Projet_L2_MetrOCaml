@@ -44,11 +44,12 @@ let nettoyer_id s =
 (* ================================================== *)
 (* 2. TÉLÉCHARGEMENT                                  *)
 (* ================================================== *)
-let fetch_and_save_disruptions filename =
+let fetch_and_save_disruptions =
+  let filename = "data/rt/alertes.json" in
   let uri = Uri.of_string "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2" in
   let headers = Header.add_list (Header.init ()) [
     ("User-Agent", "insomnia/12.4.0");
-    ("apiKey", "GBsIolemaspJPcsW7HbwQTp4RaiaBTQk");
+    ("apiKey", "PUT UR API KEY HERE");
   ] in
 
   Client.call ~headers `GET uri
@@ -73,7 +74,7 @@ let fetch_and_save_disruptions filename =
 
 (* 2. La fonction  à appeler dans ton code principal *)
 let actualiser_fichier_alertes () =
-  Lwt_main.run (fetch_and_save_disruptions "data/rt/alertes.json")
+  Lwt_main.run (fetch_and_save_disruptions)
 
 (* ================================================== *)
 (* 3. LECTURE ET PARSING DU JSON                      *)
@@ -133,6 +134,8 @@ let charger_alertes_en_memoire () =
     with _ -> Printf.printf "[Erreur] Impossible de parser le fichier %s.\n%!" filename
   end else
     Printf.printf "[Avertissement] Le fichier %s n'existe pas encore.\n%!" filename
+
+
     let start_auto_refresh () =
       let rec loop () =
         actualiser_fichier_alertes ();
