@@ -57,18 +57,11 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
       | Node (w, n, s, l) -> Some (w, n, s, merge_pairs l)
   end
 
-  (*restriction pmr false par defaut , et fonction renvoir true par defaut *)
-  let pmr_transfer = ref false
-  let station_is_pmr = ref (fun _ -> true)
-  (* on active les restriction pmr si voulu , et on donne la fonction de vérification*)
-  let set_pmr_transfer ~pmr_transfer:enabled ~station_is_pmr:is_pmr =
-    pmr_transfer := enabled;
-    station_is_pmr := is_pmr
-
   (** Trouve le chemin optimal de la [source] à la [destination].
       @param start_time L'heure de départ (sert de poids initial).
-      @param graph Le graphe pré-construit du réseau. *)
-  let find_path ~start_time ~graph ~source ~destination =
+      @param graph Le graphe pré-construit du réseau.
+      @param transfer_allowed Fonction de vérification des transferts. *)
+  let find_path ~start_time ~(graph: G.t) ~(source: G.Node.t) ~(destination: G.Node.t) ~(transfer_allowed: G.Node.t -> bool) =
     if not (G.has_node graph source) then None
     else if not (G.has_node graph destination) then None
     else
@@ -128,8 +121,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                         let _, current_state_key = u_state in
                         let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in (*detecte si on a changer de ligne ou pas*)
                         let is_transfer = is_line_change && not (G.Node.equal u source) in (*on considère que le changement de ligne à la station de départ n'est pas une correspondance*)
-                        let transfer_allowed = (not !pmr_transfer) || (not is_transfer) || (!station_is_pmr) u in
-                        if transfer_allowed then (
+                        if (not is_transfer) || transfer_allowed u then (
                           let v_state = (v, next_state_key) in
                           let old_dist =
                             Option.value ~default:W.infinity

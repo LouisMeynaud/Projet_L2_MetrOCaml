@@ -36,3 +36,5 @@ let haversine_distance lat1 lon1 lat2 lon2 =
   in
   let c = 2.0 *. atan2 (sqrt a) (sqrt (1.0 -. a)) in
   r *. c
+
+let is_pmr (s : station) = s.pmr

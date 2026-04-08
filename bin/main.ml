@@ -16,6 +16,7 @@ module type ALGO = sig
     graph:Network.TransportGraph.t ->
     source:Network.station ->
     destination:Network.station ->
+    transfer_allowed:(Network.station -> bool) ->
     P.t option
 end
 
@@ -78,7 +79,7 @@ let () =
             if algo = "BFS" then
               [("BFS", (module struct
                 module P = BFS_HopWeight.P
-                let find_path ~start_time ~graph ~source ~destination =
+                let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
                   BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
               end))]
             else
@@ -86,8 +87,6 @@ let () =
                 | "Default" -> List.map (fun (preset : Presets.preset) -> 
                     let module W = (val Presets.to_weight preset) in
                     let module D = Dijkstra.Make(Network.TransportGraph)(W) in
-                    D.set_pmr_transfer ~pmr_transfer
-                      ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
                     (preset.name, (module D : ALGO))
                   ) Presets.all
                 | "Combinaison"     -> 
@@ -103,12 +102,8 @@ let () =
                      ] in
                      let module CombinedWeight = (val Combinator.combine critere : Routing.WEIGHT with type edge = Network.connection) in
                      let module DIJKSTRA_CombinedWeight = Dijkstra.Make(Network.TransportGraph)(CombinedWeight) in
-                     DIJKSTRA_CombinedWeight.set_pmr_transfer ~pmr_transfer
-                       ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
                      [("Combinaison", (module DIJKSTRA_CombinedWeight))]
                 | _                 ->
-                    DIJKSTRA_TimeWeight.set_pmr_transfer ~pmr_transfer
-                      ~station_is_pmr:(fun (s : Network.station) -> s.pmr);
                     [("Temps", (module DIJKSTRA_TimeWeight))]
               in
 
@@ -116,7 +111,7 @@ let () =
           let details_afficheurs = List.fold_left (fun acc (nom_algo, (module Routeur : ALGO)) ->
             let module ShowPath = Show.Make (Routeur.P) in
             Printf.printf "\n=== Résultat avec %s ===\n%!" nom_algo;
-            match Routeur.find_path ~start_time ~graph:graph_for_search ~source ~destination with
+            match Routeur.find_path ~start_time ~graph:graph_for_search ~source ~destination ~transfer_allowed:(if pmr_transfer then Util.is_pmr else fun _ -> true) with
             | Some p ->
                 ShowPath.print_path
                   (fun s -> s.name)
