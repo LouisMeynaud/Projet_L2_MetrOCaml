@@ -6,17 +6,30 @@ open Yojson.Basic.Util
 (* ================================================== *)
 (* 0. TYPES ET ÉTAT GLOBAL                            *)
 (* ================================================== *)
+type periode = {
+  debut : int; 
+  fin : int;   
+}
+
+type severite = 
+|BLOQUANTE
+|PERTURBEE
+
+
 (** Structure représentant une perturbation (alerte) en cours sur le réseau.
     Contient les informations textuelles pour l'affichage dans l'interface, 
     ainsi que la liste des lignes touchées. *)
-type alerte = {
+    type alerte = {
   id : string;
   cause : string;
-  severite : string;
+  niveau_severite : severite;
   titre : string;
   message : string;
   lignes_impactees : string list;
+  stations_impactees : string list;
+  temps : periode list;
 }
+
 (** Référence globale stockant la liste des alertes actives.
     Agit comme la "Source de Vérité" dynamique en mémoire (RAM). 
     Elle est lue par l'interface graphique et mise à jour en tâche de fond par le thread. *)
@@ -58,6 +71,11 @@ let nettoyer_id s =
       )
     with _ -> 0
 
+  let string_to_severite s =
+    match s with
+    | "PERTURBEE" -> PERTURBEE
+    | "BLOQUANTE" -> BLOQUANTE
+    |_ -> PERTURBEE
 (* ================================================== *)
 (* 2. TÉLÉCHARGEMENT                                  *)
 (* ================================================== *)
@@ -130,6 +148,7 @@ let charger_alertes_en_memoire () =
           
           (* --- 2. Extraction des lignes impactées --- *)
           let lignes_touchees = ref [] in
+          let stations_touchees = ref [] in
           
           let sections = 
             try disruption |> member "impactedSections" |> to_list 
@@ -139,10 +158,31 @@ let charger_alertes_en_memoire () =
           List.iter (fun section ->
             try
               let raw_line = section |> member "lineId" |> to_string in
-              lignes_touchees := (nettoyer_id raw_line) :: !lignes_touchees
+              lignes_touchees := (nettoyer_id raw_line) :: !lignes_touchees;
+              let parse_stop node_name = 
+                try 
+                  let s_id = section |> member node_name |> member "id" |> to_string in
+                  stations_touchees := (nettoyer_id s_id) :: !stations_touchees
+                with _ -> ()
+              in
+              parse_stop "from";
+              parse_stop "to";
+              
             with _ -> ()
           ) sections;
-          
+
+          let periodes_actives = 
+            try 
+              let apps = disruption |> member "applicationPeriods" |> to_list in
+              List.fold_left (fun acc_p p ->
+                try
+                  let p_debut = p |> member "begin" |> to_string |> date_to_int in
+                  let p_fin = p |> member "end" |> to_string |> date_to_int in
+                  { debut = p_debut; fin = p_fin } :: acc_p
+                with _ -> acc_p
+              ) [] apps
+            with _ -> []
+          in
           (* On enlève les doublons si l'API liste l'aller et le retour *)
           let lignes_uniques = List.sort_uniq String.compare !lignes_touchees in
           
@@ -150,10 +190,12 @@ let charger_alertes_en_memoire () =
           let obj = {
             id = d_id;
             cause = d_cause;
-            severite = d_severity;
+            niveau_severite = (string_to_severite d_severity);
             titre = d_title;
             message = d_message;
             lignes_impactees = lignes_uniques;
+            stations_impactees = !stations_touchees;
+            temps= periodes_actives;
           } in
           
           obj :: acc
