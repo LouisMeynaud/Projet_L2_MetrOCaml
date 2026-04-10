@@ -2,19 +2,11 @@ open Metrocaml
 open Weight
 open Routing
 
-module DIJKSTRA_CorrespondenceWeight =
-  Dijkstra.Make (Network.TransportGraph) (Weight.CorrespondenceWeight)
-
-module DIJKSTRA_DistanceWeight =
-  Dijkstra.Make (Network.TransportGraph) (Weight.DistanceWeight)
-
-module DIJKSTRA_TimeWeight =
-  Dijkstra.Make (Network.TransportGraph) (Weight.TimeWeight)
-
-module DIJKSTRA_HopWeight =
-  Dijkstra.Make (Network.TransportGraph) (Weight.HopWeight)
-
-module BFS_HopWeight = Bfs.Make (Network.TransportGraph) (Weight.HopWeight)
+module DIJKSTRA_CorrespondenceWeight = Dijkstra.Make (Network.TransportGraph) (Weight.CorrespondenceWeight)
+module DIJKSTRA_DistanceWeight =       Dijkstra.Make (Network.TransportGraph) (Weight.DistanceWeight)
+module DIJKSTRA_TimeWeight =           Dijkstra.Make (Network.TransportGraph) (Weight.TimeWeight)
+module DIJKSTRA_HopWeight =            Dijkstra.Make (Network.TransportGraph) (Weight.HopWeight)
+module BFS_HopWeight =                 Bfs.Make (Network.TransportGraph) (Weight.HopWeight)
 
 module type ALGO = sig
   module P :
@@ -79,18 +71,10 @@ let choose_weight poids coeffs pmr_transfer =
       in
       let critere =
         [
-          Combinator.criterion
-            (module Weight.TimeWeight)
-            ~coefficient:ct ~label:"Temps";
-          Combinator.criterion
-            (module Weight.DistanceWeight)
-            ~coefficient:cd ~label:"Distance";
-          Combinator.criterion
-            (module Weight.HopWeight)
-            ~coefficient:ca ~label:"Arrêts";
-          Combinator.criterion
-            (module Weight.CorrespondenceWeight)
-            ~coefficient:cc ~label:"Correspondances";
+          Combinator.criterion (module Weight.TimeWeight) ~coefficient:ct ~label:"Temps";
+          Combinator.criterion (module Weight.DistanceWeight) ~coefficient:cd ~label:"Distance";
+          Combinator.criterion (module Weight.HopWeight) ~coefficient:ca ~label:"Arrêts";
+          Combinator.criterion (module Weight.CorrespondenceWeight) ~coefficient:cc ~label:"Correspondances";
         ]
       in
       let module CombinedWeight =
@@ -164,8 +148,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
                 module P = BFS_HopWeight.P
 
                 let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
-                  BFS_HopWeight.find_path ~start_time ~graph ~source
-                    ~destination
+                  BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
               end) );
           ]
         else choose_weight poids coeffs pmr_transfer
