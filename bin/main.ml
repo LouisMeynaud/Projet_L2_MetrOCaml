@@ -120,6 +120,7 @@ let () =
                   (fun (c : Network.connection) -> c.line.color)
                   (fun (c : Network.connection) -> c.duration)
                   (fun (c : Network.connection) -> c.distance)
+                  start_time
                   details_mode
                   p;
                 flush stdout;
@@ -133,6 +134,7 @@ let () =
                     (fun (c : Network.connection) -> c.line.color)
                     (fun (c : Network.connection) -> c.duration)
                     (fun (c : Network.connection) -> c.distance)
+                    start_time
                     p
                 in
                 (* Ajouter à l'accumulateur *)

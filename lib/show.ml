@@ -35,14 +35,13 @@ let simple_arrow node_name color =
 module Make (P : Routing.PATH) = struct
   let line_minutes_from_seconds secs = if secs <= 0 then 0 else max 1 (secs / 60)
 
-  let calcul_temps_distance edge_to_duration edge_to_distance steps =
+  let calcul_distance edge_to_distance steps =
     List.fold_left
-      (fun (t, d) (step : P.step) ->
-        (t + edge_to_duration step.edge, d +. edge_to_distance step.edge))
-      (0, 0.0) steps
+      (fun d (step : P.step) -> d +. edge_to_distance step.edge)
+      0.0 steps
 
   let print_path node_to_string edge_to_string weight_to_string edge_to_color
-      edge_to_duration edge_to_distance details (path : P.t) =
+      edge_to_duration edge_to_distance start_time details (path : P.t) =
     match path.steps with
     | [] -> Printf.printf "Chemin vide\n"
     | first_step :: _ ->
@@ -56,6 +55,8 @@ module Make (P : Routing.PATH) = struct
               final_color,
               final_stops,
               final_onboard_secs,
+              _,
+              onboard_total_secs,
               transferts,
               segments ) =
           List.fold_left
@@ -64,20 +65,28 @@ module Make (P : Routing.PATH) = struct
                    prev_color,
                    stops,
                    onboard_secs,
+                   prev_time,
+                   onboard_total_secs,
                    transferts,
                    acc ) (step : P.step) ->
               let current_line = edge_to_string step.edge in
               let color = edge_to_color step.edge in
               let step_to = node_to_string step.to_node in
               let duration = edge_to_duration step.edge in
+              let step_end_time = P.Weight.get_time step.weight in
+              let step_delta = max 0 (step_end_time - prev_time) in
+              let is_transit_line = not (String.equal current_line "Marche") in
 
               match prev_line with
               | None ->
+                  let add = if is_transit_line then duration else 0 in
                   ( Some current_line,
                     step_to,
                     color,
                     1,
                     duration,
+                    step_end_time,
+                    onboard_total_secs + add,
                     transferts,
                     acc )
               | Some prev_l when prev_l = current_line ->
@@ -86,11 +95,14 @@ module Make (P : Routing.PATH) = struct
                       simple_arrow (node_to_string step.from) color :: acc
                     else acc
                   in
+                  let add = if is_transit_line then step_delta else 0 in
                   ( Some current_line,
                     step_to,
                     color,
                     stops + 1,
-                    onboard_secs + duration,
+                    onboard_secs + step_delta,
+                    step_end_time,
+                    onboard_total_secs + add,
                     transferts,
                     new_acc )
               | Some prev_l ->
@@ -103,14 +115,17 @@ module Make (P : Routing.PATH) = struct
                   let transition =
                     arrow ^ node_to_string step.from ^ wait_str
                   in
+                  let add = if is_transit_line then duration else 0 in
                   ( Some current_line,
                     step_to,
                     color,
                     1,
                     duration,
+                    step_end_time,
+                    onboard_total_secs + add,
                     transferts + 1,
                     transition :: acc ))
-            (None, "", "", 0, 0, 0, [])
+            (None, "", "", 0, 0, start_time, 0, 0, [])
             path.steps
         in
 
@@ -121,8 +136,9 @@ module Make (P : Routing.PATH) = struct
             final_color
         in
 
-        let total_time, total_distance =
-          calcul_temps_distance edge_to_duration edge_to_distance path.steps
+        let total_distance = calcul_distance edge_to_distance path.steps in
+        let total_elapsed_time =
+          max 0 (P.Weight.get_time path.total_weight - start_time)
         in
 
         let route =
@@ -132,14 +148,19 @@ module Make (P : Routing.PATH) = struct
           (List.length path.steps) transferts;
         Printf.printf "%s\n" route;
         Printf.printf "Poids total : %s\n" (weight_to_string path.total_weight);
-        Printf.printf "Temps total passé dans les rames : %dh %dmin %ds\n"
-          (total_time / 3600)
-          (total_time / 60 mod 60)
-          (total_time mod 60);
+        Printf.printf "Temps total estimé (attentes incluses) : %dh %dmin %ds\n"
+          (total_elapsed_time / 3600)
+          (total_elapsed_time / 60 mod 60)
+          (total_elapsed_time mod 60);
+        Printf.printf
+          "Temps total passé dans les rames (arrêts intermédiaires inclus) : %dh %dmin %ds\n"
+          (onboard_total_secs / 3600)
+          (onboard_total_secs / 60 mod 60)
+          (onboard_total_secs mod 60);
         Printf.printf "Distance totale : %f km\n" (total_distance /. 1000.)
 
   let print_path_detail node_to_string edge_to_string weight_to_string
-      edge_to_color edge_to_duration edge_to_distance (path : P.t) =
+      edge_to_color edge_to_duration edge_to_distance start_time (path : P.t) =
     print_path node_to_string edge_to_string weight_to_string edge_to_color
-      edge_to_duration edge_to_distance true path
+      edge_to_duration edge_to_distance start_time true path
 end
