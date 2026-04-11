@@ -31,6 +31,7 @@ type t = {
   slider_distance : Widget.t;
   slider_stops : Widget.t;
   slider_transfers : Widget.t;
+  slider_horizontal_tabs : Widget.t;
   weights_block : Layout.t;
   sliders_box : Layout.t;
   combination_block : Layout.t;
@@ -382,6 +383,21 @@ let build ~panel_width ~(etat_initial : etat) =
     Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:h_zone_onglet zone_onglet
   in
 
+  let slider_horizontal_tabs =
+    let slider_length = max 100 (panel_width - 20) in
+    let on_horizontal_scroll value =
+      let content_width = Layout.width zone_onglet in
+      let max_offset = max 0 (content_width - panel_width) in
+      let offset = float max_offset *. (float value /. 100.0) *. 5.00 in
+      let x = int_of_float (-. offset) in
+      Layout.setx zone_onglet x
+    in
+    Widget.slider_with_action
+      ~kind:Slider.Horizontal ~length:slider_length ~thickness:10 ~value:0 ~action:on_horizontal_scroll 100
+  in
+
+  let horizontal_scroll_bar = Layout.resident ~w:panel_width ~h:15 slider_horizontal_tabs in
+
   let tab_settings = Widget.button "[ REGLAGE ]" in
   let tab_route = Widget.button "[ ITINÉRAIRE ]" in
   let tab_schedules = Widget.button "[ HORAIRES ]" in
@@ -403,6 +419,7 @@ let build ~panel_width ~(etat_initial : etat) =
     tabs_bar;
     spacer;
     tabs_content_scroll;
+    horizontal_scroll_bar;
   ] in
   Layout.set_size left_panel ~w:panel_width ~h:!hauteur;
 
@@ -440,6 +457,7 @@ let build ~panel_width ~(etat_initial : etat) =
     slider_distance;
     slider_stops;
     slider_transfers;
+    slider_horizontal_tabs;
     weights_block;
     sliders_box;
     combination_block;
