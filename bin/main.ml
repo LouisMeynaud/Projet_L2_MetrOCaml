@@ -47,16 +47,7 @@ let () =
     | "Corsica" -> "https://www.data.gouv.fr/api/1/datasets/r/b95d6838-1143-4653-840f-eebc33c16fa7"
     | _ -> failwith "Ville inconnue"
   in
-  let (rt_url_alertes) = 
-    match town with
-    | "Ile-de-France" -> 
-        ( "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2")
-    | _ -> ("") 
-  in
-  if rt_url_alertes <> "" then begin
-    Printf.printf "\n[Système] Démarrage du moteur Temps Réel en arrière-plan...\n%!";
-    Gtfs_rt.start_auto_refresh();
-  end;
+
 
   let date_cible = 
     match loading_mode with
@@ -66,6 +57,17 @@ let () =
   in
   Printf.printf "\n=== Lancement de MetroCaml ===\n%!";
   Printf.printf "Date GTFS cible : %s\n%!" date_cible;
+  
+  let (rt_url_alertes) = 
+    match town with
+    | "Ile-de-France" -> 
+        ( "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2")
+    | _ -> ("") 
+  in
+  if (rt_url_alertes <> "" && loading_mode == "En ligne" ) then begin
+    Printf.printf "\n[Système] Démarrage du moteur Temps Réel en arrière-plan...\n%!";
+    Gtfs_rt.start_auto_refresh date_cible ;
+  end;
 
   let local_data_dir =  "data/" ^ town in
 

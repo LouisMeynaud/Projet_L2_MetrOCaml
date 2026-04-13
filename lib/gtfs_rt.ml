@@ -51,6 +51,17 @@ let nettoyer_id s =
   in
   find_num parts
 
+(** [yyyymmdd_to_midnight s] convertit une date "YYYYMMDD" en timestamp Unix à 00h00m00s *)
+let yyyymmdd_to_midnight s =
+  try
+    Scanf.sscanf s "%4d%2d%2d" (fun y m d ->
+      let tm = { 
+        Unix.tm_sec=0; tm_min=0; tm_hour=0; tm_mday=d; 
+        tm_mon=m-1; tm_year=y-1900; tm_wday=0; tm_yday=0; tm_isdst=false 
+      } in
+      int_of_float (fst (Unix.mktime tm))
+    )
+  with _ -> 0
 (** [date_to_int s] convertit une date au format ISO 8601 (ex:
     "2026-04-06T10:16:55") en timestamp Unix (nombre total de secondes écoulées
     depuis 1970).
@@ -137,8 +148,9 @@ let actualiser_fichier_alertes () = Lwt_main.run (recupere_alertes ())
     des lignes touchées. L'utilisation de blocs try/with garantit que le
     programme ne plantera pas si une alerte spécifique est mal formattée par le
     serveur IDFM. *)
-let charger_alertes_en_memoire () =
+let charger_alertes_en_memoire date_cible  =
   let filename = "data/rt/alertes.json" in
+  let date_midnight = yyyymmdd_to_midnight date_cible in
   if Sys.file_exists filename then
     begin try
       let json = Yojson.Basic.from_file filename in
@@ -211,7 +223,7 @@ let charger_alertes_en_memoire () =
                         let p_fin =
                           p |> member "end" |> to_string |> date_to_int
                         in
-                        { debut = p_debut; fin = p_fin } :: acc_p
+                        { debut = p_debut - date_midnight; fin = p_fin - date_midnight }:: acc_p
                       with _ -> acc_p)
                     [] apps
                 with _ -> []
@@ -252,10 +264,10 @@ let charger_alertes_en_memoire () =
     thread, pas le jeu). 2. Le parsing du fichier vers la mémoire. 3. Une pause
     de 45 secondes. Doit être appelée une seule fois au démarrage de
     l'application. *)
-let start_auto_refresh () =
+let start_auto_refresh date =
   let rec loop () =
     actualiser_fichier_alertes ();
-    charger_alertes_en_memoire ();
+    charger_alertes_en_memoire date;
     Unix.sleep 60;
     loop ()
   in
