@@ -28,6 +28,8 @@ type alerte = {
     graphique et mise à jour en tâche de fond par le thread. *)
 let liste_alertes : alerte list ref = ref []
 
+let apiKey = "PUT UR API KEY HERE"
+
 (* ================================================== *)
 (* 1. UTILITAIRES                                     *)
 (* ================================================== *)
@@ -98,7 +100,7 @@ let fetch_and_save_disruptions () =
   in
   let headers =
     Header.add_list (Header.init ())
-      [ ("User-Agent", "insomnia/12.4.0"); ("apiKey", "PUT UR API KEY HERE") ]
+      [ ("User-Agent", "insomnia/12.4.0"); ("apiKey", apiKey) ]
   in
 
   Client.call ~headers `GET uri >>= fun (res, body_stream) ->
