@@ -92,7 +92,7 @@ let string_to_severite s =
     @return
       Une promesse Lwt de type [unit] qui se résout une fois l'écriture
       terminée. *)
-let fetch_and_save_disruptions () =
+let recupere_alertes() =
   let filename = "data/rt/alertes.json" in
   let uri =
     Uri.of_string
@@ -122,7 +122,7 @@ let fetch_and_save_disruptions () =
 (** [actualiser_fichier_alertes ()]Elle exécute la promesse Lwt de
     téléchargement et force le thread courant à attendre que le fichier JSON
     soit complètement mis à jour sur le disque. *)
-let actualiser_fichier_alertes () = Lwt_main.run (fetch_and_save_disruptions ())
+let actualiser_fichier_alertes () = Lwt_main.run (recupere_alertes ())
 
 (* ================================================== *)
 (* 3. LECTURE ET PARSING DU JSON                      *)
