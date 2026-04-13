@@ -12,8 +12,7 @@ type transport_mode =
   | Tram
   | Walk
   | Transfert
-  | Custom of string
-(** Transport mode enumerated type. *)
+  | Custom of string  (** Transport mode enumerated type. *)
 
 let string_of_mode = function
   | Metro -> "Metro"
@@ -59,5 +58,5 @@ module ConnectionEdge : Routing.EDGE with type t = connection = struct
   type t = connection
 end
 
-(** A TransportGraph instance that enables network modelling. *)
 module TransportGraph = Routing.Graph.Make (StationNode) (ConnectionEdge)
+(** A TransportGraph instance that enables network modelling. *)
