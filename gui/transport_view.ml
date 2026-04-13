@@ -16,7 +16,7 @@ let color_of_string s =
   @param s La station à convertir
   @return Le noeud correspondant *)
 let station_to_noeud s =
-  { id = s.id; nom = s.name; x = s.longitude; y = s.latitude }
+  { id = s.id; nom = s.name; x = s.longitude; y = s.latitude; pmr = s.pmr }
 
 (** Convertit une connexion en une arête pour l'affichage
   @param src La station de départ

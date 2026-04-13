@@ -568,7 +568,8 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
 	let conn_pmr_transfers = Widget.connect view.button_pmr_transfers view.button_pmr_transfers (fun _ _ _ ->
 		current_etat := { !current_etat with pmr_transfer = not !current_etat.pmr_transfer };
-		update_ui_buttons ()
+		update_ui_buttons ();
+		rafraichir_ecran !current_etat
 	) Trigger.buttons_down in
 
 

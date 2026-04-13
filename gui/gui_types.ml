@@ -2,7 +2,7 @@
 
 (* ------------------ Types partages GUI ------------------- *)
 
-type noeud = { id : string;nom : string;x : float;y :float}
+type noeud = { id : string;nom : string;x : float;y :float; pmr : bool }
 type arete = { source : string;destination : string;couleur : int;categorie : string;groupe : string}
 
 type etat = {
