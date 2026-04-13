@@ -4,19 +4,9 @@ open Gui_types
 
 
 (*---------------FONCTION UTILITAIRE---------------*)
-
-(* recherche une valeur dans une liste associative
-  @param cle la clé à rechercher
-  @param liste la liste associative
-  @param defaut la valeur par défaut si la clé n'est pas trouvée *)
-  let cherche cle liste defaut =
-  match List.assoc_opt cle liste with
-  | Some valeur -> valeur
-  | None -> defaut
-
-(* Calcule les borne min/max de l'ensemble des noeuds 
-  @param noeuds la liste des noeuds 
-  return un tuple (min_x,max_x,min_y,max_y)*)
+(** Calcule les borne min/max de l'ensemble des noeuds 
+    @param noeuds la liste des noeuds 
+    @return un tuple (min_x,max_x,min_y,max_y) *)
 let calcule_bornes noeuds =
   let xs = List.map (fun n -> n.x) noeuds in
   let ys = List.map (fun n -> n.y) noeuds in
@@ -25,7 +15,7 @@ let calcule_bornes noeuds =
    List.fold_left min max_float ys, 
    List.fold_left max min_float ys)
 
-(* convertit une coordonnée reel en coordonée écran
+(** convertit une coordonnée reel en coordonée écran
 (applique une mise a l'echele pour que tout rentre dans l'ecran)
 @param bornes les bornes de l'ensemble des noeuds
 @param x la coordonnée x réelle
@@ -40,7 +30,7 @@ let to_screen bornes x y =
   (float marge +. (x -. min_x) *. echelle,
    float marge +. (max_y -. y) *. echelle)
 
-(*calcule les position initiales pour tout les noeud
+(**calcule les position initiales pour tout les noeud
   return une linste associative (id,(x_pixel,y_pixel));..
   @param bornes les bornes de l'ensemble des noeuds
   @param noeuds la liste des noeuds*)
@@ -49,14 +39,22 @@ let calcule_positions bornes noeuds =
   List.iter (fun n -> Hashtbl.replace positions n.id (to_screen bornes n.x n.y)) noeuds;
   positions
 
-
-
-
+(** Calcule la distance au carré entre deux points
+    @param px coordonnée x du premier point
+    @param py coordonnée y du premier point
+    @param mx coordonnée x du deuxième point
+    @param my coordonnée y du deuxième point
+    @return la distance au carré entre les deux points *)
 let distance_carre px py mx my =
   let dx = px -. float mx in
   let dy = py -. float my in
   dx *. dx +. dy *. dy
 
+(** Renvoie l'ID du nœud cliqué
+    @param mx coordonnée x du clic
+    @param my coordonnée y du clic
+    @param etat l'état de l'application
+    @return l'ID du nœud cliqué ou None *)
 let get_noeud_clique mx my etat =
   let (best_id, _) = Hashtbl.fold (fun id (wx, wy) (best, min_d) ->
       let px = wx *. etat.zoom +. etat.camera_x in
@@ -66,12 +64,18 @@ let get_noeud_clique mx my etat =
     ) etat.positions (None, max_float)
   in best_id
 
+
+(** Reconstruit les données de rendu (noeuds visibles, arêtes groupées, etc.) à partir de l'état de l'application
+    @param etat l'état de l'application
+    @return un nouvel état avec les données de rendu mises à jour *)
 let rebuild_render etat =
 
   let arrete_visibles =
-    List.filter (fun (a : arete) -> cherche a.categorie etat.categories true) etat.aretes
+    List.filter
+      (fun (a : arete) ->
+        Option.value ~default:true (List.assoc_opt a.categorie etat.categories))
+      etat.aretes
   in
-
   let aretes_uniques =
     let table = Hashtbl.create 15000 in
     List.filter (fun (a : arete) ->
@@ -155,6 +159,7 @@ let clear_label_cache () =
       "C:/Windows/Fonts/arial.ttf"; 
       "/Windows/Fonts/arial.ttf"; 
       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; 
+      "/usr/share/fonts/liberation/LiberationSans-Regular.ttf";
       "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"] in
       let rec trouver_police = function
         | [] -> Printf.printf "Aucune police système trouvée.\n%!"
@@ -301,7 +306,7 @@ in
     );
     
     if etat.show_names then begin
-      dessiner_texte (cx + 12) (cy - 4) noeud.nom (0,0,0)
+      dessiner_texte (cx + 12) (cy - 4) (noeud.nom ^ (if etat.pmr_transfer && noeud.pmr then " (PMR)" else ""))  (0,0,0)
     end
 
 (* dessine uniquement le graphe (aretes + noeuds), sans effacer ni synchroniser.

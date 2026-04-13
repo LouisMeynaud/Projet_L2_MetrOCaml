@@ -3,15 +3,8 @@ open Bogue
 
 let normalize s = String.lowercase_ascii (String.trim s) (* Supprime les espaces et met en minuscules pour une comparaison insensible à la casse *)
 
-let hex_to_bogue hexa =
-  let rouge = (hexa lsr 16) land 255 in (* lsr : décalage vers la droite et land coupe les deux derniers bits et land  decoupe le nombre pour obtenir les composantes RGB *)
-  let vert = (hexa lsr 8) land 255 in
-  let bleu = hexa land 255 in
-  Draw.opaque (rouge, vert, bleu)
 
 let contains_ci text pattern =
-  normalize pattern = ""
-  ||
   try
     ignore (Str.search_forward (Str.regexp_string (normalize pattern)) (normalize text) 0); (* crash si pas trouvé *)
     true
