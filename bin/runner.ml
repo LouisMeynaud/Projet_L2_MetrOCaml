@@ -29,7 +29,7 @@ let load_gtfs_data town url date_cible loading_mode =
   let local_data_dir = "data/" ^ town in
   try
     let graphe =
-      if loading_mode == "Local" then begin
+      if loading_mode = "Local" then begin
         Printf.printf "Chargement local GTFS depuis %s...\n%!" local_data_dir;
         Gtfs_adapter.load_network_gtfs local_data_dir date_cible
       end
