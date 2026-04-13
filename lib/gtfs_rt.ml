@@ -6,20 +6,10 @@ open Yojson.Basic.Util
 (* ================================================== *)
 (* 0. TYPES ET ÉTAT GLOBAL                            *)
 (* ================================================== *)
-type periode = {
-  debut : int; 
-  fin : int;   
-}
+type periode = { debut : int; fin : int }
+type severite = BLOQUANTE | PERTURBEE
 
-type severite = 
-|BLOQUANTE
-|PERTURBEE
-
-
-(** Structure représentant une perturbation (alerte) en cours sur le réseau.
-    Contient les informations textuelles pour l'affichage dans l'interface, 
-    ainsi que la liste des lignes touchées. *)
-    type alerte = {
+type alerte = {
   id : string;
   cause : string;
   niveau_severite : severite;
@@ -29,10 +19,13 @@ type severite =
   stations_impactees : string list;
   temps : periode list;
 }
+(** Structure représentant une perturbation (alerte) en cours sur le réseau.
+    Contient les informations textuelles pour l'affichage dans l'interface,
+    ainsi que la liste des lignes touchées. *)
 
-(** Référence globale stockant la liste des alertes actives.
-    Agit comme la "Source de Vérité" dynamique en mémoire (RAM). 
-    Elle est lue par l'interface graphique et mise à jour en tâche de fond par le thread. *)
+(** Référence globale stockant la liste des alertes actives. Agit comme la
+    "Source de Vérité" dynamique en mémoire (RAM). Elle est lue par l'interface
+    graphique et mise à jour en tâche de fond par le thread. *)
 let liste_alertes : alerte list ref = ref []
 
 (* ================================================== *)
@@ -40,184 +33,228 @@ let liste_alertes : alerte list ref = ref []
 (* ================================================== *)
 
 (** [nettoyer_id s] nettoie les identifiants bruts renvoyés par l'API IDFM.
-    L'API préfixe souvent les IDs (ex: "line:IDFM:C01727"). Cette fonction 
-    isole et extrait uniquement la partie utile pour faire le lien avec le GTFS statique.
-    
+    L'API préfixe souvent les IDs (ex: "line:IDFM:C01727"). Cette fonction isole
+    et extrait uniquement la partie utile pour faire le lien avec le GTFS
+    statique.
+
     @param s L'identifiant brut sous forme de chaîne de caractères.
     @return L'identifiant nettoyé (ex: "IDFM:C01727"). *)
 let nettoyer_id s =
   let parts = String.split_on_char ':' s in
   let rec find_num = function
-    | [] -> s 
+    | [] -> s
     | h :: t ->
         if String.length h > 0 && h.[0] >= '0' && h.[0] <= '9' then h
         else find_num t
   in
   find_num parts
 
-  (** [date_to_int s] convertit une date au format ISO 8601 (ex: "2026-04-06T10:16:55") 
-    en timestamp Unix (nombre total de secondes écoulées depuis 1970).
-    
+(** [date_to_int s] convertit une date au format ISO 8601 (ex:
+    "2026-04-06T10:16:55") en timestamp Unix (nombre total de secondes écoulées
+    depuis 1970).
+
     @param s La chaîne de caractères représentant la date.
     @return Le timestamp Unix (entier). Renvoie 0 en cas d'erreur de format. *)
-  let date_to_int s =
-    try
-      Scanf.sscanf s "%d-%d-%dT%d:%d:%d" (fun y m d h min sec ->
-        let tm = { 
-          Unix.tm_sec=sec; tm_min=min; tm_hour=h; tm_mday=d; 
-          tm_mon=m-1; tm_year=y-1900; tm_wday=0; tm_yday=0; tm_isdst=false 
-        } in
-        int_of_float (fst (Unix.mktime tm))
-      )
-    with _ -> 0
+let date_to_int s =
+  try
+    Scanf.sscanf s "%d-%d-%dT%d:%d:%d" (fun y m d h min sec ->
+        let tm =
+          {
+            Unix.tm_sec = sec;
+            tm_min = min;
+            tm_hour = h;
+            tm_mday = d;
+            tm_mon = m - 1;
+            tm_year = y - 1900;
+            tm_wday = 0;
+            tm_yday = 0;
+            tm_isdst = false;
+          }
+        in
+        int_of_float (fst (Unix.mktime tm)))
+  with _ -> 0
 
-  let string_to_severite s =
-    match s with
-    | "PERTURBEE" -> PERTURBEE
-    | "BLOQUANTE" -> BLOQUANTE
-    |_ -> PERTURBEE
+let string_to_severite s =
+  match s with
+  | "PERTURBEE" -> PERTURBEE
+  | "BLOQUANTE" -> BLOQUANTE
+  | _ -> PERTURBEE
 (* ================================================== *)
 (* 2. TÉLÉCHARGEMENT                                  *)
 (* ================================================== *)
-(** [fetch_and_save_disruptions ()] exécute une requête HTTP GET asynchrone vers l'API 
-    PRIM d'Île-de-France Mobilités pour récupérer les perturbations en cours.
-    Le flux JSON reçu est écrit directement sur le disque (mode silencieux).
-    
-    @return Une promesse Lwt de type [unit] qui se résout une fois l'écriture terminée. *)
+
+(** [fetch_and_save_disruptions ()] exécute une requête HTTP GET asynchrone vers
+    l'API PRIM d'Île-de-France Mobilités pour récupérer les perturbations en
+    cours. Le flux JSON reçu est écrit directement sur le disque (mode
+    silencieux).
+    @return
+      Une promesse Lwt de type [unit] qui se résout une fois l'écriture
+      terminée. *)
 let fetch_and_save_disruptions () =
   let filename = "data/rt/alertes.json" in
-  let uri = Uri.of_string "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2" in
-  let headers = Header.add_list (Header.init ()) [
-    ("User-Agent", "insomnia/12.4.0");
-    ("apiKey", "PUT UR API KEY HERE");
-  ] in
+  let uri =
+    Uri.of_string
+      "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2"
+  in
+  let headers =
+    Header.add_list (Header.init ())
+      [ ("User-Agent", "insomnia/12.4.0"); ("apiKey", "PUT UR API KEY HERE") ]
+  in
 
-  Client.call ~headers `GET uri
-  >>= fun (res, body_stream) ->
-    let code = res |> Response.status |> Code.code_of_status in
-    
-    if code = 200 then
-      Cohttp_lwt.Body.to_string body_stream
-      >>= fun body_str ->
-      
-      (* --- ÉCRITURE DANS LE FICHIER --- *)
-      let oc = open_out filename in
-      output_string oc body_str;
-      close_out oc;
-      Lwt.return_unit
-      
-    else
-      Cohttp_lwt.Body.drain_body body_stream
-      >>= fun () ->
-      Printf.printf "Erreur lors du téléchargement de l'API (Code HTTP %d)\n%!" code;
-      Lwt.return_unit
+  Client.call ~headers `GET uri >>= fun (res, body_stream) ->
+  let code = res |> Response.status |> Code.code_of_status in
 
-(** [actualiser_fichier_alertes ()]Elle exécute la promesse Lwt de téléchargement et force le thread courant 
-    à attendre que le fichier JSON soit complètement mis à jour sur le disque. *)
-let actualiser_fichier_alertes () =
-  Lwt_main.run (fetch_and_save_disruptions ())
+  if code = 200 then (
+    Cohttp_lwt.Body.to_string body_stream >>= fun body_str ->
+    (* --- ÉCRITURE DANS LE FICHIER --- *)
+    let oc = open_out filename in
+    output_string oc body_str;
+    close_out oc;
+    Lwt.return_unit)
+  else
+    Cohttp_lwt.Body.drain_body body_stream >>= fun () ->
+    Printf.printf "Erreur lors du téléchargement de l'API (Code HTTP %d)\n%!"
+      code;
+    Lwt.return_unit
+
+(** [actualiser_fichier_alertes ()]Elle exécute la promesse Lwt de
+    téléchargement et force le thread courant à attendre que le fichier JSON
+    soit complètement mis à jour sur le disque. *)
+let actualiser_fichier_alertes () = Lwt_main.run (fetch_and_save_disruptions ())
 
 (* ================================================== *)
 (* 3. LECTURE ET PARSING DU JSON                      *)
 (* ================================================== *)
 
-(** [charger_alertes_en_memoire ()] lit le fichier JSON local, parse l'arborescence 
-    des perturbations, et remplace le contenu de [liste_alertes] par les nouvelles données.
-    
-    L'algorithme extrait les informations utiles (titre, message, cause) et descend 
-    dans les "impactedSections" pour recenser les identifiants uniques des lignes touchées.
-    L'utilisation de blocs try/with garantit que le programme ne plantera pas si 
-    une alerte spécifique est mal formattée par le serveur IDFM. *)
+(** [charger_alertes_en_memoire ()] lit le fichier JSON local, parse
+    l'arborescence des perturbations, et remplace le contenu de [liste_alertes]
+    par les nouvelles données.
+
+    L'algorithme extrait les informations utiles (titre, message, cause) et
+    descend dans les "impactedSections" pour recenser les identifiants uniques
+    des lignes touchées. L'utilisation de blocs try/with garantit que le
+    programme ne plantera pas si une alerte spécifique est mal formattée par le
+    serveur IDFM. *)
 let charger_alertes_en_memoire () =
   let filename = "data/rt/alertes.json" in
-  if Sys.file_exists filename then begin
-    try
+  if Sys.file_exists filename then
+    begin try
       let json = Yojson.Basic.from_file filename in
-      
+
       (* On rentre dans le tableau "disruptions" *)
       let disruptions = json |> member "disruptions" |> to_list in
-      
-      let nouvelles_alertes = List.fold_left (fun acc disruption ->
-        try
-          (* --- 1. Extraction des infos de base --- *)
-          let d_id = disruption |> member "id" |> to_string in
-          let d_cause = try disruption |> member "cause" |> to_string with _ -> "Inconnue" in
-          let d_severity = try disruption |> member "severity" |> to_string with _ -> "PERTURBATION" in
-          let d_title = try disruption |> member "title" |> to_string with _ -> "Information Trafic" in
-          let d_message = try disruption |> member "message" |> to_string with _ -> "" in
-          
-          (* --- 2. Extraction des lignes impactées --- *)
-          let lignes_touchees = ref [] in
-          let stations_touchees = ref [] in
-          
-          let sections = 
-            try disruption |> member "impactedSections" |> to_list 
-            with _ -> [] 
-          in
-          
-          List.iter (fun section ->
+
+      let nouvelles_alertes =
+        List.fold_left
+          (fun acc disruption ->
             try
-              let raw_line = section |> member "lineId" |> to_string in
-              lignes_touchees := (nettoyer_id raw_line) :: !lignes_touchees;
-              let parse_stop node_name = 
-                try 
-                  let s_id = section |> member node_name |> member "id" |> to_string in
-                  stations_touchees := (nettoyer_id s_id) :: !stations_touchees
-                with _ -> ()
+              (* --- 1. Extraction des infos de base --- *)
+              let d_id = disruption |> member "id" |> to_string in
+              let d_cause =
+                try disruption |> member "cause" |> to_string
+                with _ -> "Inconnue"
               in
-              parse_stop "from";
-              parse_stop "to";
-              
-            with _ -> ()
-          ) sections;
+              let d_severity =
+                try disruption |> member "severity" |> to_string
+                with _ -> "PERTURBATION"
+              in
+              let d_title =
+                try disruption |> member "title" |> to_string
+                with _ -> "Information Trafic"
+              in
+              let d_message =
+                try disruption |> member "message" |> to_string with _ -> ""
+              in
 
-          let periodes_actives = 
-            try 
-              let apps = disruption |> member "applicationPeriods" |> to_list in
-              List.fold_left (fun acc_p p ->
+              (* --- 2. Extraction des lignes impactées --- *)
+              let lignes_touchees = ref [] in
+              let stations_touchees = ref [] in
+
+              let sections =
+                try disruption |> member "impactedSections" |> to_list
+                with _ -> []
+              in
+
+              List.iter
+                (fun section ->
+                  try
+                    let raw_line = section |> member "lineId" |> to_string in
+                    lignes_touchees := nettoyer_id raw_line :: !lignes_touchees;
+                    let parse_stop node_name =
+                      try
+                        let s_id =
+                          section |> member node_name |> member "id"
+                          |> to_string
+                        in
+                        stations_touchees :=
+                          nettoyer_id s_id :: !stations_touchees
+                      with _ -> ()
+                    in
+                    parse_stop "from";
+                    parse_stop "to"
+                  with _ -> ())
+                sections;
+
+              let periodes_actives =
                 try
-                  let p_debut = p |> member "begin" |> to_string |> date_to_int in
-                  let p_fin = p |> member "end" |> to_string |> date_to_int in
-                  { debut = p_debut; fin = p_fin } :: acc_p
-                with _ -> acc_p
-              ) [] apps
-            with _ -> []
-          in
-          (* On enlève les doublons si l'API liste l'aller et le retour *)
-          let lignes_uniques = List.sort_uniq String.compare !lignes_touchees in
-          
-          (* --- 3. Création de l'objet --- *)
-          let obj = {
-            id = d_id;
-            cause = d_cause;
-            niveau_severite = (string_to_severite d_severity);
-            titre = d_title;
-            message = d_message;
-            lignes_impactees = lignes_uniques;
-            stations_impactees = !stations_touchees;
-            temps= periodes_actives;
-          } in
-          
-          obj :: acc
-          
-        with _ -> acc 
-      ) [] disruptions in
-      liste_alertes := nouvelles_alertes;
-    with _ -> Printf.printf "[Erreur] Impossible de parser le fichier %s.\n%!" filename
-  end else
-    Printf.printf "[Avertissement] Le fichier %s n'existe pas encore.\n%!" filename
+                  let apps =
+                    disruption |> member "applicationPeriods" |> to_list
+                  in
+                  List.fold_left
+                    (fun acc_p p ->
+                      try
+                        let p_debut =
+                          p |> member "begin" |> to_string |> date_to_int
+                        in
+                        let p_fin =
+                          p |> member "end" |> to_string |> date_to_int
+                        in
+                        { debut = p_debut; fin = p_fin } :: acc_p
+                      with _ -> acc_p)
+                    [] apps
+                with _ -> []
+              in
+              let lignes_uniques =
+                List.sort_uniq String.compare !lignes_touchees
+              in
 
-(** [start_auto_refresh ()] initialise et lance le moteur Temps Réel en arrière-plan.
-    Cette fonction crée un thread indépendant (fantôme) qui exécute en boucle :
-    1. Le téléchargement réseau (bloque uniquement ce thread, pas le jeu).
-    2. Le parsing du fichier vers la mémoire.
-    3. Une pause de 45 secondes.
-    Doit être appelée une seule fois au démarrage de l'application. *)
-    let start_auto_refresh () =
-      let rec loop () =
-        actualiser_fichier_alertes ();
-        charger_alertes_en_memoire ();
-        Unix.sleep 60;
-        loop ()
+              (* --- 3. Création de l'objet --- *)
+              let obj =
+                {
+                  id = d_id;
+                  cause = d_cause;
+                  niveau_severite = string_to_severite d_severity;
+                  titre = d_title;
+                  message = d_message;
+                  lignes_impactees = lignes_uniques;
+                  stations_impactees = !stations_touchees;
+                  temps = periodes_actives;
+                }
+              in
+
+              obj :: acc
+            with _ -> acc)
+          [] disruptions
       in
-      ignore (Thread.create loop ())
+      liste_alertes := nouvelles_alertes
+    with _ ->
+      Printf.printf "[Erreur] Impossible de parser le fichier %s.\n%!" filename
+    end
+  else
+    Printf.printf "[Avertissement] Le fichier %s n'existe pas encore.\n%!"
+      filename
+
+(** [start_auto_refresh ()] initialise et lance le moteur Temps Réel en
+    arrière-plan. Cette fonction crée un thread indépendant (fantôme) qui
+    exécute en boucle : 1. Le téléchargement réseau (bloque uniquement ce
+    thread, pas le jeu). 2. Le parsing du fichier vers la mémoire. 3. Une pause
+    de 45 secondes. Doit être appelée une seule fois au démarrage de
+    l'application. *)
+let start_auto_refresh () =
+  let rec loop () =
+    actualiser_fichier_alertes ();
+    charger_alertes_en_memoire ();
+    Unix.sleep 60;
+    loop ()
+  in
+  ignore (Thread.create loop ())
