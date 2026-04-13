@@ -29,6 +29,10 @@ depends: [
   "bisect_ppx"
   "csv"
   "ocamlformat"
+  "lwt"
+  "cohttp-lwt-unix"
+  "uri"
+  "yojson"
   "odoc" {with-doc}
 ]
 build: [
