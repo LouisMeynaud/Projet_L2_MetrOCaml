@@ -107,8 +107,10 @@ let affichage details_mode use_color start_time source destination
                   match c.mode with
                   | Network.Walk | Network.Transfert -> "Marche"
                   | _ -> Printf.sprintf "%s %s" (Network.string_of_mode c.mode) c.line.name)
-                Routeur.P.Weight.to_string
-                Routeur.P.Weight.get_time
+                (fun (c : Network.connection) ->
+                  c.mode = Network.Walk || c.mode = Network.Transfert)
+                (fun (c : Network.connection) ->
+                  Printf.sprintf "%s|%s" (Network.string_of_mode c.mode) c.line.name)
                 (fun (c : Network.connection) -> c.line.color)
                 (fun (c : Network.connection) -> c.duration)
                 (fun (c : Network.connection) -> c.distance)
