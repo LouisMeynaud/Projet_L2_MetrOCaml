@@ -160,7 +160,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
       details
   | None ->
       [
-        ( "Erreur",
-          "Erreur: Stations introuvables ou coordonnées invalides.",
+        ( "Erreur : Stations introuvables, coordonnées invalides ou adresse introuvable.",
+          "",
           None );
       ]

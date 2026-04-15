@@ -3,5 +3,6 @@ gui/*
 cli/console.ml
 lib/gtfs_adapter.ml
 lib/endpoint.ml
+lib/network.ml
 routing/src/dijkstra.ml
 bin/runner.ml
