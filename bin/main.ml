@@ -41,6 +41,8 @@ let date_choose loading_mode = let date_cible =
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
 
+ 
+
 
   let affichage_interface graphe =
     Printf.printf "Choisissez l'interface à lancer :\n%!";
@@ -67,6 +69,14 @@ let () =
   let date_cible = date_choose loading_mode in
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
   Printf.printf "\nGraphe chargé avec succès !\n%!";
-  affichage_interface graph;
+  let benchmark =
+    match Cli.Console.raw_select "\nVoulez-vous activer le mode benchmark ?" [ "Oui"; "Non" ]  with
+    |"Oui" -> true
+    |_ -> false
+  in
+  if benchmark then
+    Runner.run_bench_console graph
+  else
+    affichage_interface graph
 
   
