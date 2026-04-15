@@ -115,8 +115,8 @@ let run_console graphe search_callback =
   let pmr_transfer = raw_select "Activer PMR : " [ "Oui"; "Non" ] in
   let pmr_transfer =
       match pmr_transfer with
-      | "Oui" -> Util.is_pmr
-      | _ -> fun s -> true
+      | "Oui" -> true
+      | _ -> false
   in
 
   search_callback source_query dest_query algo poids coeffs excluded_modes start_time pmr_transfer
