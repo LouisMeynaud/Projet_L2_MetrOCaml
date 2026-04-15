@@ -62,8 +62,7 @@ let eval_edge current_time current_line_name (edge : connection) =
     in
 
     let ready_time =
-      if is_transfer then current_time + transfer_penalty
-      else current_time
+      if is_transfer then current_time + transfer_penalty else current_time
     in
 
     (* Puisque les fichiers horaires GTFS ne sont pas garantis d'être triés,

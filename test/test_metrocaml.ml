@@ -213,8 +213,11 @@ let test_time_prefers_less_walk_when_arrival_equal () =
       (force_traverse TimeW.traverse (TimeW.start_at 0) walk_to_next_stop)
       bus_after_walk
   in
-  Alcotest.(check int) "Même heure d'arrivée" (TimeW.get_time direct) (TimeW.get_time with_walk);
-  Alcotest.(check bool) "À temps égal, moins de marche est préféré" true TimeW.(direct < with_walk)
+  Alcotest.(check int)
+    "Même heure d'arrivée" (TimeW.get_time direct) (TimeW.get_time with_walk);
+  Alcotest.(check bool)
+    "À temps égal, moins de marche est préféré" true
+    TimeW.(direct < with_walk)
 
 (* ========================================================== *)
 (* TESTS: DistanceWeight                                      *)
