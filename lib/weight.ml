@@ -57,14 +57,42 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
   else if edge.mode = Walk || edge.mode = Transfert then
     Some (current_time + edge.duration, 0, current_line_name)
   else
-    (* --- 1. INTERCEPTION GTFS-RT ULTRA-RAPIDE --- *)
+    let is_transfer =
+    match current_line_name with
+    | Some l when l <> edge.line.name -> true
+    | _ -> false
+  in
+
+  let margin =
+    match current_line_name with
+    | None -> 0
+    | Some l when l = edge.line.name -> 180
+    | _ -> 0
+  in
+
+  let ready_time =
+    if is_transfer then current_time + transfer_penalty
+    else current_time - margin
+  in
+
+  let rec find_next_dep schedules =
+    match schedules with
+    | [] -> max_int
+    | (_, t) :: rest -> 
+        if t >= ready_time then t 
+        else find_next_dep rest
+  in
+  let next_dep = find_next_dep edge.schedules in
+
+  if next_dep = max_int then None
+  else
     let is_blocked = ref false in
     let is_perturbed = ref false in
 
     let current_line_id = edge.line.id in 
     let target_station_id = target_station.id in 
 
-    begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra current_line_id with
+    begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra (Gtfs_rt.nettoyer_id current_line_id) with
     | None -> () 
     | Some alertes_ligne ->
         let _ =
@@ -96,37 +124,7 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
         in ()
     end;
 
-    if !is_blocked then 
-      None
-    else
-      let is_transfer =
-      match current_line_name with
-      | Some l when l <> edge.line.name -> true
-      | _ -> false
-    in
-
-    let margin =
-      match current_line_name with
-      | None -> 0
-      | Some l when l = edge.line.name -> 180
-      | _ -> 0
-    in
-
-    let ready_time =
-      if is_transfer then current_time + transfer_penalty
-      else current_time - margin
-    in
-
-    let rec find_next_dep schedules =
-      match schedules with
-      | [] -> max_int
-      | (_, t) :: rest -> 
-          if t >= ready_time then t 
-          else find_next_dep rest
-    in
-    let next_dep = find_next_dep edge.schedules in
-
-    if next_dep = max_int then None
+    if !is_blocked then None
     else
       (* Même si la "marge" nous a fait accrocher un train parti avant notre heure
          d'arrivée théorique, l'heure ne doit jamais reculer. On force l'heure 
