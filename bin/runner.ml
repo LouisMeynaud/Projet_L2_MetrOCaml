@@ -166,7 +166,110 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
       details
   | None ->
       [
-        ( "Erreur",
-          "Erreur: Stations introuvables ou coordonnées invalides.",
+        ( "Erreur : Stations introuvables, coordonnées invalides ou adresse introuvable.",
+          "",
           None );
       ]
+
+
+
+(* Fonctions pour l'affichag *)
+let node_to_string (s : Network.station) = s.name
+let edge_to_string (c : Network.connection) = c.line.name
+let edge_to_color (c : Network.connection) = c.line.color
+let edge_to_duration (c : Network.connection) = c.duration
+let edge_to_distance (c : Network.connection) = c.distance
+ 
+
+(* Construit un routeur pour les tests de bench *)
+let make_routeur nom (module Algo : ALGO) =
+  let fn graph source destination start_time =
+    match Algo.find_path ~start_time ~graph ~source ~destination ~transfer_allowed:(fun _ -> true) with
+    | None -> ("Aucun chemin", fun () -> ())
+    | Some p -> let module ShowPath = Show.Make (Algo.P) in
+    let edge_is_walk (c : Network.connection) = c.mode = Network.Walk || c.mode = Network.Transfert in
+    let edge_line_key (c : Network.connection) = Printf.sprintf "%s|%s" (Network.string_of_mode c.mode) c.line.name in
+    let stats = ShowPath.compute_summary ~edge_to_duration ~edge_to_distance ~edge_is_walk ~edge_line_key ~start_time p in
+    let temps = stats.total_time in
+    let h, m = (temps / 3600) , (temps / 60 mod 60) in
+    let result_str = Printf.sprintf "OK - %d etape(s) %d heures %d minutes" (List.length p.Algo.P.steps) h m  in
+      let print () =
+        ShowPath.print_path
+          node_to_string
+          edge_to_string
+          edge_is_walk
+          edge_line_key
+          edge_to_color
+          edge_to_duration
+          edge_to_distance
+          start_time
+          false
+          true
+          p
+      in
+      (result_str, print)
+  in
+  (nom, fn)
+
+  (*
+  print_path node_to_string edge_to_string edge_is_walk edge_line_key
+      edge_to_color edge_to_duration edge_to_distance start_time details
+      use_color (path : P.t)
+      *)
+ 
+
+    
+let build_bench_routeurs () =
+  let preset_routeurs =
+    List.map (fun (preset : Presets.preset) ->
+      let module W = (val Presets.to_weight preset) in
+      let module D = Dijkstra.Make (Network.TransportGraph) (W) in
+      make_routeur
+        (Printf.sprintf "Preset : %s" preset.name)
+        (module struct
+          module P = D.P
+          let find_path = D.find_path
+        end)
+    ) Presets.all
+  in
+  let unit_routeurs = [
+    make_routeur "Poids : Temps"
+      (module struct
+        module P = DIJKSTRA_TimeWeight.P
+        let find_path = DIJKSTRA_TimeWeight.find_path
+      end);
+    make_routeur "Poids :  Distance"
+      (module struct
+        module P = DIJKSTRA_DistanceWeight.P
+        let find_path = DIJKSTRA_DistanceWeight.find_path
+      end);
+    make_routeur "Poids : Arrets"
+      (module struct
+        module P = DIJKSTRA_HopWeight.P
+        let find_path = DIJKSTRA_HopWeight.find_path
+      end);
+    make_routeur "Poids : Correspondances"
+      (module struct
+        module P = DIJKSTRA_CorrespondenceWeight.P
+        let find_path = DIJKSTRA_CorrespondenceWeight.find_path
+      end);
+    make_routeur "Arrets (BFS) : "
+      (module struct
+        module P = BFS_HopWeight.P
+        let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
+          BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
+      end);
+  ] in
+  preset_routeurs @ unit_routeurs
+
+
+  let run_bench_console graphe =
+  Printf.printf "\n Benchmark activé \n%!";
+  let routeurs = build_bench_routeurs () in
+    Printf.printf "Station source : %!";
+    let source_query = String.trim (read_line ()) in
+    Printf.printf "Station destination : %!";
+    let dest_query = String.trim (read_line ()) in
+    let tm = Unix.localtime (Unix.time ()) in
+    let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
+    Bench.run graphe source_query dest_query start_time routeurs Cli.Console.raw_select

@@ -269,9 +269,4 @@ module Make (P : Routing.PATH) = struct
       (string_of_path node_to_string edge_to_string edge_is_walk edge_line_key
          edge_to_color edge_to_duration edge_to_distance start_time details
          use_color path)
-
-  let print_path_detail node_to_string edge_to_string edge_is_walk edge_line_key
-      edge_to_color edge_to_duration edge_to_distance start_time (path : P.t) =
-    print_path node_to_string edge_to_string edge_is_walk edge_line_key
-      edge_to_color edge_to_duration edge_to_distance start_time true true path
 end
