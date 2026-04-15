@@ -174,6 +174,10 @@ let () =
 
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" -> 
+        if(loading_mode = "En ligne" && town = "Ile-de-France" && rt_url_alertes <> "") then begin
+          Printf.printf "\nAlertes en cours :\n%!";
+          !Gtfs_rt.liste_alertes |> List.iter (fun alerte -> Printf.printf "Alerte : %s\n%!" alerte.Gtfs_rt.titre);
+        end;
         let cli_callback src dest algo poids coeffs excluded_modes start_time =
           search_callback src dest algo poids coeffs excluded_modes start_time false false
         in
