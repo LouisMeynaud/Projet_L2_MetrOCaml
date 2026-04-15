@@ -13,23 +13,24 @@ let hex_to_rgb hex =
   let b = int_of_string ("0x" ^ String.sub hex 4 2) in
   (r, g, b)
 
-let colorize_rgb (r, g, b) text =
-  Printf.sprintf "\x1b[38;2;%d;%d;%dm%s\x1b[0m" r g b text
+let colorize_rgb use_color (r, g, b) text =
+  if use_color then Printf.sprintf "\x1b[38;2;%d;%d;%dm%s\x1b[0m" r g b text
+  else text
 
-let colorize_hex hex text =
+let colorize_hex use_color hex text =
   let rgb = hex_to_rgb hex in
-  colorize_rgb rgb text
+  colorize_rgb use_color rgb text
 
-let change_arrow node_name line nb_stops temps color =
+let change_arrow ?(use_color = true) node_name line nb_stops temps color =
   let arrow =
     Printf.sprintf " --[%s | %d arrets | %d min] --> " line nb_stops temps
   in
-  let colored_arrow = colorize_hex color arrow in
+  let colored_arrow = colorize_hex use_color color arrow in
   Printf.sprintf "%s%s\n" colored_arrow node_name
 
-let simple_arrow node_name color =
+let simple_arrow ?(use_color = true) node_name color =
   let arrow = Printf.sprintf " ---> " in
-  let colored_arrow = colorize_hex color arrow in
+  let colored_arrow = colorize_hex use_color color arrow in
   Printf.sprintf "%s%s" colored_arrow node_name
 
 module Make (P : Routing.PATH) = struct
@@ -40,10 +41,10 @@ module Make (P : Routing.PATH) = struct
       (fun d (step : P.step) -> d +. edge_to_distance step.edge)
       0.0 steps
 
-  let print_path node_to_string edge_to_string weight_to_string edge_to_color
-      edge_to_duration edge_to_distance start_time details (path : P.t) =
+  let get_chemin node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance start_time details use_color (path : P.t) =
     match path.steps with
-    | [] -> Printf.printf "Chemin vide\n"
+    | [] -> (0, "", 0, 0, 0.0)
     | first_step :: _ ->
         let start =
           node_to_string first_step.from
@@ -92,7 +93,8 @@ module Make (P : Routing.PATH) = struct
               | Some prev_l when prev_l = current_line ->
                   let new_acc =
                     if details then
-                      simple_arrow (node_to_string step.from) color :: acc
+                      simple_arrow ~use_color (node_to_string step.from) color
+                      :: acc
                     else acc
                   in
                   let add = if is_transit_line then step_delta else 0 in
@@ -109,8 +111,8 @@ module Make (P : Routing.PATH) = struct
                   let wait_str = P.Weight.step_data_to_string step.data in
                   let onboard_time = line_minutes_from_seconds onboard_secs in
                   let arrow =
-                    change_arrow prev_step_to prev_l stops onboard_time
-                      prev_color
+                    change_arrow ~use_color prev_step_to prev_l stops
+                      onboard_time prev_color
                   in
                   let transition =
                     arrow ^ node_to_string step.from ^ wait_str
@@ -131,19 +133,83 @@ module Make (P : Routing.PATH) = struct
 
         let final_line = edge_to_string (List.hd (List.rev path.steps)).edge in
         let final_segment =
-          change_arrow final_step_to final_line final_stops
+          change_arrow ~use_color final_step_to final_line final_stops
             (line_minutes_from_seconds final_onboard_secs)
             final_color
         in
 
         let total_distance = calcul_distance edge_to_distance path.steps in
-        let total_elapsed_time =
+        let total_time =
           max 0 (P.Weight.get_time path.total_weight - start_time)
         in
 
         let route =
           "\n" ^ start ^ String.concat "" (List.rev (final_segment :: segments))
         in
+        (transferts, route, total_time, onboard_total_secs, total_distance)
+
+  let string_of_path node_to_string edge_to_string weight_to_string
+      weight_get_time edge_to_color edge_to_duration edge_to_distance start_time
+      details use_color (path : P.t) =
+    let transferts, route, total_elapsed_time, onboard_total_secs, total_distance =
+      get_chemin node_to_string edge_to_string weight_to_string edge_to_color
+        edge_to_duration edge_to_distance start_time details use_color path
+    in
+    ignore weight_get_time;
+    let lines = [] in
+    let add_line s lines = s :: lines in
+    match route with
+    | "" ->
+        let lines = add_line "Chemin vide" lines in
+        String.concat "\n" lines
+    | _ ->
+        let lines =
+          add_line
+            (Printf.sprintf
+               "Chemin trouvé en %d étapes (en %d correspondances) :"
+               (List.length path.steps) transferts)
+            lines
+        in
+        let lines = add_line route lines in
+        let lines =
+          add_line
+            (Printf.sprintf "Poids total : %s"
+               (weight_to_string path.total_weight))
+            lines
+        in
+        let lines =
+          add_line
+            (Printf.sprintf "Temps total estimé (attentes incluses) : %dh %dmin %ds"
+              (total_elapsed_time / 3600)
+              (total_elapsed_time / 60 mod 60)
+              (total_elapsed_time mod 60))
+            lines
+          in
+          let lines =
+           add_line
+            (Printf.sprintf
+              "Temps total passé dans les rames (arrêts intermédiaires inclus) : %dh %dmin %ds"
+              (onboard_total_secs / 3600)
+              (onboard_total_secs / 60 mod 60)
+              (onboard_total_secs mod 60))
+            lines
+        in
+        let lines =
+          add_line
+            (Printf.sprintf "Distance totale : %f km" (total_distance /. 1000.))
+            lines
+        in
+        String.concat "\n" (List.rev lines)
+
+  let print_path node_to_string edge_to_string weight_to_string edge_to_color
+      edge_to_duration edge_to_distance start_time details use_color (path : P.t) =
+    let transferts, route, total_elapsed_time, onboard_total_secs, total_distance =
+      get_chemin node_to_string edge_to_string weight_to_string edge_to_color
+        edge_to_duration edge_to_distance start_time details use_color path
+    in
+    match route with
+    | "" -> Printf.printf "Chemin vide\n"
+    | _ ->
         Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
           (List.length path.steps) transferts;
         Printf.printf "%s\n" route;
@@ -162,5 +228,5 @@ module Make (P : Routing.PATH) = struct
   let print_path_detail node_to_string edge_to_string weight_to_string
       edge_to_color edge_to_duration edge_to_distance start_time (path : P.t) =
     print_path node_to_string edge_to_string weight_to_string edge_to_color
-      edge_to_duration edge_to_distance start_time true path
+      edge_to_duration edge_to_distance start_time true true path
 end
