@@ -83,6 +83,14 @@ let () =
   rt_alertes town loading_mode date_cible;
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
   Printf.printf "\nGraphe chargé avec succès !\n%!";
-  affichage_interface graph;
+  let benchmark =
+    match Cli.Console.raw_select "\nVoulez-vous activer le mode benchmark ?" [ "Oui"; "Non" ]  with
+    |"Oui" -> true
+    |_ -> false
+  in
+  if benchmark then
+    Runner.run_bench_console graph
+  else
+    affichage_interface graph
 
   
