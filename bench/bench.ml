@@ -1,7 +1,7 @@
 open Metrocaml
 
 let separator () =
-  print_string (String.make 62 '-');
+  print_string (String.make 70 '-');
   print_newline ()
 
 let format_duration secs =
@@ -17,7 +17,7 @@ let run graphe source_query dest_query start_time
   | None ->
     Printf.printf "Stations introuvable, benchmark annulé \n"
   | Some (graph_for_search, source, destination) ->
-    Printf.printf "\n%-30s  %-12s  %-20s %-20s\n%!" "Algorithme / Preset" "Temps" "Resultat" "Temps du Chemin";
+    Printf.printf "\n%-30s  %-12s  %-15s %-20s\n%!" "Algorithme/Preset" "Temps" "Resultat" "Temps du Chemin";
     separator ();
 
     let afficheurs =
@@ -39,8 +39,8 @@ let run graphe source_query dest_query start_time
         Printf.printf "\n== Details des chemins : ==============\n%!";
         List.iter (fun (nom, print_detail) ->
           Printf.printf "-------> %s\n%!" nom;
-          print_detail ()
+          print_detail ();
+          separator ()
         ) afficheurs;
-        Printf.printf "\n====================================================================\n%!"
       end
     end
