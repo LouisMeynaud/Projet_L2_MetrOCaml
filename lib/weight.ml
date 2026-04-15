@@ -57,33 +57,47 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
   else if edge.mode = Walk || edge.mode = Transfert then
     Some (current_time + edge.duration, 0, current_line_name)
   else
+    (* --- 1. INTERCEPTION GTFS-RT ULTRA-RAPIDE --- *)
     let is_blocked = ref false in
     let is_perturbed = ref false in
 
     let current_line_id = edge.line.id in 
-    let target_station_id = target_station.id in
+    let target_station_id = target_station.id in 
 
-    List.iter (fun (alerte : Gtfs_rt.alerte) ->
-      let concerne_ligne = List.mem current_line_id alerte.lignes_impactees in
-      let concerne_station =
-        match alerte.stations_impactees with
-        | [] -> true 
-        | stations -> List.mem target_station_id stations
-      in
-      let est_en_cours =
-        match alerte.temps with
-        | [] -> true 
-        | periodes -> List.exists (fun p -> current_time >= Gtfs_rt.(p.debut) && current_time <= Gtfs_rt.(p.fin)) periodes
-      in
+    begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra current_line_id with
+    | None -> () 
+    | Some alertes_ligne ->
+        let _ =
+          List.exists (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
+            
+            let concerne_station =
+              Hashtbl.length alerte.stations_hash = 0 || 
+              Hashtbl.mem alerte.stations_hash target_station_id
+            in
+            
+            if concerne_station then begin
+              let est_en_cours =
+                match alerte.periodes with
+                | [] -> true 
+                | periodes -> List.exists (fun p -> current_time >= Gtfs_rt.(p.debut) && current_time <= Gtfs_rt.(p.fin)) periodes
+              in
 
-      if concerne_ligne && concerne_station && est_en_cours then begin
-        match alerte.niveau_severite with
-        | Gtfs_rt.BLOQUANTE -> is_blocked := true
-        | Gtfs_rt.PERTURBEE -> is_perturbed := true
-      end
-    ) !Gtfs_rt.liste_alertes;
+              if est_en_cours then begin
+                match alerte.severite with
+                | Gtfs_rt.BLOQUANTE -> 
+                    is_blocked := true; 
+                    true 
+                | Gtfs_rt.PERTURBEE -> 
+                    is_perturbed := true; 
+                    false 
+              end else false
+            end else false
+          ) alertes_ligne
+        in ()
+    end;
 
-    if !is_blocked then None
+    if !is_blocked then 
+      None
     else
       let is_transfer =
       match current_line_name with
@@ -91,9 +105,6 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
       | _ -> false
     in
 
-    (* Pour pallier les approximations de `edge.duration` des fichiers GTFS, 
-       on accorde un recul de la montre de 3 minutes si l'usager est déjà dans la rame. 
-       Cela évite de rater un train à cause d'une erreur d'arrondi sur le tronçon précédent. *)
     let margin =
       match current_line_name with
       | None -> 0
@@ -106,15 +117,14 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
       else current_time - margin
     in
 
-    (* Puisque les fichiers horaires GTFS ne sont pas garantis d'être triés,
-       le fold_left scanne tout le tableau pour dénicher le départ valide 
-       le plus proche de notre heure d'arrivée. *)
-    let next_dep =
-      List.fold_left
-        (fun best t -> if t >= ready_time && t < best then t else best)
-        max_int
-        (List.map snd edge.schedules)
+    let rec find_next_dep schedules =
+      match schedules with
+      | [] -> max_int
+      | (_, t) :: rest -> 
+          if t >= ready_time then t 
+          else find_next_dep rest
     in
+    let next_dep = find_next_dep edge.schedules in
 
     if next_dep = max_int then None
     else
