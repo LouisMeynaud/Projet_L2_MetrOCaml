@@ -41,6 +41,93 @@ let date_choose loading_mode = let date_cible =
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
 
+ 
+(* Fonctions pour l'affichag *)
+let node_to_string (s : Network.station) = s.name
+let edge_to_string (c : Network.connection) = c.line.name
+let edge_to_color (c : Network.connection) = c.line.color
+let edge_to_duration (c : Network.connection) = c.duration
+let edge_to_distance (c : Network.connection) = c.distance
+ 
+(* Construit un routeur pour les tests de bench *)
+let make_routeur nom (module Algo : Runner.ALGO) =
+  let fn graph source destination start_time =
+    match Algo.find_path ~start_time ~graph ~source ~destination ~transfer_allowed:(fun _ -> true) with
+    | None -> ("Aucun chemin", fun () -> ())
+    | Some p -> let module ShowPath = Show.Make (Algo.P) in
+    let temps, _ = (ShowPath.calcul_temps_distance edge_to_duration edge_to_distance p.steps) in
+    let h, m = (temps / 3600) , (temps / 60 mod 60) in
+    let result_str = Printf.sprintf "OK - %d etape(s) %d heures %d minutes" (List.length p.Algo.P.steps) h m  in
+      let print () =
+        ShowPath.print_path
+          node_to_string
+          edge_to_string
+          Algo.P.Weight.to_string
+          edge_to_color
+          edge_to_duration
+          edge_to_distance
+          false
+          true
+          p
+      in
+      (result_str, print)
+  in
+  (nom, fn)
+ 
+let build_bench_routeurs () =
+  let preset_routeurs =
+    List.map (fun (preset : Presets.preset) ->
+      let module W = (val Presets.to_weight preset) in
+      let module D = Dijkstra.Make (Network.TransportGraph) (W) in
+      make_routeur
+        (Printf.sprintf "Preset : %s" preset.name)
+        (module struct
+          module P = D.P
+          let find_path = D.find_path
+        end)
+    ) Presets.all
+  in
+  let unit_routeurs = [
+    make_routeur "Poids : Temps"
+      (module struct
+        module P = Runner.DIJKSTRA_TimeWeight.P
+        let find_path = Runner.DIJKSTRA_TimeWeight.find_path
+      end);
+    make_routeur "Poids :  Distance"
+      (module struct
+        module P = Runner.DIJKSTRA_DistanceWeight.P
+        let find_path = Runner.DIJKSTRA_DistanceWeight.find_path
+      end);
+    make_routeur "Poids : Arrets"
+      (module struct
+        module P = Runner.DIJKSTRA_HopWeight.P
+        let find_path = Runner.DIJKSTRA_HopWeight.find_path
+      end);
+    make_routeur "Poids : Correspondances"
+      (module struct
+        module P = Runner.DIJKSTRA_CorrespondenceWeight.P
+        let find_path = Runner.DIJKSTRA_CorrespondenceWeight.find_path
+      end);
+    make_routeur "Arrets (BFS) : "
+      (module struct
+        module P = Runner.BFS_HopWeight.P
+        let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
+          Runner.BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
+      end);
+  ] in
+  preset_routeurs @ unit_routeurs
+ 
+let run_bench_console graphe =
+  Printf.printf "\n Benchmark activé \n%!";
+  let routeurs = build_bench_routeurs () in
+    Printf.printf "Station source : %!";
+    let source_query = String.trim (read_line ()) in
+    Printf.printf "Station destination : %!";
+    let dest_query = String.trim (read_line ()) in
+    let tm = Unix.localtime (Unix.time ()) in
+    let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
+    Bench.run graphe source_query dest_query start_time routeurs Cli.Console.raw_select
+
 
   let affichage_interface graphe =
     Printf.printf "Choisissez l'interface à lancer :\n%!";
@@ -67,6 +154,14 @@ let () =
   let date_cible = date_choose loading_mode in
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
   Printf.printf "\nGraphe chargé avec succès !\n%!";
-  affichage_interface graph;
+  let benchmark =
+    match Cli.Console.raw_select "\nVoulez-vous activer le mode benchmark ?" [ "Oui"; "Non" ]  with
+    |"Oui" -> true
+    |_ -> false
+  in
+  if benchmark then
+    run_bench_console graph
+  else
+    affichage_interface graph
 
   
