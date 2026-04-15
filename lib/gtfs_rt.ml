@@ -19,6 +19,13 @@ type alerte = {
   stations_impactees : string list;
   temps : periode list;
 }
+
+type alerte_dijkstra= {
+  severite : severite;
+  stations_hash : (string, bool) Hashtbl.t; 
+  periodes : periode list;
+}
+
 (** Structure représentant une perturbation (alerte) en cours sur le réseau.
     Contient les informations textuelles pour l'affichage dans l'interface,
     ainsi que la liste des lignes touchées. *)
@@ -27,6 +34,7 @@ type alerte = {
     "Source de Vérité" dynamique en mémoire (RAM). Elle est lue par l'interface
     graphique et mise à jour en tâche de fond par le thread. *)
 let liste_alertes : alerte list ref = ref []
+let index_alertes_dijkstra : (string, alerte_dijkstra list) Hashtbl.t ref = ref (Hashtbl.create 0)
 
 let apiKey = "GBsIolemaspJPcsW7HbwQTp4RaiaBTQk"
 
@@ -271,6 +279,30 @@ let charger_alertes_en_memoire date_cible =
     Printf.printf "[Avertissement] Le fichier %s n'existe pas encore.\n%!"
       filename
 
+
+
+  (** [compiler_alertes_pour_dijkstra ()] crée un index (Table de hachage) où 
+    la CLÉ est l'ID de la ligne, et la VALEUR est la liste de ses alertes actives. *)
+    let compiler_alertes_pour_dijkstra () =
+      let index_lignes = Hashtbl.create 1000 in
+      
+      List.iter (fun alerte ->
+        let gares_hash = Hashtbl.create 100 in
+        List.iter (fun s -> Hashtbl.replace gares_hash s true) alerte.stations_impactees;
+        let alerte_opt = {
+          severite = alerte.niveau_severite;
+          stations_hash = gares_hash;
+          periodes = alerte.temps;
+        } in
+        List.iter (fun l_id ->
+          let alertes_existantes = try Hashtbl.find index_lignes l_id with Not_found -> [] in
+          Hashtbl.replace index_lignes l_id (alerte_opt :: alertes_existantes)
+        ) alerte.lignes_impactees
+      ) !liste_alertes;
+      
+      index_lignes
+
+      
 (** [start_auto_refresh ()] initialise et lance le moteur Temps Réel en
     arrière-plan. Cette fonction crée un thread indépendant (fantôme) qui
     exécute en boucle : 1. Le téléchargement réseau (bloque uniquement ce
@@ -281,7 +313,9 @@ let start_auto_refresh date =
   let rec loop () =
     actualiser_fichier_alertes ();
     charger_alertes_en_memoire date;
+    index_alertes_dijkstra := compiler_alertes_pour_dijkstra ();
     Unix.sleep 60;
     loop ()
   in
   ignore (Thread.create loop ())
+
