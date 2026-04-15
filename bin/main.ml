@@ -61,6 +61,13 @@ let date_choose loading_mode = let date_cible =
 
 
 let () =
+  Printf.printf "\x1b[1;33m%s\x1b[0m" "
+                   __                                  __
+   ____ ___  ___  / /__________  _________ _____ ___  / /
+  / __ `__ \\/ _ \\/ __/ ___/ __ \\/ ___/ __ `/ __ `__ \\/ / 
+ / / / / / /  __/ /_/ /  / /_/ / /__/ /_/ / / / / / / /  
+/_/ /_/ /_/\\___/\\__/_/   \\____/\\___/\\__,_/_/ /_/ /_/_/
+";
   let loading_mode = choose_load_mode () in
   let (town, url) = choose_city loading_mode in
   let date_cible = date_choose loading_mode in
