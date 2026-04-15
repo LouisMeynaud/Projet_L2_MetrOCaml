@@ -16,19 +16,19 @@ open Weight_intf
     - Pairing Heap : Il utilise un Tas d'Appariement garantissant des
       performances quasi-instantanées, même sur des graphes massifs comme celui
       de Paris. *)
-module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
+module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t) = struct
   module P = Path.Make (G) (W)
 
   type path = P.t
 
   (** Le Tas d'Appariement (Pairing Heap) *)
-  module PQ = struct
+  module PH = struct
     (* Il permet de résoudre un soucis récurent : le meilleur moyen d'arriver à une station intermédiaire
        n'est pas forcément celui qui permettra d'arriver à destination le plus vite (notamment à cause
        des correspondances). Pour cela on retient donc toutes les manières d'arriver à cette station pour
        les exploiter également. *)
     type state_tuple = G.Node.t * W.state_key
-    type t = Empty | Node of W.t * G.Node.t * state_tuple * t list
+    type t = Empty | Node of W.t * state_tuple * t list
 
     let empty = Empty
 
@@ -38,13 +38,13 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
     let merge h1 h2 =
       match (h1, h2) with
       | Empty, h | h, Empty -> h
-      | Node (w1, n1, s1, l1), Node (w2, n2, s2, l2) ->
-          if W.(w1 < w2) then Node (w1, n1, s1, h2 :: l1)
-          else Node (w2, n2, s2, h1 :: l2)
+      | Node (w1, s1, l1), Node (w2, s2, l2) ->
+          if W.(w1 < w2) then Node (w1, s1, h2 :: l1)
+          else Node (w2, s2, h1 :: l2)
 
-    let push w n s h = merge (Node (w, n, s, [])) h
+    let push w s h = merge (Node (w, s, [])) h
 
-    (* Quand on retire la racine (pop), tous ses enfants deviennent orphelins.
+    (* Quand on retire la racine, tous ses enfants deviennent orphelins.
        Pour garder un arbre compact, on les fait s'affronter deux par deux. 
        Le motif récursif fusionne de gauche à droite, puis de droite à gauche. *)
     let rec merge_pairs = function
@@ -54,7 +54,8 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
 
     let pop = function
       | Empty -> None
-      | Node (w, n, s, l) -> Some (w, n, s, merge_pairs l)
+      | Node (w, s, l) -> let (n, _cle) = s in
+                          Some (w, n, s, merge_pairs l)
   end
 
   (** Trouve le chemin optimal de la [source] à la [destination].
@@ -75,14 +76,14 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
         let prev = Hashtbl.create 10000 in
 
         let initial_state = (source, W.get_state_key initial_weight) in
-        let pq = ref (PQ.push initial_weight source initial_state PQ.empty) in
+        let ph = ref (PH.push initial_weight initial_state PH.empty) in
         Hashtbl.add dist initial_state initial_weight;
 
         let rec process () =
-          match PQ.pop !pq with
+          match PH.pop !ph with
           | None -> None (* Le tas est vide, la destination est inatteignable *)
-          | Some (d, u, u_state, rest_pq) ->
-              pq := rest_pq;
+          | Some (d, u, u_state, rest_ph) ->
+              ph := rest_ph;
 
               if G.Node.equal u destination then
                 (* On remonte le fil d'Ariane dans 'prev' pour créer la liste des étapes *)
@@ -114,7 +115,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                 List.iter
                   (fun (v, edge) ->
                     (* Le module métier (Weight) décide si on a le droit de passer *)
-                    match W.traverse d edge with
+                    match W.traverse d v edge with
                     | None -> ()
                     | Some (new_dist, step_data) ->
                         let next_state_key = W.get_state_key new_dist in
@@ -132,12 +133,12 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                              que notre précédent record pour cet état, on procède à une "Relaxation" :
                              1. On met à jour le record officiel dans 'dist'.
                              2. On lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
-                             3. On propulse ce nouvel état prometteur dans le tas 'pq'. *)
+                             3. On propulse ce nouvel état prometteur dans le tas 'ph'. *)
                           if W.(new_dist < old_dist) then begin
                             Hashtbl.replace dist v_state new_dist;
                             Hashtbl.replace prev v_state
                               (u_state, u, v, edge, new_dist, step_data);
-                            pq := PQ.push new_dist v v_state !pq
+                            ph := PH.push new_dist v_state !ph
                           end))
                   (G.neighbors graph u);
 

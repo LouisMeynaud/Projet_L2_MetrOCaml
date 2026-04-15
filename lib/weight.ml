@@ -15,6 +15,8 @@ let transfer_penalty = 180
     trajet plus court mais avec des correspondances. *)
 let transfer_time_tradeoff = 900
 
+let perturbation_penalty = 600
+
 (** Liste globale des modes de transport désactivés par l'utilisateur. *)
 let excluded_modes = ref []
 
@@ -50,12 +52,40 @@ let format_metro_step_data s =
 
 (** Évaluation Physique de l'Arête *)
 
-let eval_edge current_time current_line_name (edge : connection) =
+let eval_edge current_time current_line_name (target_station : station) (edge : connection) =
   if current_time = max_int then None
   else if edge.mode = Walk || edge.mode = Transfert then
     Some (current_time + edge.duration, 0, current_line_name)
   else
-    let is_transfer =
+    let is_blocked = ref false in
+    let is_perturbed = ref false in
+
+    let current_line_id = edge.line.id in 
+    let target_station_id = target_station.id in
+
+    List.iter (fun (alerte : Gtfs_rt.alerte) ->
+      let concerne_ligne = List.mem current_line_id alerte.lignes_impactees in
+      let concerne_station =
+        match alerte.stations_impactees with
+        | [] -> true 
+        | stations -> List.mem target_station_id stations
+      in
+      let est_en_cours =
+        match alerte.temps with
+        | [] -> true 
+        | periodes -> List.exists (fun p -> current_time >= Gtfs_rt.(p.debut) && current_time <= Gtfs_rt.(p.fin)) periodes
+      in
+
+      if concerne_ligne && concerne_station && est_en_cours then begin
+        match alerte.niveau_severite with
+        | Gtfs_rt.BLOQUANTE -> is_blocked := true
+        | Gtfs_rt.PERTURBEE -> is_perturbed := true
+      end
+    ) !Gtfs_rt.liste_alertes;
+
+    if !is_blocked then None
+    else
+      let is_transfer =
       match current_line_name with
       | Some l when l <> edge.line.name -> true
       | _ -> false
@@ -92,18 +122,20 @@ let eval_edge current_time current_line_name (edge : connection) =
          d'arrivée théorique, l'heure ne doit jamais reculer. On force l'heure 
          à current_time minimum pour ne pas déclencher de cycle infini de poids 
          négatif dans Dijkstra. *)
-      let actual_dep = max current_time next_dep in
-      let wait = max 0 (next_dep - current_time) in
-
-      Some (actual_dep + edge.duration, wait, Some edge.line.name)
+         let actual_dep = max current_time next_dep in
+         let final_dep = if !is_perturbed then actual_dep + perturbation_penalty else actual_dep in
+         let wait = max 0 (final_dep - current_time) in
+ 
+         Some (final_dep + edge.duration, wait, Some edge.line.name)
 
 (* ========================================================== *)
 (* Les Modules de Poids                                       *)
 (* ========================================================== *)
 
-module TimeWeight : Routing.WEIGHT with type edge = connection = struct
+module TimeWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
   type t = { time : int; line_name : string option }
   type edge = connection
+  type node = station
   type step_data = metro_step_data
   type state_key = string option
 
@@ -111,11 +143,11 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   let infinity = { time = max_int; line_name = None }
   let is_inf w = w.time = max_int
 
-  let traverse w e =
+  let traverse w (v : node) e =
     (* Filtrage dynamique : Si le mode est exclu (ex: bus), l'arête est coupée. *)
     if is_mode_excluded e.mode then None
     else
-      match eval_edge w.time w.line_name e with
+      match eval_edge w.time w.line_name v e with
       | None -> None
       | Some (next_time, wait_time, next_line) ->
           Some ({ time = next_time; line_name = next_line }, { wait_time })
@@ -137,9 +169,10 @@ module TimeWeight : Routing.WEIGHT with type edge = connection = struct
   let get_state_key w = w.line_name
 end
 
-module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
+module DistanceWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
   type t = { time : int; distance : float; line_name : string option }
   type edge = connection
+  type node = station
   type step_data = metro_step_data
   type state_key = string option
 
@@ -147,10 +180,10 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   let infinity = { time = max_int; distance = Float.infinity; line_name = None }
   let is_inf w = w.time = max_int
 
-  let traverse w e =
+  let traverse w (v : node) e =
     if is_mode_excluded e.mode then None
     else
-      match eval_edge w.time w.line_name e with
+      match eval_edge w.time w.line_name v e with
       | None -> None
       | Some (next_time, wait_time, next_line) ->
           let new_w =
@@ -190,9 +223,10 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection = struct
   let get_state_key w = w.line_name
 end
 
-module HopWeight : Routing.WEIGHT with type edge = connection = struct
+module HopWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
   type t = { time : int; hops : int; line_name : string option }
   type edge = connection
+  type node = station
   type step_data = metro_step_data
   type state_key = string option
 
@@ -200,10 +234,10 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
   let infinity = { time = max_int; hops = max_int; line_name = None }
   let is_inf w = w.time = max_int
 
-  let traverse w e =
+  let traverse w (v : node) e =
     if is_mode_excluded e.mode then None
     else
-      match eval_edge w.time w.line_name e with
+      match eval_edge w.time w.line_name v e with
       | None -> None
       | Some (next_time, wait_time, next_line) ->
           let new_w =
@@ -237,10 +271,10 @@ module HopWeight : Routing.WEIGHT with type edge = connection = struct
   let get_state_key w = w.line_name
 end
 
-module CorrespondenceWeight : Routing.WEIGHT with type edge = connection =
-struct
+module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
   type t = { time : int; transfers : int; line_name : string option }
   type edge = connection
+  type node = station
   type step_data = metro_step_data
   type state_key = string option
 
@@ -248,10 +282,10 @@ struct
   let infinity = { time = max_int; transfers = max_int; line_name = None }
   let is_inf w = w.time = max_int
 
-  let traverse w e =
+  let traverse w (v : node) e =
     if is_mode_excluded e.mode then None
     else
-      match eval_edge w.time w.line_name e with
+      match eval_edge w.time w.line_name v e with
       | None -> None
       | Some (next_time, wait_time, next_line) ->
           (* On ne compte une "correspondance" que si l'on monte dans un nouveau véhicule. 

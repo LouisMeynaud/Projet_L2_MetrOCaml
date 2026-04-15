@@ -112,7 +112,7 @@ let () =
                         Combinator.criterion (module Weight.HopWeight) ~coefficient:ca ~label:"Arrêts";
                         Combinator.criterion (module Weight.CorrespondenceWeight) ~coefficient:cc ~label:"Correspondances";
                      ] in
-                     let module CombinedWeight = (val Combinator.combine critere : Routing.WEIGHT with type edge = Network.connection) in
+                     let module CombinedWeight = (val Combinator.combine critere : Routing.WEIGHT with type edge = Network.connection and type node = Network.station) in
                      let module DIJKSTRA_CombinedWeight = Dijkstra.Make(Network.TransportGraph)(CombinedWeight) in
                      [("Combinaison", (module DIJKSTRA_CombinedWeight))]
                 | _                 ->
