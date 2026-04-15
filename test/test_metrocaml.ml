@@ -19,7 +19,7 @@ let force_traverse traverse_fn w e =
 
 let test_hop_of_edge () =
   let dummy_line : Metrocaml.Network.line =
-    { name = "Ligne 1"; color = "#FFBE00" }
+    { name = "Ligne 1"; color = "#FFBE00"; id="" }
   in
   let dummy_conn : Metrocaml.Network.connection =
     {
@@ -39,7 +39,7 @@ let test_hop_of_edge () =
 let test_hop_arithmetic () =
   let dummy_conn =
     {
-      Metrocaml.Network.line = { name = ""; color = "" };
+      Metrocaml.Network.line = { name = ""; color = "";id= "" };
       duration = 0;
       distance = 0.;
       mode = Walk;
@@ -58,7 +58,7 @@ let test_hop_arithmetic () =
 let test_hop_infinity () =
   let dummy_conn =
     {
-      Metrocaml.Network.line = { name = ""; color = "" };
+      Metrocaml.Network.line = { name = ""; color = ""; id = "" };
       duration = 0;
       distance = 0.;
       mode = Walk;
@@ -83,7 +83,7 @@ let time_weight_t =
 
 let test_time_of_edge () =
   let dummy_line : Metrocaml.Network.line =
-    { name = "Ligne 1"; color = "#FFBE00" }
+    { name = "Ligne 1"; color = "#FFBE00"; id = "" }
   in
   let dummy_conn : Metrocaml.Network.connection =
     {
@@ -101,7 +101,7 @@ let test_time_of_edge () =
        (force_traverse TimeW.traverse (TimeW.start_at 0) dummy_conn))
 
 let test_time_arithmetic () =
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
+  let dummy_line : Metrocaml.Network.line = { name = ""; color = ""; id="" } in
   let c1 =
     {
       Metrocaml.Network.line = dummy_line;
@@ -139,7 +139,7 @@ let test_time_arithmetic () =
 
 let test_time_compare () =
   let open TimeW in
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
+  let dummy_line : Metrocaml.Network.line = { name = ""; color = ""; id=""} in
   let w_60 =
     force_traverse traverse (start_at 0)
       {
@@ -185,7 +185,7 @@ let distance_weight_t =
 
 let test_distance_of_edge () =
   let dummy_line : Metrocaml.Network.line =
-    { name = "Ligne 1"; color = "#FFBE00" }
+    { name = "Ligne 1"; color = "#FFBE00"; id="" }
   in
   let dummy_conn : Metrocaml.Network.connection =
     {
@@ -202,7 +202,7 @@ let test_distance_of_edge () =
     (DW.to_string (force_traverse DW.traverse (DW.start_at 0) dummy_conn))
 
 let test_distance_arithmetic () =
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
+  let dummy_line : Metrocaml.Network.line = { name = ""; color = ""; id ="" } in
   let conn1 =
     {
       Metrocaml.Network.line = dummy_line;
@@ -230,7 +230,7 @@ let test_distance_arithmetic () =
 
 let test_distance_tie_breaker () =
   let open DW in
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = "" } in
+  let dummy_line : Metrocaml.Network.line = { name = ""; color = ""; id ="" } in
   let w_fast =
     force_traverse traverse (start_at 0)
       {
@@ -261,7 +261,7 @@ let test_distance_tie_breaker () =
 let test_distance_infinity () =
   let dummy_conn =
     {
-      Metrocaml.Network.line = { name = ""; color = "" };
+      Metrocaml.Network.line = { name = ""; color = "";id="" };
       duration = 0;
       distance = 100.0;
       mode = Walk;
@@ -280,8 +280,8 @@ let test_distance_infinity () =
 module CW = Metrocaml.Weight.CorrespondenceWeight
 
 let test_cw_transfer_penalty () =
-  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
-  let line_b = { Metrocaml.Network.name = "Ligne B"; color = "#0000FF" } in
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000";id="" } in
+  let line_b = { Metrocaml.Network.name = "Ligne B"; color = "#0000FF"; id="" } in
   let conn_a : Metrocaml.Network.connection =
     {
       line = line_a;
@@ -311,7 +311,7 @@ let test_cw_transfer_penalty () =
     "1 correspondances (Aujourd'hui à 00h05m00s)" (CW.to_string total)
 
 let test_cw_no_transfer () =
-  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000"; id="" } in
   let conn1 =
     {
       Metrocaml.Network.line = line_a;
@@ -340,7 +340,7 @@ let test_cw_no_transfer () =
 
 let test_cw_tie_breaker () =
   let open CW in
-  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000" } in
+  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000"; id=""} in
   (* Tous deux ont 0 correspondance, mais l'un est plus rapide *)
   let w_fast =
     force_traverse traverse (start_at 0)
@@ -371,7 +371,7 @@ let test_cw_tie_breaker () =
 let test_cw_infinity () =
   let conn =
     {
-      Metrocaml.Network.line = { name = ""; color = "" };
+      Metrocaml.Network.line = { name = ""; color = "";id="" };
       duration = 0;
       distance = 100.0;
       mode = Walk;
@@ -403,7 +403,7 @@ module BFS_Tests = struct
 
     let default =
       {
-        Metrocaml.Network.line = { name = ""; color = "" };
+        Metrocaml.Network.line = { name = ""; color = "";id="" };
         duration = 0;
         distance = 0.;
         mode = Walk;
@@ -417,7 +417,7 @@ module BFS_Tests = struct
 
   let dummy_conn : Metrocaml.Network.connection =
     {
-      line = { name = "Test"; color = "#000000" };
+      line = { name = "Test"; color = "#000000"; id="" };
       duration = 60;
       distance = 1000.0;
       mode = Walk;
@@ -450,7 +450,7 @@ module Dijkstra_Tests = struct
 
   let conn dur : Metrocaml.Network.connection =
     {
-      line = { name = "Test"; color = "#000000" };
+      line = { name = "Test"; color = "#000000";id="" };
       duration = dur;
       distance = 0.;
       mode = Walk;

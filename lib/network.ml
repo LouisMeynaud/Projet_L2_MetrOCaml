@@ -2,7 +2,7 @@
     context. These types are used to build TransportGraph. It can be used for
     any graph-based routing. *)
 
-type line = { name : string; color : string }
+type line = { name : string; color : string;id : string;}
 (** Line information. *)
 
 type transport_mode =
