@@ -4,3 +4,4 @@ cli/console.ml
 lib/gtfs_adapter.ml
 lib/endpoint.ml
 routing/src/dijkstra.ml
+bin/runner.ml
