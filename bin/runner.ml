@@ -111,7 +111,7 @@ let affichage details_mode use_color start_time source destination
                 start_time details_mode use_color p
             in
             let edges =
-              List.map (fun step -> (step.from.id, step.to_node.id)) p.steps
+              List.map (fun step -> (step.from.id, step.to_node.id, step.edge.line.name)) p.steps
             in
             acc @ [ (nom_algo, details, Some edges) ]
         | None -> acc @ [ (nom_algo, "Aucun chemin trouvé.", None) ])
@@ -160,8 +160,8 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
       details
   | None ->
       [
-        ( "Erreur",
-          "Erreur: Stations introuvables ou coordonnées invalides.",
+        ( "Erreur : Stations introuvables, coordonnées invalides ou adresse introuvable.",
+          "",
           None );
       ]
 

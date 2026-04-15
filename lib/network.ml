@@ -1,11 +1,10 @@
-(** This module defines the concepts of nodes and edges in the transport
-    context. These types are used to build TransportGraph. It can be used for
-    any graph-based routing. *)
+(** Modélisation des noeuds et arêtes pour les réseaux de transport. 
+    Ce module fournit les types de base nécessaires à la construction d'un TransportGraph
+    et peut servir de fondation pour tout algorithme de routage basé sur les graphes. *)
 
+(** Informations relatives à la ligne. *)
 type line = { name : string; color : string }
-(** Line information. *)
 
-(** Transport mode enumerated type. *)
 type transport_mode =
   | Metro
   | RER
@@ -24,6 +23,7 @@ let string_of_mode = function
   | Transfert -> "Transfert"
   | Custom s -> s
 
+(** Informations relatives aux stations (noeuds). *)
 type station = {
   id : string;
   name : string;
@@ -31,8 +31,8 @@ type station = {
   longitude : float;
   pmr : bool;
 }
-(** Station (node) information. *)
 
+(** Informations relatives aux connexions (arêtes). *)
 type connection = {
   line : line;
   duration : int;
@@ -41,10 +41,9 @@ type connection = {
   mode : transport_mode;
   terminus : station;
 }
-(** Connection (edge) information. *)
 
-(** Nodes module implementation for the routing library. Stations are the nodes
-    in the transport graph. *)
+(** Implémentation du module StationNode pour la bibliothèque de routage.
+    Les stations sont les noeuds du TransportGraph. *)
 module StationNode : Routing.NODE with type t = station = struct
   type t = station
 
@@ -53,11 +52,11 @@ module StationNode : Routing.NODE with type t = station = struct
   let to_string s = s.name
 end
 
-(** Edges module implementation for the routing library. Connections are the
-    edges in the transport graph. *)
+(** Implémentation du module ConnectionEdge pour la bibliothèque de routage.
+    Les connexions correspondent aux arêtes du TransportGraph. *)
 module ConnectionEdge : Routing.EDGE with type t = connection = struct
   type t = connection
 end
 
+(** Une instance de TransportGraph permettant la modélisation de réseaux. *)
 module TransportGraph = Routing.Graph.Make (StationNode) (ConnectionEdge)
-(** A TransportGraph instance that enables network modelling. *)
