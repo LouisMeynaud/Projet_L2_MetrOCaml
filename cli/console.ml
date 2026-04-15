@@ -17,13 +17,13 @@ let rec raw_select prompt options =
 (** Fonction principale pour le mode console. Elle demande à l'utilisateur les informations nécessaires pour effectuer une recherche de chemin, puis appelle la fonction de callback avec ces informations.
   @param graphe Le graphe de transport à utiliser pour la recherche
   @param search_callback La fonction à appeler avec les paramètres de recherche une fois que l'utilisateur les a fournis **)
-let run_console graphe search_callback =
+let rec run_console graphe search_callback =
   Printf.printf "\n=== Mode Ligne de Commande ===\n%!";
 
-  Printf.printf "Entrez la station source (nom/ID) ou les coordonnées (lat,lon) : %!";
+  Printf.printf "Entrez la station source (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
   let source_query = String.trim (read_line ()) in
 
-  Printf.printf "Entrez la station destination (nom/ID) ou les coordonnées (lat,lon) : %!";
+  Printf.printf "Entrez la station destination (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
   let dest_query = String.trim (read_line ()) in
 
   let algo = raw_select "Choisissez l'algorithme : " [ "BFS"; "Dijkstra" ] in
@@ -150,4 +150,10 @@ let run_console graphe search_callback =
         | _ -> false
   in
 
-  search_callback source_query dest_query algo poids coeffs excluded_modes start_time pmr_transfer
+  search_callback source_query dest_query algo poids coeffs excluded_modes start_time pmr_transfer;
+
+  let continue = raw_select "Voulez-vous effectuer une nouvelle recherche ? " [ "Oui"; "Non" ] in
+    if continue = "Oui" then
+      run_console graphe search_callback
+    else
+      Printf.printf "Fermeture de l'interface ligne de commande.\n%!";

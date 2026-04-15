@@ -51,7 +51,7 @@ let date_choose loading_mode = let date_cible =
     | "2" ->
       let cli_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
       let results = Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false true in
-      List.iter (fun (nom, details, _) -> Printf.printf "%s:\n%s\n\n%!" nom details) results
+      List.iter (fun (nom, details, _) -> Printf.printf "%s\n%s\n%!" nom details) results
     in
       Cli.Console.run_console graphe cli_callback; ()
     | _ -> Printf.printf "Lancement de l'interface graphique...\n%!";
