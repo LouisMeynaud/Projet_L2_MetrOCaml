@@ -24,6 +24,7 @@ type etat = {
   camera_x : float;
   camera_y : float;
   zoom : float;
+  highlighted_edges : (string * string * string) list;
 }
 
 type schedule_item = {
@@ -95,3 +96,12 @@ let horaires_direction_clip_height = 110 (* Hauteur du panneau scrollable des di
 let horaires_table_clip_height = 250 (* Hauteur du panneau scrollable des horaires detailles. *)
 let horaires_table_row_height = 26 (* Hauteur d'une ligne dans la table de passages. *)
 let max_resize_safety_threshold = 50 (* Taille minimale valide lors d'un resize. *)
+
+let resultats_min_width = 200 (* Largeur minimale de la zone d'affichage des resultats de recherche. *)
+let resultats_width_margin = 26 (* Marge retiree pour calculer la largeur de la zone d'affichage des resultats de recherche. *)
+let resultats_height = 200 (* Hauteur de la zone d'affichage des resultats de recherche. *)
+let resultats_row_min_width = 150 (* Largeur minimale d'une ligne de resultats de recherche. *)
+let resultats_row_width_margin = 26 (* Marge retiree pour calculer la largeur des lignes de resultats de recherche. *)
+let resultats_row_height = 30 (* Hauteur d'une ligne de resultats de recherche. *)
+let color_unused_edges = (190, 190, 190) (* Couleur des autres lignes du graphe (gris clair) *)
+let color_unused_nodes = (185, 185, 185) (* Contour des stations hors chemin selectionne *)

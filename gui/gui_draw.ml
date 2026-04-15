@@ -261,7 +261,13 @@ let dessiner_texte x y texte (r, g, b) =
       if x1i = x2i && y1i = y2i then 
         ()
       else 
-        let r, g, b = hex_to_rgb arete.couleur in
+        let r, g, b =
+          if etat.highlighted_edges <> [] then
+            if List.mem (arete.source, arete.destination, arete.groupe) etat.highlighted_edges ||
+               List.mem (arete.destination, arete.source, arete.groupe) etat.highlighted_edges then hex_to_rgb arete.couleur
+            else color_unused_edges
+          else hex_to_rgb arete.couleur
+        in
         Sdl_area.add (get_canvas ()) (fun renderer ->
           ignore (Tsdl.Sdl.set_render_draw_color renderer r g b 255);
           ignore (Tsdl.Sdl.render_draw_line renderer x1i y1i x2i y2i);
@@ -285,9 +291,13 @@ in
   if x < -.pad || y < -.pad || x > float !canvas_w +. pad || y > float !canvas_h +. pad then
     ()
   else
+    let node_on_path =
+      List.exists (fun (src, dst, _line_name) -> src = noeud.id || dst = noeud.id) etat.highlighted_edges
+    in
     let (color_ext, r_ext, r_int) =
       if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 11, 9)
       else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 11, 9)
+      else if etat.highlighted_edges <> [] && not node_on_path then (color_unused_nodes, 5,3)
       else (hex_to_rgb 0x000000, 5,3)
     in
     

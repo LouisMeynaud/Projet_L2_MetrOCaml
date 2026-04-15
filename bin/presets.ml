@@ -128,9 +128,9 @@ let all =
   [
     preset_rapide;
     preset_confort;
-    preset_court_chemin;
+    (*preset_court_chemin;
     preset_equilibre;
-    preset_explorateur;
+    preset_explorateur;*)
   ]
 
 (** Construit le module WEIGHT prêt à passer à Dijkstra.Make *)
