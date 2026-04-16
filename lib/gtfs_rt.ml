@@ -245,10 +245,43 @@ let charger_alertes_en_memoire date_cible =
                     [] apps
                 with _ -> []
               in
-              let lignes_uniques =
-                List.sort_uniq String.compare !lignes_touchees
-              in
 
+              let stops_directs = 
+                try disruption |> member "impactedStops" |> to_list 
+                with _ -> [] 
+              in
+              List.iter (fun stop ->
+                try
+                  let s_id = stop |> member "stopPoint" |> member "id" |> to_string in
+                  stations_touchees := nettoyer_id s_id :: !stations_touchees
+                with _ -> ()
+              ) stops_directs;
+
+              (* 2. On cherche dans impactedObjects (Le format standard IDFM) *)
+              let impacted_objects = 
+                try disruption |> member "impactedObjects" |> to_list 
+                with _ -> [] 
+              in
+              List.iter (fun obj ->
+                (* On récupère la ligne si elle est là *)
+                begin try
+                  let obj_line = obj |> member "ptObject" |> member "line" |> member "id" |> to_string in
+                  lignes_touchees := nettoyer_id obj_line :: !lignes_touchees
+                with _ -> () end;
+
+                (* On récupère TOUTES les gares du tronçon ! *)
+                let obj_stops = try obj |> member "impactedStops" |> to_list with _ -> [] in
+                List.iter (fun stop ->
+                  try
+                    let s_id = stop |> member "stopPoint" |> member "id" |> to_string in
+                    stations_touchees := nettoyer_id s_id :: !stations_touchees
+                  with _ -> ()
+                ) obj_stops
+              ) impacted_objects;
+
+              let lignes_uniques = List.sort_uniq String.compare !lignes_touchees in
+              (* On enlève aussi les doublons dans les gares *)
+              let stations_uniques = List.sort_uniq String.compare !stations_touchees in
               (* --- 3. Création de l'objet --- *)
               let obj =
                 {
@@ -258,7 +291,7 @@ let charger_alertes_en_memoire date_cible =
                   titre = d_title;
                   message = d_message;
                   lignes_impactees = lignes_uniques;
-                  stations_impactees = !stations_touchees;
+                  stations_impactees = stations_uniques;
                   temps = periodes_actives;
                 }
               in
