@@ -3,6 +3,8 @@ module type WEIGHT = sig
   type t
   type edge
 
+  type node
+
   type step_data
   (** Opaque payload generated during edge traversal (e.g., wait times). *)
 
@@ -19,7 +21,7 @@ module type WEIGHT = sig
   val is_inf : t -> bool
   (** Check if the weight is infinity. *)
 
-  val traverse : t -> edge -> (t * step_data) option
+  val traverse : t -> node -> edge -> (t * step_data) option
   (** Attempt to traverse an edge. Returns None if impossible (e.g. no train),
       otherwise returns the new weight and the opaque step_data. *)
 

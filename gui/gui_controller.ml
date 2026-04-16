@@ -14,7 +14,7 @@ open Metrocaml
 
     @param noeuds La liste des nœuds (stations) du graphe.
     @param schedule_items Les données des horaires de transport.
-    @param on_search La fonction de callback appelée pour lancer un calcul de plus court chemin.
+    @param on_search La fonction de callback appelée pour lancer un calcul de plus court chemin. Retourne les détails du chemin sous forme de liste de strings.
     @param current_etat Une référence vers l'état global et muable de l'interface.
     @param view L'enregistrement contenant tous les widgets interactifs générés par [Gui_view].
     @param layout_carte Le composant [Layout.t] représentant la zone de dessin (canvas) de la carte.
@@ -101,6 +101,8 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			) limited_rows
 		end
 	in
+
+	let found_paths = ref [] in
 
 	(* ================================================== *)
 	(*            LOGIQUE HORAIRES / RESULTATS           *)
@@ -372,17 +374,20 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		Widget.set_text view.button_select_arrival_on_map "Selection carte"
 	in
 
-	(* Fonction pour basculer entre les onglets Itinéraire, Recherche et Horaires 
+	(* Fonction pour basculer entre les onglets Itinéraire, Recherche, Horaires et Résultats 
 	@param show_itineraire Booléen pour afficher l'onglet Itinéraire
 	@param show_recherche Booléen pour afficher l'onglet Recherche
 	@param show_horaires Booléen pour afficher l'onglet Horaires
+	@param show_results Booléen pour afficher l'onglet Résultats
 	*)
-	let switch_tab ~show_itineraire ~show_recherche ~show_horaires ~show_perturbations =
+	let switch_tab ~show_itineraire ~show_recherche ~show_horaires ~show_perturbations ~show_results =
 		Layout.set_show view.tab_content_settings show_itineraire;
 		Layout.set_show view.tab_content_route show_recherche;
 		Layout.set_show view.tab_content_schedules show_horaires;
 		Layout.set_show view.tab_content_perturbations show_perturbations;
+		Layout.set_show view.tab_content_results show_results;
 		if show_perturbations then update_perturbations_view ();
+
 		reset_selection_mode ()
 	in
 
@@ -425,21 +430,46 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
 	(* ---------connexions onglets et boutons--------- *)
 	let conn_tab_iti = Widget.connect view.tab_settings view.tab_settings (fun _ _ _ ->
-		switch_tab ~show_itineraire:true ~show_recherche:false ~show_horaires:false ~show_perturbations:false
+		switch_tab ~show_itineraire:true ~show_recherche:false ~show_horaires:false ~show_perturbations:false ~show_results:false
 	) Trigger.buttons_down in
 
 	let conn_tab_rech = Widget.connect view.tab_route view.tab_route (fun _ _ _ ->
-		switch_tab ~show_itineraire:false ~show_recherche:true ~show_horaires:false ~show_perturbations:false
+		switch_tab ~show_itineraire:false ~show_recherche:true ~show_horaires:false ~show_perturbations:false ~show_results:false
 	) Trigger.buttons_down in
 
 	let conn_tab_hor = Widget.connect view.tab_schedules view.tab_schedules (fun _ _ _ ->
-		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:true ~show_perturbations:false
+		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:true ~show_perturbations:false ~show_results:false
 	) Trigger.buttons_down in
 
 	let conn_tab_pert = Widget.connect view.tab_perturbations view.tab_perturbations (fun _ _ _ ->
-		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:false ~show_perturbations:true
+		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:false ~show_perturbations:true ~show_results:false
+
 	) Trigger.buttons_down in
 
+	let conn_tab_res = Widget.connect view.tab_results view.tab_results (fun _ _ _ ->
+		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:false ~show_perturbations:false ~show_results:true
+	) Trigger.buttons_down in
+
+
+	let conn_input_details = Widget.connect view.input_result_details view.input_result_details (fun _ _ _ ->
+		let query = String.trim (Widget.get_text view.input_result_details) in
+		let selection =
+			try
+				let idx = int_of_string query - 1 in
+				if idx >= 0 && idx < List.length !found_paths then
+					Some (List.nth !found_paths idx)
+				else None
+			with _ ->
+				List.find_opt (fun (nom, _, _) -> nom = query) !found_paths
+		in
+		match selection with
+		| Some (_, details, edges_opt) ->
+			Widget.set_text view.result_display details;
+			current_etat := { !current_etat with highlighted_edges = match edges_opt with Some e -> e | None -> [] };
+			rafraichir_ecran !current_etat;
+			Widget.set_text view.input_result_details ""
+		| None -> ()
+	) [Trigger.text_input; Trigger.key_up] in
 
 	(*ecoute les saisie clavier dans ligne_horaire et arret_horaire pour mettre a jour les proposition*)
 	let conn_input_ligne_h = Widget.connect view.input_schedule_line view.input_schedule_line (fun _ _ _ -> launch_horaire_search ()) [Trigger.text_input; Trigger.key_up] in
@@ -447,13 +477,21 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
 	let conn_input_depart = Widget.connect view.input_depart view.input_depart (fun _ _ _ ->
 		selected_depart_id := None;
-		current_etat := { !current_etat with source = None };
+		current_etat := { !current_etat with
+			source = None; 
+			highlighted_edges = []
+			};
+		rafraichir_ecran !current_etat;
 		show_route_depart_suggestions (Widget.get_text view.input_depart)
 	) [Trigger.text_input; Trigger.key_up] in
 
 	let conn_input_arrivee = Widget.connect view.input_arrivee view.input_arrivee (fun _ _ _ ->
 		selected_arrivee_id := None;
-		current_etat := { !current_etat with dest = None };
+		current_etat := { !current_etat with
+			dest = None; 
+			highlighted_edges = [] 
+			};
+		rafraichir_ecran !current_etat;
 		show_route_arrivee_suggestions (Widget.get_text view.input_arrivee)
 	) [Trigger.text_input; Trigger.key_up] in
 
@@ -532,7 +570,13 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			| None -> if raw_arr = "" then None else Some raw_arr
 		in
 		match source_query_opt, dest_query_opt with
-		| Some source, Some dest -> launch_search source dest
+		| Some source, Some dest -> let results = launch_search source dest in
+			found_paths := results;
+			let last_edges = List.fold_left (fun acc (_, _, edges_opt) -> match edges_opt with Some e -> Some e | None -> acc) None (List.rev results) in
+			current_etat := { !current_etat with highlighted_edges = match last_edges with Some e -> e | None -> [] };
+			let summary = "Chemins disponibles:\n" ^ String.concat "\n" (List.map (fun (nom, _, _) -> nom) results) in
+			Widget.set_text view.result_display summary;
+			switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:false ~show_perturbations:false ~show_results:true
 		| _ -> Printf.printf "Erreur: point source/destination manquant dans l'interface graphique.\n%!"
 
 
@@ -809,7 +853,8 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		end
 	in
 
-	let connections = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_tab_pert :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_input_depart :: conn_input_arrivee :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: conn_pmr_transfers :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows @ conn_route_depart_rows @ conn_route_arrivee_rows) in
+	let connections = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_tab_res ::conn_tab_pert :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_input_details :: conn_input_depart :: conn_input_arrivee :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: conn_pmr_transfers :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows @ conn_route_depart_rows @ conn_route_arrivee_rows) in
+
 
 	let before_display () =
 		if Layout.is_shown view.tab_content_perturbations then update_perturbations_view ();

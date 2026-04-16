@@ -24,6 +24,7 @@ type etat = {
   camera_x : float;
   camera_y : float;
   zoom : float;
+  highlighted_edges : (string * string * string) list;
 }
 
 type schedule_item = {
@@ -104,3 +105,12 @@ let perturbations_max_rows = 120 (* Nombre max de perturbations affichees. *)
 let perturbations_row_height = 56 (* Hauteur d'une ligne de perturbation. *)
 let perturbations_clip_height = 460 (* Hauteur de la zone scrollable des perturbations. *)
 let max_resize_safety_threshold = 50 (* Taille minimale valide lors d'un resize. *)
+
+let resultats_min_width = 200 (* Largeur minimale de la zone d'affichage des resultats de recherche. *)
+let resultats_width_margin = 26 (* Marge retiree pour calculer la largeur de la zone d'affichage des resultats de recherche. *)
+let resultats_height = 200 (* Hauteur de la zone d'affichage des resultats de recherche. *)
+let resultats_row_min_width = 150 (* Largeur minimale d'une ligne de resultats de recherche. *)
+let resultats_row_width_margin = 26 (* Marge retiree pour calculer la largeur des lignes de resultats de recherche. *)
+let resultats_row_height = 30 (* Hauteur d'une ligne de resultats de recherche. *)
+let color_unused_edges = (190, 190, 190) (* Couleur des autres lignes du graphe (gris clair) *)
+let color_unused_nodes = (185, 185, 185) (* Contour des stations hors chemin selectionne *)

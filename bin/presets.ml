@@ -5,7 +5,7 @@ open Routing
 type preset = {
   name : string;
   description : string;
-  criteria : Network.connection Combinator.criterion list;
+  criteria : (Network.connection, Network.station) Combinator.criterion list;
 }
 
 (* Preset 1 : Rapide 
@@ -128,13 +128,13 @@ let all =
   [
     preset_rapide;
     preset_confort;
-    preset_court_chemin;
+    (*preset_court_chemin;
     preset_equilibre;
-    preset_explorateur;
+    preset_explorateur;*)
   ]
 
 (** Construit le module WEIGHT prêt à passer à Dijkstra.Make *)
-let to_weight preset : (module WEIGHT with type edge = Network.connection) =
+let to_weight preset : (module WEIGHT with type edge = Network.connection and type node = Network.station) =
   Combinator.combine preset.criteria
 
 (** Recherche par nom, insensible à la casse *)

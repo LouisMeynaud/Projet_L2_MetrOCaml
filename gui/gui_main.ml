@@ -61,6 +61,7 @@ let run noeuds aretes algos poids_list schedule_items on_search =
     camera_x = 0.;
     camera_y = 0.;
     zoom = 1.0;
+    highlighted_edges = [];
   } |> rebuild_render in (*on construit l'etat initial de l'application, avec les données du graphe et les paramètres par défaut*)
 
   let current_etat = ref etat_initial in
