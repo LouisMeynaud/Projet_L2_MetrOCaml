@@ -74,27 +74,8 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			Widget.set_text view.label_perturbations_info "Aucune perturbation active"
 		else begin
 			Widget.set_text view.label_perturbations_info (Printf.sprintf "%d perturbation(s) active(s)" (List.length alerts));
-			let rows = ref [] in
-			List.iter (fun (a : Gtfs_rt.alerte) ->
-				let severity =
-					match a.niveau_severite with
-					| Gtfs_rt.BLOQUANTE -> "BLOQUANTE"
-					| Gtfs_rt.PERTURBEE -> "PERTURBEE"
-				in
-				let message =
-					let raw = String.trim a.message in
-					if raw = "" then "Message non renseigne" else raw
-				in
-				let lines =
-					match a.lignes_impactees with
-					| [] -> ["Ligne inconnue"]
-					| xs -> xs
-				in
-				List.iter (fun line_name ->
-					rows := !rows @ [Printf.sprintf "Ligne: %s | Gravite: %s\n%s" line_name severity message]
-				) lines
-			) alerts;
-			let limited_rows = List.filteri (fun i _ -> i < max_perturbation_rows) !rows in
+			let rows = List.map Gtfs_rt.format_alerte_pour_affichage alerts in
+			let limited_rows = List.filteri (fun i _ -> i < max_perturbation_rows) rows in
 			List.iteri (fun i text ->
 				Widget.set_text view.perturbation_labels.(i) text;
 				Layout.set_show view.perturbation_rows.(i) true

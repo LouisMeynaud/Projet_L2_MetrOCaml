@@ -105,6 +105,74 @@ let string_to_severite s =
   | "PERTURBEE" -> PERTURBEE
   | "BLOQUANTE" -> BLOQUANTE
   | _ -> PERTURBEE
+
+let string_of_severite = function
+  | BLOQUANTE -> "BLOQUANTE"
+  | PERTURBEE -> "PERTURBEE"
+
+let string_of_severity = string_of_severite
+
+let nettoyer_html s =
+  let buffer = Buffer.create (String.length s) in
+  let rec loop i in_tag =
+    if i >= String.length s then ()
+    else
+      match s.[i] with
+      | '<' -> loop (i + 1) true
+      | '>' when in_tag -> loop (i + 1) false
+      | _ when in_tag -> loop (i + 1) in_tag
+      | '&' ->
+          let rec find_semicolon j =
+            if j >= String.length s then None
+            else if s.[j] = ';' then Some j else find_semicolon (j + 1)
+          in
+          (match find_semicolon (i + 1) with
+          | Some j ->
+              let entity = String.sub s i (j - i + 1) in
+              let decoded =
+                match entity with
+                | "&nbsp;" -> " "
+                | "&amp;" -> "&"
+                | "&lt;" -> "<"
+                | "&gt;" -> ">"
+                | "&quot;" -> "\""
+                | "&#39;" -> "'"
+                | _ -> entity
+              in
+              Buffer.add_string buffer decoded;
+              loop (j + 1) in_tag
+          | None ->
+              Buffer.add_char buffer '&';
+              loop (i + 1) in_tag)
+      | c ->
+          Buffer.add_char buffer c;
+          loop (i + 1) in_tag
+  in
+  loop 0 false;
+  Buffer.contents buffer
+
+let format_alerte_pour_affichage (alerte : alerte) =
+  let message =
+    let message = String.trim (nettoyer_html alerte.message) in
+    if message = "" then "Message non renseigne" else message
+  in
+  let lignes =
+    match alerte.lignes_impactees with
+    | [] -> ["Ligne inconnue"]
+    | xs -> xs
+  in
+  String.concat "\n"
+    (List.map
+       (fun ligne ->
+         [
+           "------";
+           Printf.sprintf "Ligne impactee: %s" ligne;
+           Printf.sprintf "Gravite: %s" (string_of_severity alerte.niveau_severite);
+           Printf.sprintf "Message: %s" message;
+           "------";
+         ]
+         |> String.concat "\n")
+       lignes)
 (* ================================================== *)
 (* 2. TÉLÉCHARGEMENT                                  *)
 (* ================================================== *)

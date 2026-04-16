@@ -102,8 +102,8 @@ let horaires_direction_clip_height = 110 (* Hauteur du panneau scrollable des di
 let horaires_table_clip_height = 250 (* Hauteur du panneau scrollable des horaires detailles. *)
 let horaires_table_row_height = 26 (* Hauteur d'une ligne dans la table de passages. *)
 let perturbations_max_rows = 120 (* Nombre max de perturbations affichees. *)
-let perturbations_row_height = 56 (* Hauteur d'une ligne de perturbation. *)
-let perturbations_clip_height = 460 (* Hauteur de la zone scrollable des perturbations. *)
+let perturbations_row_height = 84 (* Hauteur d'une ligne de perturbation. *)
+let perturbations_clip_height = !hauteur (* Hauteur de la zone scrollable des perturbations. *)
 let max_resize_safety_threshold = 50 (* Taille minimale valide lors d'un resize. *)
 
 let resultats_min_width = 200 (* Largeur minimale de la zone d'affichage des resultats de recherche. *)

@@ -307,10 +307,10 @@ let build ~panel_width ~(etat_initial : etat) =
   let label_perturbations_info = Widget.label "Mise a jour automatique" in
   let perturbation_row_w = horaires_row_w in
   let perturbation_max_rows = 120 in
-  let perturbation_row_h = 56 in
-  let perturbation_clip_h = 460 in
+  let perturbation_row_h = 120 in
+  let perturbation_clip_h = perturbations_clip_height in
   let perturbation_labels =
-    Array.init perturbation_max_rows (fun _ -> Widget.label "")
+    Array.init perturbation_max_rows (fun _ -> Widget.text_display "")
   in
   let perturbation_rows =
     Array.init perturbation_max_rows (fun i ->
