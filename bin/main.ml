@@ -44,7 +44,7 @@ let date_choose loading_mode = let date_cible =
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
 
-let rt_alertes town loading_mode date_cible = 
+let rt_alertes town loading_mode date_cible graph = 
     let (rt_url_alertes) = 
     match town with
     | "Ile-de-France" -> 
@@ -53,7 +53,7 @@ let rt_alertes town loading_mode date_cible =
   in
   if (rt_url_alertes <> "" && loading_mode == "En ligne" ) then begin
     Printf.printf "\n[Système] Démarrage du moteur Temps Réel en arrière-plan...\n%!";
-    Gtfs_rt.start_auto_refresh date_cible;
+    Gtfs_rt.start_auto_refresh date_cible graph;
   end; ()
 
 
@@ -80,8 +80,8 @@ let () =
   let loading_mode = choose_load_mode () in
   let (town, url) = choose_city loading_mode in
   let date_cible = date_choose loading_mode in
-  rt_alertes town loading_mode date_cible;
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
+  rt_alertes town loading_mode date_cible graph;
   Printf.printf "\nGraphe chargé avec succès !\n%!";
   let benchmark =
     match Cli.Console.raw_select "\nVoulez-vous activer le mode benchmark ?" [ "Oui"; "Non" ]  with

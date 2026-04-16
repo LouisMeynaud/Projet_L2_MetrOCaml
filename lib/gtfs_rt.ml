@@ -16,6 +16,7 @@ type alerte = {
   titre : string;
   message : string;
   lignes_impactees : string list;
+  sections_impactees : (string * string) list;
   stations_impactees : string list;
   temps : periode list;
 }
@@ -81,24 +82,24 @@ let yyyymmdd_to_midnight s =
     depuis 1970).
     @param s La chaîne de caractères représentant la date.
     @return Le timestamp Unix (entier). Renvoie 0 en cas d'erreur de format. *)
-let date_to_int s =
-  try
-    Scanf.sscanf s "%d-%d-%dT%d:%d:%d" (fun y m d h min sec ->
-        let tm =
-          {
-            Unix.tm_sec = sec;
-            tm_min = min;
-            tm_hour = h;
-            tm_mday = d;
-            tm_mon = m - 1;
-            tm_year = y - 1900;
-            tm_wday = 0;
-            tm_yday = 0;
-            tm_isdst = false;
-          }
-        in
-        int_of_float (fst (Unix.mktime tm)))
-  with _ -> 0
+    let date_to_int s =
+      try
+        Scanf.sscanf s "%4d%2d%2dT%2d%2d%2d" (fun y m d h min sec ->
+            let tm =
+              {
+                Unix.tm_sec = sec;
+                tm_min = min;
+                tm_hour = h;
+                tm_mday = d;
+                tm_mon = m - 1;
+                Unix.tm_year = y - 1900;
+                tm_wday = 0;
+                tm_yday = 0;
+                tm_isdst = false;
+              }
+            in
+            int_of_float (fst (Unix.mktime tm)))
+      with _ -> 0
 
 let string_to_severite s =
   match s with
@@ -167,7 +168,6 @@ let charger_alertes_en_memoire date_cible =
   if Sys.file_exists filename then
     begin try
       let json = Yojson.Basic.from_file filename in
-
       (* On rentre dans le tableau "disruptions" *)
       let disruptions = json |> member "disruptions" |> to_list in
 
@@ -196,7 +196,7 @@ let charger_alertes_en_memoire date_cible =
               (* --- 2. Extraction des lignes impactées --- *)
               let lignes_touchees = ref [] in
               let stations_touchees = ref [] in
-
+              let sections_troncons = ref [] in
               let sections =
                 try disruption |> member "impactedSections" |> to_list
                 with _ -> []
@@ -207,18 +207,12 @@ let charger_alertes_en_memoire date_cible =
                   try
                     let raw_line = section |> member "lineId" |> to_string in
                     lignes_touchees := nettoyer_id raw_line :: !lignes_touchees;
-                    let parse_stop node_name =
-                      try
-                        let s_id =
-                          section |> member node_name |> member "id"
-                          |> to_string
-                        in
-                        stations_touchees :=
-                          nettoyer_id s_id :: !stations_touchees
-                      with _ -> ()
-                    in
-                    parse_stop "from";
-                    parse_stop "to"
+                    
+                    (* MODIFICATION 1 : On extrait le 'from' et le 'to' pour remplir les tronçons *)
+                    let f_id = nettoyer_id (section |> member "from" |> member "id" |> to_string) in
+                    let t_id = nettoyer_id (section |> member "to" |> member "id" |> to_string) in
+                    stations_touchees := f_id :: t_id :: !stations_touchees;
+                    sections_troncons := (f_id, t_id) :: !sections_troncons;
                   with _ -> ())
                 sections;
 
@@ -263,25 +257,20 @@ let charger_alertes_en_memoire date_cible =
                 with _ -> [] 
               in
               List.iter (fun obj ->
-                (* On récupère la ligne si elle est là *)
                 begin try
                   let obj_line = obj |> member "ptObject" |> member "line" |> member "id" |> to_string in
                   lignes_touchees := nettoyer_id obj_line :: !lignes_touchees
                 with _ -> () end;
-
-                (* On récupère TOUTES les gares du tronçon ! *)
-                let obj_stops = try obj |> member "impactedStops" |> to_list with _ -> [] in
-                List.iter (fun stop ->
-                  try
-                    let s_id = stop |> member "stopPoint" |> member "id" |> to_string in
-                    stations_touchees := nettoyer_id s_id :: !stations_touchees
-                  with _ -> ()
-                ) obj_stops
+                begin try
+                  let s_id = obj |> member "ptObject" |> member "stopPoint" |> member "id" |> to_string in
+                  stations_touchees := nettoyer_id s_id :: !stations_touchees
+                with _ -> () end
               ) impacted_objects;
 
               let lignes_uniques = List.sort_uniq String.compare !lignes_touchees in
-              (* On enlève aussi les doublons dans les gares *)
               let stations_uniques = List.sort_uniq String.compare !stations_touchees in
+
+
               (* --- 3. Création de l'objet --- *)
               let obj =
                 {
@@ -292,6 +281,7 @@ let charger_alertes_en_memoire date_cible =
                   message = d_message;
                   lignes_impactees = lignes_uniques;
                   stations_impactees = stations_uniques;
+                  sections_impactees = !sections_troncons; 
                   temps = periodes_actives;
                 }
               in
@@ -309,40 +299,125 @@ let charger_alertes_en_memoire date_cible =
       filename
 
 
+      let trouver_gares_intermediaires graph line_id from_id to_id =
+        let start_node_opt = ref None in
+        List.iter (fun node -> if nettoyer_id node.Network.id = from_id then start_node_opt := Some node) (Network.TransportGraph.nodes graph);
+      
+        match !start_node_opt with
+        | None -> []
+        | Some start_node ->
+            let queue = Queue.create () in Queue.push (start_node, [nettoyer_id start_node.Network.id]) queue;
+            let visited = Hashtbl.create 16 in Hashtbl.add visited start_node.Network.id true;
+            let result = ref [] in let found = ref false in
+      
+            while not (Queue.is_empty queue) && not !found do
+              let (current_node, path) = Queue.pop queue in
+              if nettoyer_id current_node.Network.id = to_id then begin result := path; found := true end 
+              else begin
+                let edges = Network.TransportGraph.neighbors graph current_node in
+                List.iter (fun (neighbor, connection) ->
+                  if nettoyer_id connection.Network.line.Network.id = nettoyer_id line_id then begin
+                    if not (Hashtbl.mem visited neighbor.Network.id) then begin
+                      Hashtbl.add visited neighbor.Network.id true;
+                      Queue.push (neighbor, (nettoyer_id neighbor.Network.id) :: path) queue
+                    end
+                  end
+                ) edges
+              end
+            done; !result
+
 
   (** [compiler_alertes_pour_dijkstra ()] crée un index (Table de hachage) où 
     la CLÉ est l'ID de la ligne, et la VALEUR est la liste de ses alertes actives. *)
-    let compiler_alertes_pour_dijkstra () =
+    let compiler_alertes_pour_dijkstra graph =
       let index_lignes = Hashtbl.create 1000 in
-      
       List.iter (fun alerte ->
         let gares_hash = Hashtbl.create 100 in
         List.iter (fun s -> Hashtbl.replace gares_hash s true) alerte.stations_impactees;
-        let alerte_opt = {
-          severite = alerte.niveau_severite;
-          stations_hash = gares_hash;
-          periodes = alerte.temps;
-        } in
+        
+        List.iter (fun l_id ->
+          List.iter (fun (f_id, t_id) ->
+            let gares_cachees = trouver_gares_intermediaires graph l_id f_id t_id in
+            List.iter (fun gc -> Hashtbl.replace gares_hash gc true) gares_cachees
+          ) alerte.sections_impactees
+        ) alerte.lignes_impactees;
+    
+        let alerte_opt = { severite = alerte.niveau_severite; stations_hash = gares_hash; periodes = alerte.temps; } in
         List.iter (fun l_id ->
           let alertes_existantes = try Hashtbl.find index_lignes l_id with Not_found -> [] in
           Hashtbl.replace index_lignes l_id (alerte_opt :: alertes_existantes)
         ) alerte.lignes_impactees
       ) !liste_alertes;
-      
       index_lignes
 
+(* ================================================== *)
+(* 5. OUTIL DE DEBUGGAGE                              *)
+(* ================================================== *)
+
+(** Convertit le type personnalisé [severite] en texte *)
+let severite_to_string = function
+| BLOQUANTE -> "BLOQUANTE"
+| PERTURBEE -> "PERTURBEE"
+
+(** [exporter_index_debug ()] génère un fichier texte lisible par un humain 
+  pour vérifier le contenu exact de la table de hachage de Dijkstra. *)
+let exporter_index_debug () =
+let filename = "data/rt/debug_dijkstra.txt" in
+let oc = open_out filename in
+
+Printf.fprintf oc "=== DUMP DE L'INDEX DIJKSTRA (TEMPS RÉEL) ===\n\n";
+
+if Hashtbl.length !index_alertes_dijkstra = 0 then
+  Printf.fprintf oc "L'index est totalement VIDE. (Aucune alerte active ou problème de compilation)\n"
+else begin
+  (* On parcourt toutes les lignes qui ont au moins un problème *)
+  Hashtbl.iter (fun id_ligne liste_alertes ->
+    Printf.fprintf oc "--------------------------------------------------\n";
+    Printf.fprintf oc "LIGNE IMPACTÉE : %s\n" id_ligne;
+    Printf.fprintf oc "--------------------------------------------------\n";
+    
+    List.iteri (fun i (alerte : alerte_dijkstra) ->
+      Printf.fprintf oc "  [Alerte #%d] Sévérité : %s\n" (i + 1) (severite_to_string alerte.severite);
+      (* On extrait les clés de la Hashtbl des stations pour les afficher *)
+      let stations_list = Hashtbl.fold (fun id_station _ acc -> id_station :: acc) alerte.stations_hash [] in
+      if stations_list = [] then
+        Printf.fprintf oc "  -> Stations  : TOUTES (Ligne entière)\n"
+      else
+        Printf.fprintf oc "  -> Stations  : %s\n" (String.concat ", " stations_list);
       
+      (* Affichage des périodes *)
+      Printf.fprintf oc "  -> Périodes  : ";
+      if alerte.periodes = [] then 
+        Printf.fprintf oc "Immédiat / Sans limite de temps\n"
+      else begin
+        Printf.fprintf oc "\n";
+        List.iter (fun p -> 
+          Printf.fprintf oc "       De [T0 + %d sec] à [T0 + %d sec]\n" p.debut p.fin
+        ) alerte.periodes
+      end;
+      Printf.fprintf oc "\n"
+    ) liste_alertes;
+    
+  ) !index_alertes_dijkstra
+end;
+
+close_out oc;
+Printf.printf "[Debug] Fichier %s généré avec succès ! Allez le lire pour vérifier vos données.\n%!" filename
+      
+
 (** [start_auto_refresh ()] initialise et lance le moteur Temps Réel en
     arrière-plan. Cette fonction crée un thread indépendant (fantôme) qui
     exécute en boucle : 1. Le téléchargement réseau (bloque uniquement ce
     thread, pas le jeu). 2. Le parsing du fichier vers la mémoire. 3. Une pause
     de 45 secondes. Doit être appelée une seule fois au démarrage de
     l'application. *)
-let start_auto_refresh date =
+let start_auto_refresh date graph =
   let rec loop () =
     actualiser_fichier_alertes ();
     charger_alertes_en_memoire date;
-    index_alertes_dijkstra := compiler_alertes_pour_dijkstra ();
+    index_alertes_dijkstra := compiler_alertes_pour_dijkstra graph;
+    (**DEBUG
+    exporter_index_debug();**)
     Unix.sleep 60;
     loop ()
   in
