@@ -28,7 +28,7 @@ type alerte = {
     graphique et mise à jour en tâche de fond par le thread. *)
 let liste_alertes : alerte list ref = ref []
 
-let apiKey = "PUT UR API KEY HERE"
+let apiKey = "GBsIolemaspJPcsW7HbwQTp4RaiaBTQk"
 
 (* ================================================== *)
 (* 1. UTILITAIRES                                     *)

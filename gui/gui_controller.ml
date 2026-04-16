@@ -3,6 +3,7 @@ open Gui_types
 open Gui_draw
 open Gui_utils
 open Gui_view
+open Metrocaml
 
 
 (** Initialise et connecte toute la logique de l'interface graphique.
@@ -57,6 +58,49 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	let max_table_rows = Array.length view.table_rows in
 	let max_route_depart_suggestions = Array.length view.route_depart_rows in
 	let max_route_arrivee_suggestions = Array.length view.route_arrivee_rows in
+	let max_perturbation_rows = Array.length view.perturbation_rows in
+
+	let clear_perturbation_rows () =
+		for i = 0 to max_perturbation_rows - 1 do
+			Widget.set_text view.perturbation_labels.(i) "";
+			Layout.set_show view.perturbation_rows.(i) false
+		done
+	in
+
+	let update_perturbations_view () =
+		clear_perturbation_rows ();
+		let alerts = !(Gtfs_rt.liste_alertes) in
+		if alerts = [] then
+			Widget.set_text view.label_perturbations_info "Aucune perturbation active"
+		else begin
+			Widget.set_text view.label_perturbations_info (Printf.sprintf "%d perturbation(s) active(s)" (List.length alerts));
+			let rows = ref [] in
+			List.iter (fun (a : Gtfs_rt.alerte) ->
+				let severity =
+					match a.niveau_severite with
+					| Gtfs_rt.BLOQUANTE -> "BLOQUANTE"
+					| Gtfs_rt.PERTURBEE -> "PERTURBEE"
+				in
+				let message =
+					let raw = String.trim a.message in
+					if raw = "" then "Message non renseigne" else raw
+				in
+				let lines =
+					match a.lignes_impactees with
+					| [] -> ["Ligne inconnue"]
+					| xs -> xs
+				in
+				List.iter (fun line_name ->
+					rows := !rows @ [Printf.sprintf "Ligne: %s | Gravite: %s\n%s" line_name severity message]
+				) lines
+			) alerts;
+			let limited_rows = List.filteri (fun i _ -> i < max_perturbation_rows) !rows in
+			List.iteri (fun i text ->
+				Widget.set_text view.perturbation_labels.(i) text;
+				Layout.set_show view.perturbation_rows.(i) true
+			) limited_rows
+		end
+	in
 
 	(* ================================================== *)
 	(*            LOGIQUE HORAIRES / RESULTATS           *)
@@ -214,7 +258,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			(* On filtre les horaires selon la ligne et/ou l'arrêt saisis, en supprimant les doublons de ligne+station *)
 			let filtered =
 				schedule_items
-				|> List.filter (fun elt -> Gui_utils.contains_ci elt.line_name q_line && Gui_utils.contains_ci elt.station_name q_stop)
+				|> List.filter (fun (elt : schedule_item) -> Gui_utils.contains_ci elt.line_name q_line && Gui_utils.contains_ci elt.station_name q_stop)
 				|> dedupe_line_station
 			in
 			let count = List.length filtered in (*le nombre de station a affichée*)
@@ -333,10 +377,12 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	@param show_recherche Booléen pour afficher l'onglet Recherche
 	@param show_horaires Booléen pour afficher l'onglet Horaires
 	*)
-	let switch_tab ~show_itineraire ~show_recherche ~show_horaires =
+	let switch_tab ~show_itineraire ~show_recherche ~show_horaires ~show_perturbations =
 		Layout.set_show view.tab_content_settings show_itineraire;
 		Layout.set_show view.tab_content_route show_recherche;
 		Layout.set_show view.tab_content_schedules show_horaires;
+		Layout.set_show view.tab_content_perturbations show_perturbations;
+		if show_perturbations then update_perturbations_view ();
 		reset_selection_mode ()
 	in
 
@@ -379,15 +425,19 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
 	(* ---------connexions onglets et boutons--------- *)
 	let conn_tab_iti = Widget.connect view.tab_settings view.tab_settings (fun _ _ _ ->
-		switch_tab ~show_itineraire:true ~show_recherche:false ~show_horaires:false
+		switch_tab ~show_itineraire:true ~show_recherche:false ~show_horaires:false ~show_perturbations:false
 	) Trigger.buttons_down in
 
 	let conn_tab_rech = Widget.connect view.tab_route view.tab_route (fun _ _ _ ->
-		switch_tab ~show_itineraire:false ~show_recherche:true ~show_horaires:false
+		switch_tab ~show_itineraire:false ~show_recherche:true ~show_horaires:false ~show_perturbations:false
 	) Trigger.buttons_down in
 
 	let conn_tab_hor = Widget.connect view.tab_schedules view.tab_schedules (fun _ _ _ ->
-		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:true
+		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:true ~show_perturbations:false
+	) Trigger.buttons_down in
+
+	let conn_tab_pert = Widget.connect view.tab_perturbations view.tab_perturbations (fun _ _ _ ->
+		switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:false ~show_perturbations:true
 	) Trigger.buttons_down in
 
 
@@ -759,9 +809,10 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		end
 	in
 
-	let connections = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_input_depart :: conn_input_arrivee :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: conn_pmr_transfers :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows @ conn_route_depart_rows @ conn_route_arrivee_rows) in
+	let connections = connexion_carte :: conn_tab_iti :: conn_tab_rech :: conn_tab_hor :: conn_tab_pert :: conn_select_depart :: conn_select_arrivee :: conn_valider_rech :: conn_input_ligne_h :: conn_input_arret_h :: conn_input_depart :: conn_input_arrivee :: conn_noms :: conn_dep :: conn_maint :: conn_hm :: conn_hp :: conn_mm :: conn_mp :: conn_pmr_transfers :: (conn_cats @ conn_algos @ conn_poids @ conn_result_rows @ conn_direction_rows @ conn_route_depart_rows @ conn_route_arrivee_rows) in
 
 	let before_display () =
+		if Layout.is_shown view.tab_content_perturbations then update_perturbations_view ();
 		if !needs_redraw then begin
 			needs_redraw := false;
 			rafraichir_ecran !current_etat

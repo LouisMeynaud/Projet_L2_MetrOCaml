@@ -36,6 +36,12 @@ type schedule_item = {
   times : int list;
 }
 
+type perturbation_item = {
+  line_name : string;
+  message : string;
+  is_blocking : bool;
+}
+
 (* ------------------ Parametres UI globaux ------------------- *)
 
 let largeur = ref 1200 (* Largeur de la fenetre principale. *)
@@ -94,4 +100,7 @@ let horaires_result_clip_height = 220 (* Hauteur du panneau scrollable des resul
 let horaires_direction_clip_height = 110 (* Hauteur du panneau scrollable des directions. *)
 let horaires_table_clip_height = 250 (* Hauteur du panneau scrollable des horaires detailles. *)
 let horaires_table_row_height = 26 (* Hauteur d'une ligne dans la table de passages. *)
+let perturbations_max_rows = 120 (* Nombre max de perturbations affichees. *)
+let perturbations_row_height = 56 (* Hauteur d'une ligne de perturbation. *)
+let perturbations_clip_height = 460 (* Hauteur de la zone scrollable des perturbations. *)
 let max_resize_safety_threshold = 50 (* Taille minimale valide lors d'un resize. *)

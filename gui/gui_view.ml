@@ -58,12 +58,17 @@ type t = {
   direction_rows : Layout.t array;
   table_labels : Widget.t array;
   table_rows : Layout.t array;
+  label_perturbations_info : Widget.t;
+  perturbation_labels : Widget.t array;
+  perturbation_rows : Layout.t array;
   tab_content_settings : Layout.t;
   tab_content_route : Layout.t;
   tab_content_schedules : Layout.t;
+  tab_content_perturbations : Layout.t;
   tab_settings : Widget.t;
   tab_route : Widget.t;
   tab_schedules : Widget.t;
+  tab_perturbations : Widget.t;
   tabs_bar : Layout.t;
   tabs_content_scroll : Layout.t;
   spacer : Layout.t;
@@ -288,6 +293,35 @@ let build ~panel_width ~(etat_initial : etat) =
     Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:horaires_table_clip_height table_box
   in
 
+  (* ================================================== *)
+  (*                ONGLET PERTURBATIONS               *)
+  (* ================================================== *)
+
+  let label_perturbations = Widget.label "Perturbations en cours" in
+  let label_perturbations_info = Widget.label "Mise a jour automatique" in
+  let perturbation_row_w = horaires_row_w in
+  let perturbation_max_rows = 120 in
+  let perturbation_row_h = 56 in
+  let perturbation_clip_h = 460 in
+  let perturbation_labels =
+    Array.init perturbation_max_rows (fun _ -> Widget.label "")
+  in
+  let perturbation_rows =
+    Array.init perturbation_max_rows (fun i ->
+      let row =
+        Layout.resident
+          ~w:perturbation_row_w
+          ~h:perturbation_row_h
+          perturbation_labels.(i)
+      in
+      Layout.set_show row false;
+      row)
+  in
+  let perturbation_box = Layout.tower (Array.to_list perturbation_rows) in
+  let perturbation_box_clip =
+    Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:perturbation_clip_h perturbation_box
+  in
+
   (* -------------------- Contenu des onglets -------------------- *)
   let tab_content_schedules = Layout.tower ~align:Draw.Center [
     Layout.resident ~w:horaires_row_w label_horaires;
@@ -327,6 +361,14 @@ let build ~panel_width ~(etat_initial : etat) =
     Layout.resident button_validate_search;
   ] in
 
+  let tab_content_perturbations = Layout.tower ~align:Draw.Center [
+    Layout.resident ~w:perturbation_row_w label_perturbations;
+    Layout.empty ~w:1 ~h:8 ();
+    Layout.resident ~w:perturbation_row_w label_perturbations_info;
+    Layout.empty ~w:1 ~h:8 ();
+    perturbation_box_clip;
+  ] in
+
   let tab_content_settings = Layout.tower ~align:Draw.Center [
     Layout.resident titre_panneau;
     spacer;
@@ -343,12 +385,13 @@ let build ~panel_width ~(etat_initial : etat) =
 
   Layout.set_show tab_content_route false;
   Layout.set_show tab_content_schedules false;
+  Layout.set_show tab_content_perturbations false;
 
   (* ================================================== *)
   (*                 BARRE D'ONGLETS                   *)
   (* ================================================== *)
 
-  let zone_onglet = Layout.superpose [tab_content_settings; tab_content_route; tab_content_schedules] in
+  let zone_onglet = Layout.superpose [tab_content_settings; tab_content_route; tab_content_schedules; tab_content_perturbations] in
   let h_zone_onglet = max tab_zone_min_height (!hauteur - tab_zone_height_margin) in
   let tabs_content_scroll =
     Layout.make_clip ~scrollbar:true ~scrollbar_width ~h:h_zone_onglet zone_onglet
@@ -357,11 +400,13 @@ let build ~panel_width ~(etat_initial : etat) =
   let tab_settings = Widget.button "[ REGLAGE ]" in
   let tab_route = Widget.button "[ ITINÉRAIRE ]" in
   let tab_schedules = Widget.button "[ HORAIRES ]" in
+  let tab_perturbations = Widget.button "[ PERTURBATION ]" in
 
   let tabs_bar = Layout.flat ~align:Draw.Center [
     Layout.resident ~w:tab_button_width tab_settings;
     Layout.resident ~w:tab_button_width tab_route;
     Layout.resident ~w:tab_button_width tab_schedules;
+    Layout.resident ~w:tab_button_width tab_perturbations;
   ] in
 
   (* ================================================== *)
@@ -437,12 +482,17 @@ let build ~panel_width ~(etat_initial : etat) =
     direction_rows;
     table_labels;
     table_rows;
+    label_perturbations_info;
+    perturbation_labels;
+    perturbation_rows;
     tab_content_settings;
     tab_content_route;
     tab_content_schedules;
+    tab_content_perturbations;
     tab_settings;
     tab_route;
     tab_schedules;
+    tab_perturbations;
     tabs_bar;
     tabs_content_scroll;
     spacer;
