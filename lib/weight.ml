@@ -91,37 +91,49 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
 
     let current_line_id = edge.line.id in 
     let target_station_id = target_station.id in 
+    let cleaned_line_id = Gtfs_rt.nettoyer_id current_line_id in
+    let cleaned_station_id = Gtfs_rt.nettoyer_id target_station_id in
 
-    begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra (Gtfs_rt.nettoyer_id current_line_id) with
+    begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra cleaned_line_id with
     | None -> () 
     | Some alertes_ligne ->
-        let _ =
-          List.exists (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
-            
-            let concerne_station =
-              Hashtbl.length alerte.stations_hash = 0 || 
-              Hashtbl.mem alerte.stations_hash target_station_id
-            in
-            
-            if concerne_station then begin
-              let est_en_cours =
-                match alerte.periodes with
-                | [] -> true 
-                | periodes -> List.exists (fun p -> current_time >= Gtfs_rt.(p.debut) && current_time <= Gtfs_rt.(p.fin)) periodes
-              in
+        
+        (* --- SNIPER DE STATIONS (Uniquement sur la ligne 9) --- *)
+        let is_ligne_9 = (edge.line.name = "9" || edge.line.name = "M9") in
+        if is_ligne_9 then begin
+          Printf.printf "\n[DEBUG STATION : %s]\n" target_station.name;
+          Printf.printf "-> ID Statique (Nettoyé) cherché par Dijkstra : '%s'\n" cleaned_station_id;
+          List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
+            Printf.printf "-> IDs présents dans l'alerte RATP pour cette ligne :\n";
+            if Hashtbl.length alerte.stations_hash = 0 then
+              Printf.printf "   (Aucun ID spécifique, toute la ligne est censée être impactée)\n"
+            else
+              Hashtbl.iter (fun k _ -> Printf.printf "   - '%s'\n" k) alerte.stations_hash
+          ) alertes_ligne;
+          Printf.printf "--------------------------------------------------\n%!";
+        end;
+        (* ------------------------------------------------------ *)
 
-              if est_en_cours then begin
-                match alerte.severite with
-                | Gtfs_rt.BLOQUANTE -> 
-                    is_blocked := true; 
-                    true 
-                | Gtfs_rt.PERTURBEE -> 
-                    is_perturbed := true; 
-                    false 
-              end else false
-            end else false
-          ) alertes_ligne
-        in ()
+        List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
+          let concerne_station =
+            Hashtbl.length alerte.stations_hash = 0 || 
+            Hashtbl.mem alerte.stations_hash cleaned_station_id
+          in
+          
+          if concerne_station then begin
+            let est_en_cours =
+              match alerte.periodes with
+              | [] -> true 
+              | ps -> List.exists (fun (p : Gtfs_rt.periode) -> current_time >= p.debut && current_time <= p.fin) ps
+            in
+
+            if est_en_cours then begin
+              match alerte.severite with
+              | Gtfs_rt.BLOQUANTE -> is_blocked := true
+              | Gtfs_rt.PERTURBEE -> is_perturbed := true
+            end
+          end
+        ) alertes_ligne
     end;
 
     if !is_blocked then None
@@ -208,12 +220,11 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection and type node
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
-      let diff = w1.distance -. w2.distance in
-      (* Tie-Breaker : À distance très proche, le trajet le plus court en temps gagne. *)
-      if Float.abs diff < 0.1 then
-        float_of_int (w1.time - w2.time)
-        /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
-      else diff /. Float.max 1.0 (Float.max w1.distance w2.distance)
+      let diff_transfers = w1.distance -. w2.distance in
+      if diff_transfers = 0.0 then 0.0
+      else
+        diff_transfers 
+        /.  (Float.max 1.0 (Float.max w1.distance w2.distance))
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
@@ -258,13 +269,11 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
-      let diff = w1.hops - w2.hops in
-      (* Tie-Breaker : À nombre d'arrêts équivalent, le trajet le plus court en temps gagne. *)
-      if diff = 0 then
-        float_of_int (w1.time - w2.time)
-        /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
+      let diff_transfers = w1.hops - w2.hops in
+      if diff_transfers = 0 then 0.0
       else
-        float_of_int diff /. float_of_int (Int.max 1 (Int.max w1.hops w2.hops))
+        float_of_int diff_transfers 
+        /. float_of_int (Int.max 1 (Int.max w1.hops w2.hops))
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
@@ -323,10 +332,11 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
       (* Chaque correspondance ajoute un "coût virtuel" de 15 minutes (transfer_time_tradeoff).
          Permet à l'algorithme d'accepter une correspondance si et seulement si elle fait gagner
          plus de 15 minutes sur le temps de trajet direct. *)
-      let cost1 = (w1.transfers * transfer_time_tradeoff) + w1.time in
-      let cost2 = (w2.transfers * transfer_time_tradeoff) + w2.time in
-      float_of_int (cost1 - cost2)
-      /. float_of_int (Int.max 1 (Int.max cost1 cost2))
+         let diff_transfers = w1.transfers - w2.transfers in
+         if diff_transfers = 0 then 0.0
+         else
+           float_of_int diff_transfers 
+           /. float_of_int (Int.max 1 (Int.max w1.transfers w2.transfers))
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0

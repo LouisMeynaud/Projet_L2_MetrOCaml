@@ -51,13 +51,9 @@ let apiKey = "GBsIolemaspJPcsW7HbwQTp4RaiaBTQk"
     @return L'identifiant nettoyé (ex: "IDFM:C01727"). *)
 let nettoyer_id s =
   let parts = String.split_on_char ':' s in
-  let rec find_num = function
-    | [] -> s
-    | h :: t ->
-        if String.length h > 0 && h.[0] >= '0' && h.[0] <= '9' then h
-        else find_num t
-  in
-  find_num parts
+  match List.rev parts with
+  | [] -> s
+  | last_part :: _ -> last_part
 
 (** [yyyymmdd_to_midnight s] convertit une date "YYYYMMDD" en timestamp Unix à
     00h00m00s *)
