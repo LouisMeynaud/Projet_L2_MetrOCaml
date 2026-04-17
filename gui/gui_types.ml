@@ -78,7 +78,7 @@ let draw_node_selected_radius_outer = 9 (* Rayon externe d'un noeud selectionne.
 let draw_node_selected_radius_inner = 8 (* Rayon interne d'un noeud selectionne. *)
 
 let panel_slider_min_length = 80 (* Longueur minimale d'un slider dans le panneau. *)
-let panel_slider_width_margin = 140 (* Espace reserve dans la ligne slider (labels + marge). *)
+let panel_slider_width_margin = 0(* Espace reserve dans la ligne slider (labels + marge). *)
 let search_input_min_width = 110 (* Largeur minimale des champs de recherche. *)
 let search_input_width_margin = 120 (* Espace reserve a cote des champs de recherche. *)
 let route_max_suggestions = 20 (* Nombre max de suggestions affichees pour depart/arrivee. *)
