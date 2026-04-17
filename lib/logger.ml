@@ -1,0 +1,14 @@
+let black s = Printf.printf ("\x1b[30m" ^^ s ^^ "\x1b[0m")
+let red s = Printf.printf ("\x1b[31m" ^^ s ^^ "\x1b[0m")
+let green s = Printf.printf ("\x1b[32m" ^^ s ^^ "\x1b[0m")
+let blue s = Printf.printf ("\x1b[34m" ^^ s ^^ "\x1b[0m")
+let grey s = Printf.printf ("\x1b[90m" ^^ s ^^ "\x1b[0m")
+
+
+let bold_black s = Printf.printf ("\x1b[1;30m" ^^ s ^^ "\x1b[0m")
+let bold_red s = Printf.printf ("\x1b[1;31m" ^^ s ^^ "\x1b[0m")
+let bold_green s = Printf.printf ("\x1b[1;32m" ^^ s ^^ "\x1b[0m")
+let bold_blue s = Printf.printf ("\x1b[1;34m" ^^ s ^^ "\x1b[0m")
+let bold_white s = Printf.printf ("\x1b[1;37m" ^^ s ^^ "\x1b[0m")
+
+

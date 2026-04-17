@@ -9,9 +9,9 @@ let today_yyyymmdd () =
 
 let choose_city loading_mode = 
     let town = match loading_mode with
-    | "En ligne" -> Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"]
+    | "En ligne" -> Cli.Console.raw_select "\nChoisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"]
     | "Local" -> 
-      Cli.Console.raw_select "Choisissez la ville : "
+      Cli.Console.raw_select "\nChoisissez la ville : "
       (List.filter(fun ville -> try (Unix.stat ("data/" ^ ville )).Unix.st_kind = Unix.S_DIR (*Vérifie si le dossier existe et si c'est bien un dossier (S_DIR)*)
                                 with _ -> false (*Plutôt que de planter on retourne false.*))
       [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"])
@@ -37,15 +37,15 @@ let date_choose loading_mode = let date_cible =
   | "En ligne" -> today_yyyymmdd ()
   | "Local" -> "20260330"
   | _ -> failwith "Mode de chargement inconnu"
-  in Printf.printf "=== Lancement de MetroCaml ===\n%!";
-  Printf.printf "Date GTFS cible: %s\n%!" date_cible;
+  in Logger.black "\n=== Lancement de MetroCaml ===\n%!";
+  Logger.black "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
 
  
 
 
   let affichage_interface graphe =
-    Printf.printf "Choisissez l'interface à lancer :\n%!";
+    Printf.printf "\nChoisissez l'interface à lancer :\n%!";
     Printf.printf "  1 - Interface Graphique (GUI)\n%!";
     Printf.printf "  2 - Interface Ligne de Commande (CLI)\n%!";
 
@@ -56,7 +56,7 @@ let date_choose loading_mode = let date_cible =
       List.iter (fun (nom, details, _) -> Printf.printf "%s\n%s\n%!" nom details) results
     in
       Cli.Console.run_console graphe cli_callback; ()
-    | _ -> Printf.printf "Lancement de l'interface graphique...\n%!";
+    | _ -> Logger.black "\nLancement de l'interface graphique...\n%!";
     let gui_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
       Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false false
     in
@@ -68,7 +68,7 @@ let () =
   let (town, url) = choose_city loading_mode in
   let date_cible = date_choose loading_mode in
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
-  Printf.printf "\nGraphe chargé avec succès !\n%!";
+  Logger.black "Graphe chargé avec succès !\n%!";
   let benchmark =
     match Cli.Console.raw_select "\nVoulez-vous activer le mode benchmark ?" [ "Oui"; "Non" ]  with
     |"Oui" -> true
