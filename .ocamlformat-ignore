@@ -7,3 +7,4 @@ lib/network.ml
 routing/src/dijkstra.ml
 bin/runner.ml
 bench/*
+lib/*
