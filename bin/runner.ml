@@ -215,13 +215,19 @@ let build_bench_routeurs () =
       end);
   ] in
   preset_routeurs @ unit_routeurs
-let run_bench_console graphe =
+
+  let rec run_bench_console graphe =
   Printf.printf "\n Benchmark activé \n%!";
   let routeurs = build_bench_routeurs () in
-  Printf.printf "Station source : %!";
-  let source_query = String.trim (read_line ()) in
-  Printf.printf "Station destination : %!";
-  let dest_query = String.trim (read_line ()) in
-  let tm = Unix.localtime (Unix.time ()) in
-  let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
-  Bench.run graphe source_query dest_query start_time routeurs Cli.Console.raw_select
+    Printf.printf "Station source : %!";
+    let source_query = String.trim (read_line ()) in
+    Printf.printf "Station destination : %!";
+    let dest_query = String.trim (read_line ()) in
+    let tm = Unix.localtime (Unix.time ()) in
+    let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
+    Bench.run graphe source_query dest_query start_time routeurs Cli.Console.raw_select;
+    let continue = Cli.Console.raw_select "Voulez-vous effectuer un nouveau benchmark ? " [ "Oui"; "Non" ] in
+    if continue = "Oui" then
+      run_bench_console graphe
+    else
+      Printf.printf "Fermeture du mode benchmark.\n%!";
