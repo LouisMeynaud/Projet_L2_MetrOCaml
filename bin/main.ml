@@ -49,13 +49,13 @@ let date_choose loading_mode = let date_cible =
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" ->
       let cli_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
-      let results = Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false true in
+      let results = Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe true in
       List.iter (fun (nom, details, _) -> Printf.printf "%s\n%s\n%!" nom details) results
     in
       Cli.Console.run_console graphe cli_callback; ()
     | _ -> Printf.printf "Lancement de l'interface graphique...\n%!";
     let gui_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
-      Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false false
+      Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false
     in
       Gui.Transport_view.affiche graphe gui_callback; ()
 
