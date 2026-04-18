@@ -10,4 +10,5 @@
   path_intf
   path
   bfs
-  dijkstra))
+  dijkstra
+  astar))

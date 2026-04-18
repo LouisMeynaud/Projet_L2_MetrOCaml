@@ -14,3 +14,4 @@ module type WEIGHT = Weight_intf.WEIGHT
 module Combinator = Combinator
 module Bfs = Bfs
 module Dijkstra = Dijkstra
+module Astar = Astar
