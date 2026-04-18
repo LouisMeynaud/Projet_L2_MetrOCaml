@@ -74,7 +74,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			Widget.set_text view.label_perturbations_info "Aucune perturbation active"
 		else begin
 			Widget.set_text view.label_perturbations_info (Printf.sprintf "%d perturbation(s) active(s)" (List.length alerts));
-			let rows = List.map Gtfs_rt.format_alerte_pour_affichage alerts in
+			let rows = List.map Gtfs_rt.format_alerte alerts in
 			let limited_rows = List.filteri (fun i _ -> i < max_perturbation_rows) rows in
 			List.iteri (fun i text ->
 				Widget.set_text view.perturbation_labels.(i) text;

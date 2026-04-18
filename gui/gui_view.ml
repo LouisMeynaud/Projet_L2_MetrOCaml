@@ -137,7 +137,7 @@ let build ~panel_width ~(etat_initial : etat) =
   in
 
   (* -------------------- Partie combinaison (sliders) -------------------- *)
-  let slider_len = max panel_slider_min_length (panel_width - panel_slider_width_margin) in
+  let slider_len = max panel_slider_min_length panel_width in
   let slider_time = Widget.slider ~length:slider_len 50 in
   let slider_distance = Widget.slider ~length:slider_len 50 in
   let slider_stops = Widget.slider ~length:slider_len 50 in
@@ -190,8 +190,8 @@ let build ~panel_width ~(etat_initial : etat) =
   let ligne_dep_maint = Layout.flat_of_w [button_departure_arrival; button_now] in
   let ligne_h = Layout.flat_of_w [button_hour_minus; label_hour; button_hour_plus] in
   let ligne_m = Layout.flat_of_w [button_minute_minus; label_minute; button_minute_plus] in
-  let ligne_temps = Layout.flat ~align:Draw.Center [ligne_h; Layout.empty ~w:5 ~h:1 (); ligne_m] in
-  let block_horaire = Layout.tower ~align:Draw.Center [Layout.resident label_horaire; ligne_dep_maint; ligne_temps] in
+  let ligne_temps = Layout.flat ~align:Draw.Min [ligne_h; Layout.empty ~w:5 ~h:1 (); ligne_m] in
+  let block_horaire = Layout.tower ~align:Draw.Min [Layout.resident label_horaire; ligne_dep_maint; ligne_temps] in
   let button_pmr_transfers =
     Widget.button
       (text_select "Correspondance PMR uniquement"
@@ -306,8 +306,8 @@ let build ~panel_width ~(etat_initial : etat) =
   let label_perturbations = Widget.label "Perturbations en cours" in
   let label_perturbations_info = Widget.label "Mise a jour automatique" in
   let perturbation_row_w = horaires_row_w in
-  let perturbation_max_rows = 120 in
-  let perturbation_row_h = 120 in
+  let perturbation_max_rows = perturbations_max_rows in
+  let perturbation_row_h = perturbations_row_height in
   let perturbation_clip_h = perturbations_clip_height in
   let perturbation_labels =
     Array.init perturbation_max_rows (fun _ -> Widget.text_display "")
@@ -329,7 +329,7 @@ let build ~panel_width ~(etat_initial : etat) =
   in
 
   (* -------------------- Contenu des onglets -------------------- *)
-  let tab_content_schedules = Layout.tower ~align:Draw.Center [
+  let tab_content_schedules = Layout.tower ~align:Draw.Min [
     Layout.resident ~w:horaires_row_w label_horaires;
     Layout.empty ~w:1 ~h:8 ();
     Layout.resident ~w:horaires_row_w label_ligne_h;
