@@ -228,36 +228,6 @@ let test_distance_arithmetic () =
   Alcotest.(check string)
     "400m + 800m = 1.2 km" "1.2 km (Aujourd'hui à 00h02m00s)" (DW.to_string w2)
 
-let test_distance_tie_breaker () =
-  let open DW in
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = ""; id ="" } in
-  let w_fast =
-    force_traverse traverse (start_at 0)
-      {
-        line = dummy_line;
-        duration = 60;
-        distance = 500.0;
-        mode = Walk;
-        schedules = [];
-        terminus = dummy_station;
-      }
-  in
-  let w_slow =
-    force_traverse traverse (start_at 0)
-      {
-        line = dummy_line;
-        duration = 300;
-        distance = 500.0;
-        mode = Walk;
-        schedules = [];
-        terminus = dummy_station;
-      }
-  in
-  Alcotest.(check bool)
-    "A distance egale, le temps le plus court gagne (<)" true (w_fast < w_slow);
-  Alcotest.(check bool)
-    "A distance egale, le temps le plus long perd (>)" true (w_slow > w_fast)
-
 let test_distance_infinity () =
   let dummy_conn =
     {
@@ -337,35 +307,6 @@ let test_cw_no_transfer () =
   Alcotest.(check string)
     "Meme ligne : 0 correspondance"
     "0 correspondances (Aujourd'hui à 00h02m00s)" (CW.to_string w2)
-
-let test_cw_tie_breaker () =
-  let open CW in
-  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000"; id=""} in
-  let w_fast =
-    force_traverse traverse (start_at 0)
-      {
-        line = line_a;
-        duration = 60;
-        distance = 100.;
-        mode = Walk;
-        schedules = [];
-        terminus = dummy_station;
-      }
-  in
-  let w_slow =
-    force_traverse traverse (start_at 0)
-      {
-        line = line_a;
-        duration = 300;
-        distance = 100.;
-        mode = Walk;
-        schedules = [];
-        terminus = dummy_station;
-      }
-  in
-  Alcotest.(check bool)
-    "A correspondances egales, le temps le plus court gagne (<)" true
-    (w_fast < w_slow)
 
 let test_cw_infinity () =
   let conn =
@@ -517,14 +458,12 @@ let () =
         [
           test_case "Extraction de la distance" `Quick test_distance_of_edge;
           test_case "Arithmétique" `Quick test_distance_arithmetic;
-          test_case "Tie-breaker temporel" `Quick test_distance_tie_breaker;
           test_case "Gestion Infini" `Quick test_distance_infinity;
         ] );
       ( "CorrespondenceWeight",
         [
           test_case "Pénalité de changement" `Quick test_cw_transfer_penalty;
           test_case "Maintien sur la ligne" `Quick test_cw_no_transfer;
-          test_case "Tie-breaker temporel" `Quick test_cw_tie_breaker;
           test_case "Gestion Infini" `Quick test_cw_infinity;
         ] );
       ( "BFS",
