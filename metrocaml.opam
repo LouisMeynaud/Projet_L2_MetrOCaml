@@ -33,9 +33,6 @@ depends: [
   "cohttp-lwt-unix"
   "uri"
   "yojson"
-  "tsdl-ttf"
-  "bogue"
-  "alcotest"
   "odoc" {with-doc}
 ]
 build: [
