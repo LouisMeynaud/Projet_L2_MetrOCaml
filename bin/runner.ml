@@ -17,7 +17,7 @@ module type ALGO = sig
   module P :
     Routing.PATH
       with type Node.t = Network.station
-       and type Edge.t = Network.connection
+      and type Edge.t = Network.connection
 
   val find_path :
     start_time:int ->
@@ -30,28 +30,23 @@ module type ALGO = sig
 end
 
 (** Construit l'heuristique A* admissible adaptée au graphe fourni.
- 
+
     Scanne une seule fois toutes les arêtes pour extraire la vitesse maximale
     observée [v_max = max(distance / duration)] en ne retenant que les arêtes
-    véhiculées (Walk et Transfert exclus, car ce sont des déplacements piétons
+    véhiculées (arêtes piétonnes exclues, car ce sont des déplacements piétons
     qui ne représentent pas la vitesse du réseau).
- 
+
     Retourne ensuite une closure [station -> station -> float] qui calcule une
     borne inférieure du temps de trajet via la distance orthodromique (Haversine)
     divisée par [v_max]. L'heuristique est admissible par construction : aucun
     véhicule du réseau ne peut parcourir la distance à vol d'oiseau plus vite
-    que le meilleur tronçon observé.
- 
-    Fallback à 13.89 m/s (~50 km/h) si aucune arête véhiculée n'est exploitable
-    (graphe vide ou uniquement piéton). *)
+    que le meilleur tronçon observé.*)
+
 let make_heuristic (graph : Network.TransportGraph.t) =
-  let is_vehicule (conn : Network.connection) =
-    conn.mode <> Network.Walk && conn.mode <> Network.Transfert
-  in
   let v_max =
     List.fold_left (fun acc_v node ->
       List.fold_left (fun acc_v' (_, (conn : Network.connection)) ->
-        if is_vehicule conn && conn.duration > 0 && conn.distance > 0.0 then
+        if not (Util.edge_is_walk conn) && conn.duration > 0 && conn.distance > 0.0 then
           Float.max acc_v' (conn.distance /. float_of_int conn.duration)
         else acc_v'
       ) acc_v (Network.TransportGraph.neighbors graph node)
@@ -59,16 +54,7 @@ let make_heuristic (graph : Network.TransportGraph.t) =
   in
   let v_max = if v_max <= 0.0 then 13.89 else v_max in
   fun (a : Network.station) (b : Network.station) ->
-    let deg2rad d = d *. Float.pi /. 180.0 in
-    let r = 6_371_000.0 in
-    let lat1 = deg2rad a.latitude and lat2 = deg2rad b.latitude in
-    let dlat = deg2rad (b.latitude -. a.latitude) in
-    let dlon = deg2rad (b.longitude -. a.longitude) in
-    let x = sin (dlat /. 2.0) *. sin (dlat /. 2.0)
-            +. cos lat1 *. cos lat2
-               *. sin (dlon /. 2.0) *. sin (dlon /. 2.0) in
-    let dist_m = 2.0 *. r *. atan2 (sqrt x) (sqrt (1.0 -. x)) in
-    dist_m /. v_max
+    Util.haversine_distance a.latitude a.longitude b.latitude b.longitude /. v_max
 
 (* Fonction pour charger les données GTFS *)
 let load_gtfs_data town url date_cible loading_mode =

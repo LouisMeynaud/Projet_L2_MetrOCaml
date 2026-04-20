@@ -28,7 +28,16 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
        des correspondances). Pour cela on retient donc toutes les manières d'arriver à cette station pour
        les exploiter également. *)
     type state_tuple = G.Node.t * W.state_key
-    type t = Empty | Node of W.t * G.Node.t * state_tuple * t list
+
+    type t =
+      | Empty
+      | Node of {
+          f_cost : float;
+          g_cost : W.t;
+          node : G.Node.t;
+          state : state_tuple;
+          children : t list;
+        }
 
     let empty = Empty
 
@@ -38,11 +47,13 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
     let merge h1 h2 =
       match (h1, h2) with
       | Empty, h | h, Empty -> h
-      | Node (w1, n1, s1, l1), Node (w2, n2, s2, l2) ->
-          if W.(w1 < w2) then Node (w1, n1, s1, h2 :: l1)
-          else Node (w2, n2, s2, h1 :: l2)
+      | Node n1, Node n2 ->
+          if n1.f_cost <= n2.f_cost then
+            Node { n1 with children = h2 :: n1.children }
+          else Node { n2 with children = h1 :: n2.children }
 
-    let push w n s h = merge (Node (w, n, s, [])) h
+    let push ~f_cost ~g_cost node state h =
+      merge (Node { f_cost; g_cost; node; state; children = [] }) h
 
     (* Quand on retire la racine (pop), tous ses enfants deviennent orphelins.
        Pour garder un arbre compact, on les fait s'affronter deux par deux. 
@@ -54,14 +65,18 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
 
     let pop = function
       | Empty -> None
-      | Node (w, n, s, l) -> Some (w, n, s, merge_pairs l)
+      | Node n ->
+          Some (n.f_cost, n.g_cost, n.node, n.state, merge_pairs n.children)
   end
 
   (** Trouve le chemin optimal de la [source] à la [destination].
       @param start_time L'heure de départ (sert de poids initial).
       @param graph Le graphe pré-construit du réseau.
+      @param source Le nœud de départ.
+      @param destination Le nœud d'arrivée.
       @param transfer_allowed Fonction de vérification des transferts. *)
-  let find_path ~start_time ~(graph: G.t) ~(source: G.Node.t) ~(destination: G.Node.t) ~(transfer_allowed: G.Node.t -> bool) =
+  let find_path ~start_time ~(graph : G.t) ~(source : G.Node.t)
+      ~(destination : G.Node.t) ~(transfer_allowed : G.Node.t -> bool) =
     if not (G.has_node graph source) then None
     else if not (G.has_node graph destination) then None
     else
@@ -74,73 +89,68 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
         let dist = Hashtbl.create 10000 in
         let prev = Hashtbl.create 10000 in
 
+        let best_path = ref None in
+        let best_weight = ref W.infinity in
+
         let initial_state = (source, W.get_state_key initial_weight) in
-        let pq = ref (PQ.push initial_weight source initial_state PQ.empty) in
+        let g_scalar g = float_of_int (W.get_time g) in
+        let initial_f = g_scalar initial_weight in
+        
+        let pq = ref (PQ.push ~f_cost:initial_f ~g_cost:initial_weight source initial_state PQ.empty) in
         Hashtbl.add dist initial_state initial_weight;
 
         let rec process () =
           match PQ.pop !pq with
-          | None -> None (* Le tas est vide, la destination est inatteignable *)
-          | Some (d, u, u_state, rest_pq) ->
+          | None -> !best_path (* Le tas est vide, on renvoie le meilleur chemin trouvé (ou None si inatteignable) *)
+          | Some (_f_cost, g_cost, u, u_state, rest_pq) ->
               pq := rest_pq;
-
-              if G.Node.equal u destination then
+              let recorded_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist u_state) in
+              if W.(g_cost > recorded_g) then process ()
+              else if W.(g_cost > !best_weight) then process ()
+              else if G.Node.equal u destination then begin
                 (* On remonte le fil d'Ariane dans 'prev' pour créer la liste des étapes *)
                 let rec build_steps acc state =
                   match Hashtbl.find_opt prev state with
                   | None -> acc
-                  | Some
-                      (pred_state, pred_node, current_node, edge, w, step_data)
-                    ->
+                  | Some (pred_state, pred_node, current_node, edge, w, step_data) ->
                       let step =
-                        {
-                          P.from = pred_node;
-                          to_node = current_node;
-                          edge;
-                          weight = w;
-                          data = step_data;
-                        }
+                        { P.from = pred_node; to_node = current_node; edge; weight = w; data = step_data; }
                       in
                       build_steps (step :: acc) pred_state
                 in
-                Some
-                  {
-                    P.steps = build_steps [] u_state;
-                    total_weight = Hashtbl.find dist u_state;
-                  }
-              else if W.(d > Hashtbl.find dist u_state) then process ()
-              else begin
+                best_path := Some { P.steps = build_steps [] u_state; total_weight = Hashtbl.find dist u_state; };
+                best_weight := g_cost;
+                process ()
+              end else begin
                 (* Exploration de toutes les arêtes adjacentes *)
                 List.iter
                   (fun (v, edge) ->
                     (* Le module métier (Weight) décide si on a le droit de passer *)
-                    match W.traverse d edge with
+                    match W.traverse g_cost edge with
                     | None -> ()
-                    | Some (new_dist, step_data) ->
-                        let next_state_key = W.get_state_key new_dist in
+                    | Some (new_g, step_data) ->
+                        let next_state_key = W.get_state_key new_g in
                         let _, current_state_key = u_state in
                         let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in (*detecte si on a changer de ligne ou pas*)
                         let is_transfer = is_line_change && not (G.Node.equal u source) in (*on considère que le changement de ligne à la station de départ n'est pas une correspondance*)
+                        
                         if (not is_transfer) || transfer_allowed u then (
                           let v_state = (v, next_state_key) in
-                          let old_dist =
-                            Option.value ~default:W.infinity
-                              (Hashtbl.find_opt dist v_state)
-                          in
+                          let old_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist v_state) in
 
-                          (* Si le passage par cette arête nous offre un meilleur score (new_dist < old_dist) 
+                          (* Si le passage par cette arête nous offre un meilleur score (new_g < old_g) 
                              que notre précédent record pour cet état, on procède à une "Relaxation" :
                              1. On met à jour le record officiel dans 'dist'.
                              2. On lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
                              3. On propulse ce nouvel état prometteur dans le tas 'pq'. *)
-                          if W.(new_dist < old_dist) then begin
-                            Hashtbl.replace dist v_state new_dist;
-                            Hashtbl.replace prev v_state
-                              (u_state, u, v, edge, new_dist, step_data);
-                            pq := PQ.push new_dist v v_state !pq
+                          if W.(new_g < old_g) && not W.(new_g > !best_weight) then begin
+                            let new_f = g_scalar new_g in
+                            Hashtbl.replace dist v_state new_g;
+                            Hashtbl.replace prev v_state (u_state, u, v, edge, new_g, step_data);
+                            pq := PQ.push ~f_cost:new_f ~g_cost:new_g v v_state !pq
                           end))
                   (G.neighbors graph u);
-
+                  
                 (* Boucle récursive : on passe au nœud suivant dans le tas *)
                 process ()
               end

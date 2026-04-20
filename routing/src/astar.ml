@@ -13,36 +13,14 @@ open Weight_intf
       d'un "état" à un autre (Station + Ligne) pour ne pas écraser les chemins
       valides.
     - Pairing Heap : Il utilise un Tas d'Appariement garantissant des
-      performances quasi-instantanées, même sur des graphes massifs comme celui
-      de Paris.
-
-    La différence fondamentale avec Dijkstra est l'introduction d'une
-    heuristique admissible [h : node -> node -> float] passée à [find_path].
-
-    Le tas est ordonné par [f = g_scalar + h], où :
-    - [g_scalar] est la projection scalaire de [W.t] via [W.get_time], servant
-      de base de comparaison homogène avec [h].
-    - [h] est l'estimation du coût restant, exprimée dans la même unité.
-
-    Seul [g] (le poids réel [W.t]) est stocké dans [dist] et [prev], ce qui
-    garantit l'exactitude du chemin reconstruit indépendamment de [h].
-
-    Admissibilité : Pour que A* retourne un chemin optimal, [h] ne doit jamais
-    surestimer le coût réel restant. Une heuristique nulle [fun _ _ -> 0.0]
-    dégénère exactement en Dijkstra. *)
+      performances quasi-instantanées, même sur des graphes massifs. *)
 module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
   module P = Path.Make (G) (W)
 
   type path = P.t
 
-  (** Le Tas d'Appariement (Pairing Heap)
-
-      Deux coûts sont séparés dans chaque nœud du tas :
-      - [f_cost : float] : priorité de tri dans le tas (= g_scalar + h).
-        C'est un flottant pour être homogène avec la valeur retournée par
-        l'heuristique, quelle que soit la représentation interne de [W.t].
-      - [g_cost : W.t] : coût réel accumulé depuis la source. C'est la
-        valeur canonique stockée dans [dist] et [prev]. *)
+  (** Le Tas d'Appariement (Pairing Heap) 
+      (Strictement identique à celui de Dijkstra) *)
   module PQ = struct
     type state_tuple = G.Node.t * W.state_key
 
@@ -86,12 +64,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
       @param source Le nœud de départ.
       @param destination Le nœud d'arrivée.
       @param transfer_allowed Fonction de vérification des correspondances.
-      @param heuristic Fonction [h : node -> node -> float] estimant le coût
-             restant entre un nœud courant et la destination. L'unité doit
-             être cohérente avec celle de [W.get_time] (secondes pour
-             [TimeWeight] et [CorrespondenceWeight], mètres pour
-             [DistanceWeight], sauts pour [HopWeight]). Doit être admissible
-             (ne jamais surestimer) pour garantir l'optimalité. *)
+      @param heuristic Fonction [h : node -> node -> float] estimant le coût restant. *)
   let find_path ~start_time ~(graph : G.t) ~(source : G.Node.t)
       ~(destination : G.Node.t) ~(transfer_allowed : G.Node.t -> bool)
       ~(heuristic : G.Node.t -> G.Node.t -> float) =
@@ -110,6 +83,8 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
 
         let initial_state = (source, W.get_state_key initial_weight) in
         let g_scalar g = float_of_int (W.get_time g) in
+        
+        (* La différence avec Dijkstra : on ajoute l'heuristique au f_cost *)
         let initial_f = g_scalar initial_weight +. heuristic source destination in
         
         let pq = ref (PQ.push ~f_cost:initial_f ~g_cost:initial_weight source initial_state PQ.empty) in
@@ -152,6 +127,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                           let old_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist v_state) in
 
                           if W.(new_g < old_g) && not W.(new_g > !best_weight) then begin
+                            (* Application de l'heuristique sur le nouveau nœud *)
                             let new_f = g_scalar new_g +. heuristic v destination in
                             Hashtbl.replace dist v_state new_g;
                             Hashtbl.replace prev v_state (u_state, u, v, edge, new_g, step_data);
