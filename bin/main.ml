@@ -41,9 +41,6 @@ let date_choose loading_mode = let date_cible =
   Printf.printf "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
 
- 
-
-
   let affichage_interface graphe =
     Printf.printf "Choisissez l'interface à lancer :\n%!";
     Printf.printf "  1 - Interface Graphique (GUI)\n%!";
@@ -52,18 +49,25 @@ let date_choose loading_mode = let date_cible =
     match Cli.Console.raw_select "" [ "1"; "2" ] with
     | "2" ->
       let cli_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
-      let results = Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false true in
+      let results = Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe true in
       List.iter (fun (nom, details, _) -> Printf.printf "%s\n%s\n%!" nom details) results
     in
       Cli.Console.run_console graphe cli_callback; ()
     | _ -> Printf.printf "Lancement de l'interface graphique...\n%!";
     let gui_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
-      Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false false
+      Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false
     in
       Gui.Transport_view.affiche graphe gui_callback; ()
 
 
 let () =
+  Printf.printf "\x1b[1;33m%s\x1b[0m" "
+                   __                                  __
+   ____ ___  ___  / /__________  _________ _____ ___  / /
+  / __ `__ \\/ _ \\/ __/ ___/ __ \\/ ___/ __ `/ __ `__ \\/ / 
+ / / / / / /  __/ /_/ /  / /_/ / /__/ /_/ / / / / / / /  
+/_/ /_/ /_/\\___/\\__/_/   \\____/\\___/\\__,_/_/ /_/ /_/_/
+";
   let loading_mode = choose_load_mode () in
   let (town, url) = choose_city loading_mode in
   let date_cible = date_choose loading_mode in
