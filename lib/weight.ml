@@ -61,8 +61,19 @@ let eval_edge current_time current_line_name (edge : connection) =
       | _ -> false
     in
 
+    (* Pour pallier les approximations de `edge.duration` des fichiers GTFS, 
+       on accorde un recul de la montre de 3 minutes si l'usager est déjà dans la rame. 
+       Cela évite de rater un train à cause d'une erreur d'arrondi sur le tronçon précédent. *)
+    let margin =
+      match current_line_name with
+      | None -> 0
+      | Some l when l = edge.line.name -> 180
+      | _ -> 0
+    in
+
     let ready_time =
-      if is_transfer then current_time + transfer_penalty else current_time
+      if is_transfer then current_time + transfer_penalty
+      else current_time - margin
     in
 
     (* Puisque les fichiers horaires GTFS ne sont pas garantis d'être triés,
@@ -77,8 +88,10 @@ let eval_edge current_time current_line_name (edge : connection) =
 
     if next_dep = max_int then None
     else
-      (* Garde-fou : même avec des données horaires imparfaites, on évite toute
-         régression temporelle pour préserver la monotonie du poids. *)
+      (* Même si la "marge" nous a fait accrocher un train parti avant notre heure
+         d'arrivée théorique, l'heure ne doit jamais reculer. On force l'heure 
+         à current_time minimum pour ne pas déclencher de cycle infini de poids 
+         négatif dans Dijkstra. *)
       let actual_dep = max current_time next_dep in
       let wait = max 0 (next_dep - current_time) in
 
