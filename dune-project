@@ -21,7 +21,7 @@
  (name metrocaml)
  (synopsis "Outil de calcul d'itinéraires générique dans des graphes")
  (description "Un moteur de routage modulaire supportant plusieurs algorithmes et critères sur des réseaux quelconques")
- (depends ocaml dune (alcotest :with-test) bisect_ppx csv ocamlformat lwt cohttp-lwt-unix uri yojson)
+ (depends ocaml dune (alcotest :with-test) bisect_ppx csv ocamlformat lwt cohttp-lwt-unix uri yojson tsdl-ttf bogue)
 )
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
