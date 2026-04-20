@@ -12,7 +12,19 @@ let format_duration secs =
 let run graphe source_query dest_query start_time
     (routeurs : (string * (Network.TransportGraph.t -> Network.station -> Network.station -> int -> string * (unit -> unit))) list)
     raw_select =
-  Printf.printf "\nBenchmark de %s à %s \n" source_query dest_query;
+  Logger.bold_red "\x1b[1;31m%s\x1b[0m" "                                       
+@@@@@@@   @@@@@@@@  @@@  @@@   @@@@@@@  @@@  @@@  
+@@@@@@@@  @@@@@@@@  @@@@ @@@  @@@@@@@@  @@@  @@@  
+@@!  @@@  @@!       @@!@!@@@  !@@       @@!  @@@  
+!@   @!@  !@!       !@!!@!@!  !@!       !@!  @!@  
+@!@!@!@   @!!!:!    @!@ !!@!  !@!       @!@!@!@!  
+!!!@!!!!  !!!!!:    !@!  !!!  !!!       !!!@!!!!  
+!!:  !!!  !!:       !!:  !!!  :!!       !!:  !!!  
+:!:  !:!  :!:       :!:  !:!  :!:       :!:  !:!  
+ :: ::::   :: ::::   ::   ::   ::: :::  ::   :::  
+:: : ::   : :: ::   ::    :    :: :: :   :   : :
+";
+  Printf.printf "Benchmark de %s à %s \n" source_query dest_query;
   match Endpoint.build_routing_context graphe source_query dest_query with
   | None ->
     Logger.bold_red "Stations introuvable, benchmark annulé \n"
