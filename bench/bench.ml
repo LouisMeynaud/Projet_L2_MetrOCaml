@@ -24,7 +24,7 @@ let run graphe source_query dest_query start_time
  :: ::::   :: ::::   ::   ::   ::: :::  ::   :::  
 :: : ::   : :: ::   ::    :    :: :: :   :   : :
 ";
-  Printf.printf "Benchmark de %s à %s \n" source_query dest_query;
+  Printf.printf "\nBenchmark de %s à %s \n" source_query dest_query;
   match Endpoint.build_routing_context graphe source_query dest_query with
   | None ->
     Logger.bold_red "Stations introuvable, benchmark annulé \n"
