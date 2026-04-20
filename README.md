@@ -1,115 +1,105 @@
 # MetroCaml
 
-## Statues du projet
+## Statut du projet
 ![pipeline status](https://gitlab.com/metro-caml/metro-caml/badges/main/pipeline.svg)
 
-
 ## Installation
-Télécharger l'exécutable '??' publié dans la dernière release [release](https://gitlab.com/metro-caml/metro-caml/-/releases) et installer les dépendances avec la commande suivante :
+Téléchargez l'exécutable '??' publié dans la dernière [release](https://gitlab.com/metro-caml/metro-caml/-/releases) et installez les dépendances avec la commande suivante :
+
 ```bash
 opam install . --deps-only
 ```
 
-## Lancer le programme :
+## Lancer le programme:
 
-utiliser la commande suivante avec version ocaml 5.1 ou une version ultérieure : 
+Utilisez la commande suivante (nécessite **OCaml 5.1** ou une version ultérieure) : 
 
 ```bash
 dune exec metrocaml
 ```
 
-#### Compiler le Programme soi-même depuis le code source :
-Cloner le dépôt git :
+### Compiler le Programme soi-même depuis le code source :
+1. Cloner le dépôt git :
 ```bash
-git clone https://moule.informatique.univ-paris-diderot.fr/3lmtb/worms-mi4.git
+git clone [https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml.git](https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml.git)
 ```
-Se placer dans le répertoire du projet :
+2. Se placer dans le répertoire du projet :
 ```bash
 cd metrocaml
 ```
-Compiler le projet avec Dune :
+3. Compiler avec Dune :
 ```bash
 dune build
 ```
-Le binaire exécutable se trouve dans le répertoire `._build` sous le nom `metrocaml`.
+Le binaire exécutable se trouve dans le répertoire `_build` sous le nom `metrocaml`.
 
 ---
 
-## Description : 
+## Description:
 
-###Presentation du projet et objectifs
+### Présentation du projet et objectifs:
+[??]
 
-### En ligne/Local:
-Au lancement du programme, l'utilisateur aura la possibilité de choisir entre le mode en ligne et le mode local.
+### Modes de fonctionnement : En ligne / Local
+Au lancement du programme, l'utilisateur peut choisir entre deux modes :
 
--le mode local offre la possibilité d'utiliser le programme de maniere rapide et sans connexion internet, mais avec des données non a jour.
+* **Mode Local :** Utilisation rapide sans connexion internet, basée sur des données pré-enregistrées (pouvant ne pas être à jour).
+* **Mode En ligne :** Télécharge les données du réseau à la date du lancement. Nécessite une connexion internet. 
+    * *Note :* Pour le réseau **Île-de-France**, nous utilisons une API temps réel. Les perturbations sont affichées et les temps de trajet sont adaptés dynamiquement.
 
--le mode en ligne telechargeras les données du reseaux choisis a la date du lancement du programme, mais necessite une connexion internet et peut prendre plus de temps a se lancer. 
-Pour le reseaux Ile-de-France nous utilisont une API qui collecte les données en temps réel, les perturbation seront alors affichée et les temps de trajet adapter.
+**Réseaux disponibles :**
 
-Les reseaux disponibles en local sont : 
-- Toulouse
-- Monpellier
+| Type | Réseaux supportés |
+| :--- | :--- |
+| **Local** | Toulouse, Montpellier |
+| **En ligne** | Île-de-France, Toulouse, Montpellier, Marseille, SNCF, Corsica |
 
-Les reseaux disponibles en ligne sont :
-- Ile-de-France
-- Toulouse
-- Monpellier 
-- Marseille
-- SNCF
-- Corsica
+### Algorithmes et critères de recherche:
+Notre librairie propose plusieurs algorithmes de routage, tels que **Dijkstra (amélioré)**, **BFS**, AUTRE ?.
 
+Le projet implémente différents critères de recherche (poids) :
+* **Temps :** Privilégie l'arrivée la plus tôt.
+* **Distance :** Privilégie le trajet géographique le plus court.
+* **Arrêts :** Minimise le nombre de stations traversées.
+* **Correspondances :** Minimise les changements de lignes.
 
-### algorithmes et critère de recherche:
-Notre librairie propose plusieurs algorithmes de routage, tels que Dijkstra (amélioré),Bfs, ...,
+#### Profils prédéfinis
+* **Rapide :** Priviligie l'heure d'arrivée tout en gardant un nombre limité de correspondances.
+* **Confort :** Priorité absolue aux trajets avec peu de changements, tout en restant raisonnable sur le temps de trajet.
 
-Le projet quand a lui implemente differents critères de recherche (les poids) tels que :
--temps : priviligie l'arrivé la plus tot
--distance : priviligie le trajet le plus court
--arret : priviligie le trajet avec le moins d'arret
--correspondance : priviligie le trajet avec le moins de correspondance
+Lors de la recherche, vous pouvez choisir le mode **Combinaison** (pour mixer les critères manuellement) ou le mode **Défaut** (pour utiliser les profils prédéfinis).
 
-et Profile, des combinaisons prefaite de ces critères, par exemple :
--rapide : accorde une grande importance a l'heure d'arrivé mais aussi une legère au nombre de correspondance
--confort : accorde une grande importance au trajet avec peu de correspondance et une legère au temps d'arrivé
+Vous pouvez également désactiver certains modes de transport (ex: bus, métro) ou filtrer les itinéraires pour n'utiliser que des stations accessibles aux **PMR** (Personnes à Mobilité Réduite).
 
-lors de la recherche d'itinéraire, l'utilisateur poura choisir entre le critère combinaison , qui permet de combiner les différents critère de recherche , ou default qui lui permettra de choisir entre les different profile predefinis.
+### Chercher un itinéraire depuis l'ui graphique:
+1.  **Réglages :** Sélectionnez un algorithme, un type de poids (Défaut ou Combinaison) et activez les transports souhaités (*attention : les bus sont désactivés par défaut*).
+2.  **Itinéraire :** Saisissez les stations de départ et d'arrivée, ou cliquez sur "Sélectionner" pour les choisir directement sur la carte.
+3.  **Options :** Choisissez l'heure de départ et l'option d'accessibilité PMR si nécessaire.
+4.  **Résultats :** Cliquez sur "Chercher". Le programme affichera les itinéraires disponibles. Saisissez le nom de l'itinéraire souhaité pour en afficher les détails.
 
-il vous sera aussi possible de desactivé certain moyen de transport tel que le bus ou le metro par exemple, ou bien de choisir d'autoriser les correspondance uniquement dans les stations equipé de norme accessibilité.(pmr)
+## Benchmarks
+Nous intégrons un outil de benchmark permettant de comparer les performances des algorithmes et la pertinence des critères de recherche. Il permet d'évaluer en un coup d'œil les **temps de calcul** et la **qualité des itinéraires** proposés.
 
-### chercher un itinéraire depuis l'ui graphique: 
-Pour chercher un itinéraire, dans l'onglet reglage, selectionner un algortihme, un poids parmis default et combinaison, et activé/desactivé les moyens de transport que vous souhaitez(attention bus desactivé par defaut), puis dans l'onglet itineraire , au choix taper une station de départ ou d'arrivé ou cliquer sur selectionnée et selectionner la station sur la carte.choisissez ensuite une heure de depart, si vous souhaitez faire des correspondance uniquement dans les stations equipé de norme d'accessibilité au personne a mobilité reduite, et enfin cliquer sur le bouton chercher.Le programme proposera different itineraire disponible, écriver le nom de l'itinéraire souhaiter pour voir les detailles de celui ci.
-
-
-## les benchmarks
-nous proposons un outil de benchmark qui permet de comparer les différents algorithmes et critères de recherche sur des itinéraires spécifiques. qui permet de comparer en un coup d'oeil les temps de calcul et la qualité des itinéraires proposés.
-
-
-## itinaire trouver different du votre ? les raison:
-- les données utilisées pour le calcul de l'itinéraire ne sont pas à jour
-- les critères de recherche choisis ne correspondent pas à vos préférences
-- certaines ligne sont evité par votre moteur de routage pour evité les surfrequentation (exemple ligne B du reseaux Ile-de-France)
-- les perturbation en temps réel ne sont pas pris en compte dans le mode local
-- la vitesse de marche est une vitesse moyenne et ne correspond pas à votre vitesse de marche réelle.
-- d'après nos tests, tout au long du developpement du projet, les itinéraires proposés par d'autre moteur de recherche ne sont pas forcement les meilleurs.
-- autre raison ???
-
-
+## Pourquoi l'itinéraire trouvé est-il différent du vôtre ?
+Plusieurs facteurs peuvent expliquer une différence de résultat :
+* Les données utilisées pour le calcul ne sont pas à jour.
+* Les critères de recherche choisis ne correspondent pas à vos préférences personnelles.
+* Certaines lignes sont évitées par le moteur pour prévenir la surfréquentation (ex: ligne B du réseau Île-de-France).
+* Les perturbations en temps réel ne sont pas prises en compte (hors IDF en ligne).
+* La vitesse de marche est une moyenne et peut différer de la votre ou celle choisie par les autres moteurs de calcule d'itinéraires.
+* D'après nos tests, les itinéraires d'autres moteurs de recherche ne sont pas systématiquement les "meilleurs".
+* [??]
 
 ## Comment contribuer ?
-
-Pour contribuer à ce projet, se référer au fichier [CONTRIBUTING.md](/CONTRIBUTING.md).
+Pour contribuer au projet, merci de consulter le fichier [CONTRIBUTING.md](/CONTRIBUTING.md).
 
 ## Licence
-
 Pour visualiser la Licence, cliquer [ici](/LICENSE).
 
 ## Crédits
-
 - LORIOT Baptiste
 - MONA Matthys
 - BRUNO Thomas
 - DENQUIN Leo
 - MOSCARDI Lorenzo
 - MEYNAUD Louis
-
