@@ -1,6 +1,10 @@
 open Routing
 open Network
 
+let station_indent = ""
+let wait_indent = "  "
+let line_indent = "     "
+
 let hex_to_rgb hex =
   let hex =
     if String.length hex > 0 && hex.[0] = '#' then
@@ -21,181 +25,216 @@ let colorize_hex use_color hex text =
   let rgb = hex_to_rgb hex in
   colorize_rgb use_color rgb text
 
-let change_arrow ?(use_color = true) node_name line nb_stops temps color =
-  let arrow =
-    Printf.sprintf " --[%s | %d arrets | %d min] --> " line nb_stops temps
-  in
-  let colored_arrow = colorize_hex use_color color arrow in
-  Printf.sprintf "%s%s\n" colored_arrow node_name
+let bold use_color text =
+  if use_color then Printf.sprintf "\x1b[1m%s\x1b[0m" text else text
 
-let simple_arrow ?(use_color = true) node_name color =
-  let arrow = Printf.sprintf " ---> " in
-  let colored_arrow = colorize_hex use_color color arrow in
-  Printf.sprintf "%s%s" colored_arrow node_name
+let italic use_color text =
+  if use_color then Printf.sprintf "\x1b[3;90m%s\x1b[0m" text else text
 
-module Make (P : Routing.PATH) = struct
-  let line_minutes_from_seconds secs = if secs <= 0 then 0 else max 1 (secs / 60)
+let edge_label (c : connection) =
+  match c.mode with
+  | Walk | Transfert -> "Marche"
+  | _ -> Printf.sprintf "%s %s" (string_of_mode c.mode) c.line.name
 
-  let calcul_temps_distance edge_to_duration edge_to_distance steps =
-    List.fold_left
-      (fun (t, d) (step : P.step) ->
-        (t + edge_to_duration step.edge, d +. edge_to_distance step.edge))
-      (0, 0.0) steps
+let edge_is_walk (c : connection) = c.mode = Walk || c.mode = Transfert
 
-  let get_chemin node_to_string edge_to_string weight_to_string edge_to_color
-      edge_to_duration edge_to_distance details use_color (path : P.t) =
-    match path.steps with
-    | [] -> (0, "", 0, 0.0)
+let normalize_seconds seconds =
+  let day = 24 * 3600 in
+  ((seconds mod day) + day) mod day
+
+let format_hhmm seconds =
+  let seconds = normalize_seconds seconds in
+  Printf.sprintf "%02d:%02d" (seconds / 3600) (seconds mod 3600 / 60)
+
+let line_minutes_from_seconds secs = if secs <= 0 then 0 else max 1 (secs / 60)
+
+let format_station ~time ~station =
+  Printf.sprintf "%s %s" (format_hhmm time) station
+
+let format_wait ~wait_min = Printf.sprintf "Attente : %d min" wait_min
+
+let format_ride ~stops ~minutes =
+  Printf.sprintf "%d arrêts ~ %d min" stops minutes
+
+let format_hms seconds =
+  Printf.sprintf "%dh %dmin %ds" (seconds / 3600)
+    (seconds / 60 mod 60)
+    (seconds mod 60)
+
+module Make (P : Routing.PATH with type Node.t = station and type Edge.t = connection) = struct
+  let edge_line_key (c : connection) =
+    Printf.sprintf "%s|%s" (string_of_mode c.mode) c.line.name
+
+  type segment = { label : string; color : string; steps_rev : P.step list }
+
+  type summary = {
+    arrival_time : int;
+    total_time : int;
+    onboard_time : int;
+    walking_time : int;
+    waiting_time : int;
+    total_distance : float;
+    transfers : int;
+  }
+
+  let segment_is_walk (segment : segment) = String.equal segment.label "Marche"
+
+  let segment_departure_time (segment : segment) ~arrival_time =
+    match List.rev segment.steps_rev with
+    | [] -> arrival_time
     | first_step :: _ ->
-        let start =
-          node_to_string first_step.from
-          ^ P.Weight.step_data_to_string first_step.data
-        in
+        max arrival_time
+          (P.Weight.get_time first_step.weight - first_step.edge.duration)
 
-        let ( _,
-              final_step_to,
-              final_color,
-              final_stops,
-              final_onboard_secs,
-              transferts,
-              segments ) =
-          List.fold_left
-            (fun ( prev_line,
-                   prev_step_to,
-                   prev_color,
-                   stops,
-                   onboard_secs,
-                   transferts,
-                   acc ) (step : P.step) ->
-              let current_line = edge_to_string step.edge in
-              let color = edge_to_color step.edge in
-              let step_to = node_to_string step.to_node in
-              let duration = edge_to_duration step.edge in
-
-              match prev_line with
-              | None ->
-                  ( Some current_line,
-                    step_to,
-                    color,
-                    1,
-                    duration,
-                    transferts,
-                    acc )
-              | Some prev_l when prev_l = current_line ->
-                  let new_acc =
-                    if details then
-                      simple_arrow ~use_color (node_to_string step.from) color
-                      :: acc
-                    else acc
-                  in
-                  ( Some current_line,
-                    step_to,
-                    color,
-                    stops + 1,
-                    onboard_secs + duration,
-                    transferts,
-                    new_acc )
-              | Some prev_l ->
-                  let wait_str = P.Weight.step_data_to_string step.data in
-                  let onboard_time = line_minutes_from_seconds onboard_secs in
-                  let arrow =
-                    change_arrow ~use_color prev_step_to prev_l stops
-                      onboard_time prev_color
-                  in
-                  let transition =
-                    arrow ^ node_to_string step.from ^ wait_str
-                  in
-                  ( Some current_line,
-                    step_to,
-                    color,
-                    1,
-                    duration,
-                    transferts + 1,
-                    transition :: acc ))
-            (None, "", "", 0, 0, 0, [])
-            path.steps
-        in
-
-        let final_line = edge_to_string (List.hd (List.rev path.steps)).edge in
-        let final_segment =
-          change_arrow ~use_color final_step_to final_line final_stops
-            (line_minutes_from_seconds final_onboard_secs)
-            final_color
-        in
-
-        let total_time, total_distance =
-          calcul_temps_distance edge_to_duration edge_to_distance path.steps
-        in
-
-        let route =
-          "\n" ^ start ^ String.concat "" (List.rev (final_segment :: segments))
-        in
-        (transferts, route, total_time, total_distance)
-
-  let string_of_path node_to_string edge_to_string weight_to_string
-      weight_get_time edge_to_color edge_to_duration edge_to_distance start_time
-      details use_color (path : P.t) =
-    let transferts, route, total_time, total_distance =
-      get_chemin node_to_string edge_to_string weight_to_string edge_to_color
-        edge_to_duration edge_to_distance details use_color path
+  let compute_summary ~start_time (path : P.t) =
+    let total_distance =
+      List.fold_left
+        (fun d (step : P.step) -> d +. step.edge.distance)
+        0.0 path.steps
     in
-    let lines = [] in
-    let add_line s lines = s :: lines in
-    match route with
-    | "" ->
-        let lines = add_line "Chemin vide" lines in
-        String.concat "\n" lines
-    | _ ->
-        let lines =
-          add_line
-            (Printf.sprintf
-               "Chemin trouvé en %d étapes (en %d correspondances) :"
-               (List.length path.steps) transferts)
-            lines
-        in
-        let lines = add_line route lines in
-        let lines =
-          add_line
-            (Printf.sprintf "Poids total : %s"
-               (weight_to_string path.total_weight))
-            lines
-        in
-        let lines =
-          add_line
-            (Printf.sprintf "Temps total passé dans les rames : %dh %dmin %ds"
-               (total_time / 3600)
-               (total_time / 60 mod 60)
-               (total_time mod 60))
-            lines
-        in
-        let lines =
-          add_line
-            (Printf.sprintf "Distance totale : %f km" (total_distance /. 1000.))
-            lines
-        in
-        String.concat "\n" (List.rev lines)
-
-  let print_path node_to_string edge_to_string weight_to_string edge_to_color
-      edge_to_duration edge_to_distance details use_color (path : P.t) =
-    let transferts, route, total_time, total_distance =
-      get_chemin node_to_string edge_to_string weight_to_string edge_to_color
-        edge_to_duration edge_to_distance details use_color path
+    let rec loop prev_time prev_line_opt onboard walking waiting transfers =
+      function
+      | [] -> (onboard, walking, waiting, transfers)
+      | (step : P.step) :: rest ->
+          let step_end = P.Weight.get_time step.weight in
+          let duration = step.edge.duration in
+          let step_start = max prev_time (step_end - duration) in
+          let wait_here = max 0 (step_start - prev_time) in
+          let is_walk = edge_is_walk step.edge in
+          let onboard' = if is_walk then onboard else onboard + duration in
+          let walking' = if is_walk then walking + duration else walking in
+          let waiting' = waiting + wait_here in
+          let transfers', prev_line_opt' =
+            if is_walk then (transfers, prev_line_opt)
+            else
+              let current_line = edge_line_key step.edge in
+              let transfers_delta =
+                match prev_line_opt with
+                | Some prev when not (String.equal prev current_line) -> 1
+                | _ -> 0
+              in
+              (transfers + transfers_delta, Some current_line)
+          in
+          loop step_end prev_line_opt' onboard' walking' waiting' transfers' rest
     in
-    match route with
-    | "" -> Printf.printf "Chemin vide\n"
-    | _ ->
-        Printf.printf "Chemin trouvé en %d étapes (en %d correspondances) :\n"
-          (List.length path.steps) transferts;
-        Printf.printf "%s\n" route;
-        Printf.printf "Poids total : %s\n" (weight_to_string path.total_weight);
-        Printf.printf "Temps total passé dans les rames : %dh %dmin %ds\n"
-          (total_time / 3600)
-          (total_time / 60 mod 60)
-          (total_time mod 60);
-        Printf.printf "Distance totale : %f km\n" (total_distance /. 1000.)
+    let onboard_time, walking_time, waiting_time, transfers =
+      loop start_time None 0 0 0 0 path.steps
+    in
+    let arrival_time = P.Weight.get_time path.total_weight in
+    {
+      arrival_time;
+      total_time = max 0 (arrival_time - start_time);
+      onboard_time;
+      walking_time;
+      waiting_time;
+      total_distance;
+      transfers;
+    }
 
-  let print_path_detail node_to_string edge_to_string weight_to_string
-      edge_to_color edge_to_duration edge_to_distance (path : P.t) =
-    print_path node_to_string edge_to_string weight_to_string edge_to_color
-      edge_to_duration edge_to_distance true true path
+  let split_segments steps =
+    let flush current acc =
+      match current with None -> acc | Some segment -> segment :: acc
+    in
+    let rec loop current acc = function
+      | [] -> List.rev (flush current acc)
+      | (step : P.step) :: rest ->
+          let label = edge_label step.edge in
+          let color = step.edge.line.color in
+          begin match current with
+          | None -> loop (Some { label; color; steps_rev = [ step ] }) acc rest
+          | Some segment ->
+              if String.equal label segment.label then
+                loop
+                  (Some { segment with steps_rev = step :: segment.steps_rev })
+                  acc rest
+              else
+                loop
+                  (Some { label; color; steps_rev = [ step ] })
+                  (segment :: acc) rest
+          end
+    in
+    loop None [] steps
+
+  let render_segment ~use_color ~arrival_time (segment : segment) =
+    let steps = List.rev segment.steps_rev in
+    match steps with
+    | [] -> ("", arrival_time)
+    | first_step :: _ ->
+        let last_step = List.fold_left (fun _ step -> step) first_step steps in
+        let departure_time = segment_departure_time segment ~arrival_time in
+        let end_time = P.Weight.get_time last_step.weight in
+        let ride_seconds = max 0 (end_time - departure_time) in
+        let ride_minutes = line_minutes_from_seconds ride_seconds in
+        let station_name = bold use_color first_step.from.name in
+        let arrival_station = bold use_color last_step.to_node.name in
+        let line_text =
+          if segment_is_walk segment then italic use_color "Marche"
+          else colorize_hex use_color segment.color segment.label
+        in
+        let lines =
+          [
+            station_indent
+            ^ format_station ~time:arrival_time ~station:station_name;
+            line_indent ^ line_text ^ " | "
+            ^ format_ride ~stops:(List.length steps) ~minutes:ride_minutes;
+            station_indent
+            ^ format_station ~time:end_time ~station:arrival_station;
+          ]
+        in
+        (String.concat "\n" lines, end_time)
+
+  let render_route ~start_time ~use_color (path : P.t) =
+    match path.steps with
+    | [] -> ""
+    | _ ->
+        let segments = split_segments path.steps in
+        let rec aux acc current_time = function
+          | [] -> List.rev acc
+          | [ segment ] ->
+              let rendered, _end_time =
+                render_segment ~use_color ~arrival_time:current_time segment
+              in
+              List.rev (rendered :: acc)
+          | segment :: (next_segment :: _ as rest) ->
+              let rendered, end_time =
+                render_segment ~use_color ~arrival_time:current_time segment
+              in
+              let next_departure =
+                segment_departure_time next_segment ~arrival_time:end_time
+              in
+              let wait_seconds = max 0 (next_departure - end_time) in
+              let wait_minutes = line_minutes_from_seconds wait_seconds in
+              let transition_line =
+                if wait_seconds <= 0 then []
+                else if segment_is_walk next_segment then
+                  [ wait_indent ^ italic use_color "Marche" ]
+                else
+                  [ wait_indent ^ italic use_color (format_wait ~wait_min:wait_minutes) ]
+              in
+              let rendered_block =
+                String.concat "\n" (rendered :: transition_line)
+              in
+              aux (rendered_block :: acc) end_time rest
+        in
+        let rendered_segments = aux [] start_time segments in
+        String.concat "\n" rendered_segments
+
+  let string_of_path ~start_time ~use_color (path : P.t) =
+    let route = render_route ~start_time ~use_color path in
+    let summary = compute_summary ~start_time path in
+    match route with
+    | "" -> "Chemin vide"
+    | _ ->
+        String.concat "\n"
+          [
+            route;
+            "";
+            Printf.sprintf "Arrivée : %s" (format_hhmm summary.arrival_time);
+            Printf.sprintf "Temps total : %s" (format_hms summary.total_time);
+            Printf.sprintf "Temps à bord : %s" (format_hms summary.onboard_time);
+            Printf.sprintf "Temps de marche : %s" (format_hms summary.walking_time);
+            Printf.sprintf "Temps d'attente : %s" (format_hms summary.waiting_time);
+            Printf.sprintf "Distance totale : %.2f km" (summary.total_distance /. 1000.);
+            Printf.sprintf "Correspondances : %d" summary.transfers;
+          ]
 end
