@@ -145,7 +145,7 @@ let haversine_distance lat1 lon1 lat2 lon2 =
     @param target_date La date ciblée au format "YYYYMMDD".
     @return Un [Network.TransportGraph.t].*)
 let load_network_gtfs directory target_date =
-  Printf.printf "Chargement GTFS (Fusion des Areas) depuis %s...\n" directory;
+  Logger.black "Chargement GTFS (Fusion des Areas) depuis %s...\n%!" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
   let valid_services = Hashtbl.create 50000 in
@@ -273,8 +273,15 @@ let load_network_gtfs directory target_date =
         | Some i -> ( try List.nth row i with _ -> "000000")
         | None -> "000000"
       in
+      let raw_id = List.nth row i_rid in
+      let parts = String.split_on_char ':' raw_id in
+      let rec find_num = function | [] -> raw_id | h :: t -> if String.length h > 0 && h.[0] >= '0' && h.[0] <= '9' then h else find_num t in
+      let clean_id = find_num parts in
+
+      (* 3. On crée l'objet complet *)
       let line_obj =
-        { Network.name = List.nth row i_rname; Network.color = color_str }
+        { Network.id = clean_id; Network.name = List.nth row i_rname; Network.color = color_str }
+    
       in
       Hashtbl.add route_info (List.nth row i_rid) (line_obj, mode))
     (List.tl r_csv);
@@ -300,7 +307,7 @@ let load_network_gtfs directory target_date =
           let line_obj, mode =
             try Hashtbl.find route_info (List.nth row i_trid)
             with Not_found ->
-              ({ Network.name = "?"; color = "000000" }, Network.Bus)
+              ({ Network.name = "?"; color = "000000"; Network.id = "" }, Network.Bus)
           in
           let tid = List.nth row i_tid in
           let headsign = match i_headsign_opt with
@@ -560,7 +567,7 @@ end;
               let walk_dist = haversine_distance f.latitude f.longitude t.latitude t.longitude in
               
               let walk_conn = {
-                Network.line = { name = "Marche"; color = "AAAAAA" };
+                Network.line = { name = "Marche"; color = "AAAAAA"; id= "" };
                 Network.duration = walk_time;
                 Network.schedules = []; 
                 Network.distance = walk_dist;
@@ -593,8 +600,8 @@ exception Invalid_GTFS_URL of string
     @param dest_dir Le répertoire cible où seront extraits les fichiers CSV.
     @raise Invalid_GTFS_URL si le téléchargement échoue. *)
 let download_and_extract_gtfs url dest_dir =
-  Printf.printf "\n=== Récupération du GTFS ===\n";
-  Printf.printf "URL : %s\n" url;
+  Logger.black "\n=== Récupération du GTFS ===\n";
+  Logger.black "URL : %s\n" url;
 
   let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
   let zip_path = Filename.concat dest_dir "gtfs_data.zip" in
@@ -605,7 +612,7 @@ let download_and_extract_gtfs url dest_dir =
     else Printf.sprintf "mkdir -p \"%s\"" dest_dir
   in
   let _ = Sys.command cmd_mkdir in
-  Printf.printf "Téléchargement en cours...\n";
+  Logger.black "Téléchargement en cours...\n";
   flush stdout;
   let cmd_curl =
     if is_win then
@@ -623,7 +630,7 @@ let download_and_extract_gtfs url dest_dir =
       (Invalid_GTFS_URL "Lien introuvable ou erreur de serveur (Code 404/500)")
   end;
 
-  Printf.printf "Extraction des fichiers...\n";
+  Logger.black "Extraction des fichiers...\n";
   flush stdout;
   let cmd_unzip =
     if is_win then
@@ -643,7 +650,7 @@ let download_and_extract_gtfs url dest_dir =
   in
   let _ = Sys.command cmd_rm in
 
-  Printf.printf "Données prêtes dans le dossier : %s\n\n" dest_dir
+  Logger.black "Données prêtes dans le dossier : %s\n\n" dest_dir
 
 (** [load_network_from_url url target_date] est la fonction principale.
     Elle crée un dossier temporaire sur la machine, y télécharge et extrait les données via 
@@ -665,14 +672,14 @@ let load_network_from_url url target_date =
       else Printf.sprintf "rm -rf \"%s\"" temp_dir
     in
     let _ = Sys.command cmd_cleanup in
-    Printf.printf "Jeu de données supprimmé avec succés, graphe persistant \n";
+    Logger.black "Jeu de données supprimmé avec succés, graphe persistant \n";
     graph
   with
   | Invalid_GTFS_URL msg ->
-      Printf.printf "\n[ERREUR CRITIQUE] Impossible de charger le réseau.\n";
-      Printf.printf "Raison : %s\nURL testée : %s\n\n" msg url;
+      Logger.bold_red "\n[ERREUR CRITIQUE] Impossible de charger le réseau.\n";
+      Logger.bold_red "Raison : %s\nURL testée : %s\n\n" msg url;
       raise (Invalid_GTFS_URL url)
   | e ->
-      Printf.printf "\n[ERREUR] Un problème inattendu est survenu : %s\n"
+      Logger.bold_red "\n[ERREUR] Un problème inattendu est survenu : %s\n"
         (Printexc.to_string e);
       raise e;

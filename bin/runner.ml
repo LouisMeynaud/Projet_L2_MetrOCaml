@@ -30,11 +30,11 @@ let load_gtfs_data town url date_cible loading_mode =
   try
     let graphe =
       if loading_mode = "Local" then begin
-        Printf.printf "Chargement local GTFS depuis %s...\n%!" local_data_dir;
+        Logger.black "Chargement local GTFS depuis %s...\n%!" local_data_dir;
         Gtfs_adapter.load_network_gtfs local_data_dir date_cible
       end
       else begin
-        Printf.printf "Téléchargement en cours...\n%!";
+        Logger.black "Téléchargement en cours...\n%!";
         Gtfs_adapter.load_network_from_url url date_cible
       end
     in
@@ -42,13 +42,13 @@ let load_gtfs_data town url date_cible loading_mode =
     graphe
   with
   | Failure msg ->
-      Printf.eprintf "ERREUR : %s\n" msg;
+      Logger.bold_red "ERREUR : %s\n" msg;
       exit 1
   | Sys_error msg ->
-      Printf.eprintf "ERREUR FICHIER : %s\n" msg;
+      Logger.bold_red "ERREUR FICHIER : %s\n" msg;
       exit 1
   | e ->
-      Printf.eprintf "ERREUR INCONNUE : %s\n" (Printexc.to_string e);
+      Logger.bold_red "ERREUR INCONNUE : %s\n" (Printexc.to_string e);
       exit 1
 
 (* Fonction pour lancer la recherche de trajet *)
@@ -79,7 +79,7 @@ let choose_weight poids coeffs pmr_transfer =
       in
       let module CombinedWeight =
         (val Combinator.combine critere
-            : Routing.WEIGHT with type edge = Network.connection)
+            : Routing.WEIGHT with type edge = Network.connection and type node = Network.station)
       in
       let module DIJKSTRA_CombinedWeight =
         Dijkstra.Make (Network.TransportGraph) (CombinedWeight) in
@@ -87,8 +87,7 @@ let choose_weight poids coeffs pmr_transfer =
   | _ -> 
           [ ("Temps", (module DIJKSTRA_TimeWeight)) ]
 
-let affichage details_mode use_color start_time source destination
-    graph_for_search routeurs pmr_transfer =
+let affichage use_color start_time source destination graph_for_search routeurs pmr_transfer =
   (* Accumulation fonctionnelle des détails d'affichage *)
   let results =
     List.fold_left
@@ -100,16 +99,7 @@ let affichage details_mode use_color start_time source destination
             ~destination ~transfer_allowed:(if pmr_transfer then Util.is_pmr else fun _ -> true)
         with
         | Some p ->
-            let details =
-              ShowPath.string_of_path
-                (fun s -> s.name)
-                (fun (c : Network.connection) -> c.line.name)
-                Routeur.P.Weight.to_string Routeur.P.Weight.get_time
-                (fun (c : Network.connection) -> c.line.color)
-                (fun (c : Network.connection) -> c.duration)
-                (fun (c : Network.connection) -> c.distance)
-                start_time details_mode use_color p
-            in
+            let details = ShowPath.string_of_path ~start_time ~use_color p in
             let edges =
               List.map (fun step -> (step.from.id, step.to_node.id, step.edge.line.name)) p.steps
             in
@@ -133,10 +123,10 @@ let show_details details_afficheurs =
       in
       afficher_detail ();
       flush stdout
-    with Not_found -> Printf.printf "Algorithme non trouvé.\n%!"
+    with Not_found -> Logger.bold_red "Algorithme non trouvé.\n%!"
 
 let search_callback source_query dest_query algo poids coeffs excluded_modes
-    start_time pmr_transfer graphe details_mode use_color =
+  start_time pmr_transfer graphe use_color =
   match Endpoint.build_routing_context graphe source_query dest_query with
   | Some (graph_for_search, source, destination) ->
       Weight.set_excluded_modes excluded_modes;
@@ -153,53 +143,34 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
           ]
         else choose_weight poids coeffs pmr_transfer
       in
-      let details =
-        affichage details_mode use_color start_time source destination
-          graph_for_search routeurs pmr_transfer
-      in
+      let details = affichage use_color start_time source destination graph_for_search routeurs pmr_transfer in
       details
   | None ->
       [
-        ( "Erreur : Stations introuvables, coordonnées invalides ou adresse introuvable.",
+        ( "\x1b[31mErreur : Stations introuvables, coordonnées invalides ou adresse introuvable.\x1b[0m",
           "",
           None );
       ]
 
-
-
-(* Fonctions pour l'affichag *)
-let node_to_string (s : Network.station) = s.name
-let edge_to_string (c : Network.connection) = c.line.name
-let edge_to_color (c : Network.connection) = c.line.color
-let edge_to_duration (c : Network.connection) = c.duration
-let edge_to_distance (c : Network.connection) = c.distance
- 
-
 (* Construit un routeur pour les tests de bench *)
 let make_routeur nom (module Algo : ALGO) =
   let fn graph source destination start_time =
-    match Algo.find_path ~start_time ~graph ~source ~destination ~transfer_allowed:(fun _ -> true) with
+    match
+      Algo.find_path ~start_time ~graph ~source ~destination
+        ~transfer_allowed:(fun _ -> true)
+    with
     | None -> ("Aucun chemin", fun () -> ())
-    | Some p -> let module ShowPath = Show.Make (Algo.P) in
-    let temps, _ = (ShowPath.calcul_temps_distance edge_to_duration edge_to_distance p.steps) in
-    let h, m = (temps / 3600) , (temps / 60 mod 60) in
-    let result_str = Printf.sprintf "OK - %d etape(s) %d heures %d minutes" (List.length p.Algo.P.steps) h m  in
-      let print () =
-        ShowPath.print_path
-          node_to_string
-          edge_to_string
-          Algo.P.Weight.to_string
-          edge_to_color
-          edge_to_duration
-          edge_to_distance
-          false
-          true
-          p
-      in
-      (result_str, print)
+    | Some p ->
+        let module ShowPath = Show.Make (Algo.P) in
+        let stats = ShowPath.compute_summary ~start_time p in
+        let temps = stats.total_time in
+        let h = temps / 3600 in
+        let m = temps / 60 mod 60 in
+        let result_str = Printf.sprintf "OK - %d etape(s) %d heures %d minutes" (List.length p.Algo.P.steps) h m in
+        let print () = Printf.printf "%s\n" (ShowPath.string_of_path ~start_time ~use_color:true p) in
+        (result_str, print)
   in
   (nom, fn)
- 
 
     
 let build_bench_routeurs () =
@@ -245,18 +216,17 @@ let build_bench_routeurs () =
   ] in
   preset_routeurs @ unit_routeurs
 
-
   let rec run_bench_console graphe =
-  Printf.printf "\n Benchmark activé \n%!";
+  Printf.printf "\nBenchmark activé \n%!";
   let routeurs = build_bench_routeurs () in
-    Printf.printf "Station source : %!";
+    Printf.printf "\nStation source : %!";
     let source_query = String.trim (read_line ()) in
     Printf.printf "Station destination : %!";
     let dest_query = String.trim (read_line ()) in
     let tm = Unix.localtime (Unix.time ()) in
     let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
     Bench.run graphe source_query dest_query start_time routeurs Cli.Console.raw_select;
-    let continue = Cli.Console.raw_select "Voulez-vous effectuer un nouveau benchmark ? " [ "Oui"; "Non" ] in
+    let continue = Cli.Console.raw_select "\nVoulez-vous effectuer un nouveau benchmark ? " [ "Oui"; "Non" ] in
     if continue = "Oui" then
       run_bench_console graphe
     else
