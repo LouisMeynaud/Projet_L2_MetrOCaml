@@ -153,14 +153,14 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
 (* ========================================================== *)
 
 module TimeWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
-  type t = { time : int; line_name : string option }
+  type t = { time : int; walk_time : int; line_name : string option }
   type edge = connection
   type node = station
   type step_data = metro_step_data
   type state_key = string option
 
-  let start_at time = { time; line_name = None }
-  let infinity = { time = max_int; line_name = None }
+  let start_at time = { time; walk_time = 0; line_name = None }
+  let infinity = { time = max_int; walk_time = max_int; line_name = None }
   let is_inf w = w.time = max_int
 
   let traverse w (v : node) e =
@@ -170,7 +170,16 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
       match eval_edge w.time w.line_name v e with
       | None -> None
       | Some (next_time, wait_time, next_line) ->
-          Some ({ time = next_time; line_name = next_line }, { wait_time })
+          let extra_walk_time =
+            if e.mode = Walk || e.mode = Transfert then e.duration else 0
+          in
+          Some
+            ( {
+                time = next_time;
+                walk_time = w.walk_time + extra_walk_time;
+                line_name = next_line;
+              },
+              { wait_time } )
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -178,7 +187,12 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
     else if is_inf w2 then -1.0
     else
       let diff = w1.time - w2.time in
-      float_of_int diff /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
+      if diff <> 0 then
+        float_of_int diff /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
+      else
+        let walk_diff = w1.walk_time - w2.walk_time in
+        float_of_int walk_diff
+        /. float_of_int (Int.max 1 (Int.max w1.walk_time w2.walk_time))
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0

@@ -99,7 +99,7 @@ let max_resize_safety_threshold = 50 (* Taille minimale valide lors d'un resize.
 
 let resultats_min_width = 200 (* Largeur minimale de la zone d'affichage des resultats de recherche. *)
 let resultats_width_margin = 26 (* Marge retiree pour calculer la largeur de la zone d'affichage des resultats de recherche. *)
-let resultats_height = 200 (* Hauteur de la zone d'affichage des resultats de recherche. *)
+let resultats_height = 600 (* Hauteur de la zone d'affichage des resultats de recherche. *)
 let resultats_row_min_width = 150 (* Largeur minimale d'une ligne de resultats de recherche. *)
 let resultats_row_width_margin = 26 (* Marge retiree pour calculer la largeur des lignes de resultats de recherche. *)
 let resultats_row_height = 30 (* Hauteur d'une ligne de resultats de recherche. *)

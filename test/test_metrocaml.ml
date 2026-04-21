@@ -174,6 +174,51 @@ let test_time_to_string () =
     "Formatage minutes exactes (2m00s)" "Aujourd'hui à 00h02m00s"
     (TimeW.to_string (TimeW.start_at 120))
 
+let test_time_prefers_less_walk_when_arrival_equal () =
+  let line_b = { Metrocaml.Network.name = "Bus 43"; color = "#00AA00" } in
+  let line_walk = { Metrocaml.Network.name = "Marche"; color = "#AAAAAA" } in
+  let bus_direct : Metrocaml.Network.connection =
+    {
+      line = line_b;
+      duration = 300;
+      distance = 1200.;
+      mode = Bus;
+      schedules = [ ("x", 600) ];
+      terminus = dummy_station;
+    }
+  in
+  let walk_to_next_stop : Metrocaml.Network.connection =
+    {
+      line = line_walk;
+      duration = 120;
+      distance = 150.;
+      mode = Walk;
+      schedules = [];
+      terminus = dummy_station;
+    }
+  in
+  let bus_after_walk : Metrocaml.Network.connection =
+    {
+      line = line_b;
+      duration = 200;
+      distance = 1000.;
+      mode = Bus;
+      schedules = [ ("x", 700) ];
+      terminus = dummy_station;
+    }
+  in
+  let direct = force_traverse TimeW.traverse (TimeW.start_at 0) bus_direct in
+  let with_walk =
+    force_traverse TimeW.traverse
+      (force_traverse TimeW.traverse (TimeW.start_at 0) walk_to_next_stop)
+      bus_after_walk
+  in
+  Alcotest.(check int)
+    "Même heure d'arrivée" (TimeW.get_time direct) (TimeW.get_time with_walk);
+  Alcotest.(check bool)
+    "À temps égal, moins de marche est préféré" true
+    TimeW.(direct < with_walk)
+
 (* ========================================================== *)
 (* TESTS: DistanceWeight                                      *)
 (* ========================================================== *)
@@ -512,6 +557,8 @@ let () =
           test_case "Arithmétique" `Quick test_time_arithmetic;
           test_case "Comparaison booléenne" `Quick test_time_compare;
           test_case "Formatage de l'affichage" `Quick test_time_to_string;
+          test_case "Préférence attente vs marche" `Quick
+            test_time_prefers_less_walk_when_arrival_equal;
         ] );
       ( "DistanceWeight",
         [
