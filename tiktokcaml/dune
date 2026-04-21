@@ -1,4 +1,10 @@
 (library
  (name tiktocaml)
  (libraries routing)
- (modules network graphe))
+ (modules network weight graphe))
+
+(executable
+ (name main)
+ (public_name tiktocaml)
+ (modules main)
+ (libraries tiktocaml routing))
