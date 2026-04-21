@@ -37,9 +37,13 @@ Le binaire exécutable se trouve dans le répertoire `_build` sous le nom `metro
 
 ## Description:
 
-### Présentation du projet et objectifs:
-[??]
+### Présentation du projet et objectifs
+Notre projet s'articule autour de deux composantes principales :
 
+* **Une bibliothèque de graphes générique :** Conçue pour implémenter des structures de graphes et des algorithmes de parcours de manière hautement efficace. Elle a été pensée pour être la plus modulaire et abstraite possible ce qui permet de la réutiliser facilement dans des contextes totalement différents de notre application (par exemple : analyse de réseaux sociaux, modélisation de réseaux de neurones, etc.).
+* **L'application MetroCaml :** Une implémentation concrète de cette bibliothèque qui propose une interface complète de recherche d'itinéraires basée sur les réseaux de transports en commun.
+
+## MetroCaml : Un moteur de recherche d'itinéraires pour les transports en commun
 ### Modes de fonctionnement : En ligne / Local
 Au lancement du programme, l'utilisateur peut choisir entre deux modes :
 
