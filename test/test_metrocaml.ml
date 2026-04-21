@@ -175,8 +175,8 @@ let test_time_to_string () =
     (TimeW.to_string (TimeW.start_at 120))
 
 let test_time_prefers_less_walk_when_arrival_equal () =
-  let line_b = { Metrocaml.Network.name = "Bus 43"; color = "#00AA00" } in
-  let line_walk = { Metrocaml.Network.name = "Marche"; color = "#AAAAAA" } in
+  let line_b = { Metrocaml.Network.name = "Bus 43"; color = "#00AA00"; id = "" } in
+  let line_walk = { Metrocaml.Network.name = "Marche"; color = "#AAAAAA"; id = "" } in
   let bus_direct : Metrocaml.Network.connection =
     {
       line = line_b;
