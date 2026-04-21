@@ -231,7 +231,7 @@ let dessiner_texte x y texte (r, g, b) =
     let y2 = wy2 *. etat.zoom +. etat.camera_y in
   
     (* on ignore ce qui est hors de l'écran *)
-    let pad = 32.0 in
+    let pad = draw_edge_clip_padding in
     let min_x = -.pad and min_y = -.pad in
     let max_x = float !canvas_w +. pad and max_y = float !canvas_h +. pad in
   
@@ -247,7 +247,7 @@ let dessiner_texte x y texte (r, g, b) =
           if len = 0. then (0., 0.) 
           else
             let nx, ny = -.dy /. len, dx /. len in
-            let shift = (float i -. (float (n - 1) /. 2.0)) *. 4.0 in (* decalle pour centré le paquet*)
+            let shift = (float i -. (float (n - 1) /. 2.0)) *. draw_edge_parallel_offset in (* decalle pour centré le paquet*)
             (nx *. shift, ny *. shift)
       in
       let clamp_int_coord f =
@@ -287,7 +287,7 @@ in
   let x = wx *. etat.zoom +. etat.camera_x in
   let y = wy *. etat.zoom +. etat.camera_y in
 
-  let pad = 20.0 in
+  let pad = draw_node_clip_padding in
   if x < -.pad || y < -.pad || x > float !canvas_w +. pad || y > float !canvas_h +. pad then
     ()
   else
@@ -295,10 +295,14 @@ in
       List.exists (fun (src, dst, _line_name) -> src = noeud.id || dst = noeud.id) etat.highlighted_edges
     in
     let (color_ext, r_ext, r_int) =
-      if Some noeud.id = etat.source then (hex_to_rgb 0x00FF00, 11, 9)
-      else if Some noeud.id = etat.dest then (hex_to_rgb 0xFF0000, 11, 9)
-      else if etat.highlighted_edges <> [] && not node_on_path then (color_unused_nodes, 5,3)
-      else (hex_to_rgb 0x000000, 5,3)
+      if Some noeud.id = etat.source then
+        (hex_to_rgb 0x00FF00, draw_node_selected_radius_outer, draw_node_selected_radius_inner)
+      else if Some noeud.id = etat.dest then
+        (hex_to_rgb 0xFF0000, draw_node_selected_radius_outer, draw_node_selected_radius_inner)
+      else if etat.highlighted_edges <> [] && not node_on_path then
+        (color_unused_nodes, draw_node_radius_outer, draw_node_radius_inner)
+      else
+        (hex_to_rgb 0x000000, draw_node_radius_outer, draw_node_radius_inner)
     in
     
     let r, g, b = color_ext in

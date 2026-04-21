@@ -79,7 +79,7 @@ let choose_weight poids coeffs pmr_transfer =
       in
       let module CombinedWeight =
         (val Combinator.combine critere
-            : Routing.WEIGHT with type edge = Network.connection)
+            : Routing.WEIGHT with type edge = Network.connection and type node = Network.station)
       in
       let module DIJKSTRA_CombinedWeight =
         Dijkstra.Make (Network.TransportGraph) (CombinedWeight) in

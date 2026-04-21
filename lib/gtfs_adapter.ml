@@ -273,8 +273,15 @@ let load_network_gtfs directory target_date =
         | Some i -> ( try List.nth row i with _ -> "000000")
         | None -> "000000"
       in
+      let raw_id = List.nth row i_rid in
+      let parts = String.split_on_char ':' raw_id in
+      let rec find_num = function | [] -> raw_id | h :: t -> if String.length h > 0 && h.[0] >= '0' && h.[0] <= '9' then h else find_num t in
+      let clean_id = find_num parts in
+
+      (* 3. On crée l'objet complet *)
       let line_obj =
-        { Network.name = List.nth row i_rname; Network.color = color_str }
+        { Network.id = clean_id; Network.name = List.nth row i_rname; Network.color = color_str }
+    
       in
       Hashtbl.add route_info (List.nth row i_rid) (line_obj, mode))
     (List.tl r_csv);
@@ -300,7 +307,7 @@ let load_network_gtfs directory target_date =
           let line_obj, mode =
             try Hashtbl.find route_info (List.nth row i_trid)
             with Not_found ->
-              ({ Network.name = "?"; color = "000000" }, Network.Bus)
+              ({ Network.name = "?"; color = "000000"; Network.id = "" }, Network.Bus)
           in
           let tid = List.nth row i_tid in
           let headsign = match i_headsign_opt with
@@ -560,7 +567,7 @@ end;
               let walk_dist = haversine_distance f.latitude f.longitude t.latitude t.longitude in
               
               let walk_conn = {
-                Network.line = { name = "Marche"; color = "AAAAAA" };
+                Network.line = { name = "Marche"; color = "AAAAAA"; id= "" };
                 Network.duration = walk_time;
                 Network.schedules = []; 
                 Network.distance = walk_dist;
