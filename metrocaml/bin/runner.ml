@@ -26,7 +26,11 @@ end
 
 (* Fonction pour charger les données GTFS *)
 let load_gtfs_data town url date_cible loading_mode =
-  let local_data_dir = "data/" ^ town in
+  let local_data_dir =
+    let p1 = "data/" ^ town in
+    let p2 = "metrocaml/data/" ^ town in
+    if Sys.file_exists p1 then p1 else p2
+  in
   try
     let graphe =
       if loading_mode = "Local" then begin
