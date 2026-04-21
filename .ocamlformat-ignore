@@ -8,3 +8,7 @@ lib/show.ml
 routing/src/dijkstra.ml
 bin/runner.ml
 bench/*
+lib/*
+*
+*/*
+*/*/*

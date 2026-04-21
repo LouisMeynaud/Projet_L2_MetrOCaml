@@ -136,7 +136,7 @@ let walk_speed_m_per_s = 1.0
     @return La connexion à pied *)
 let make_walk_connection ~to_station ~distance =
   {
-    Network.line = { name = "Marche"; color = "AAAAAA" };
+    Network.line = { name = "Marche"; color = "AAAAAA"; id = "" };
     Network.duration =
       max 1 (int_of_float (ceil (distance /. walk_speed_m_per_s)));
     Network.schedules = [];

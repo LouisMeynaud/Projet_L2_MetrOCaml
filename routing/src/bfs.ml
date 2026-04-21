@@ -3,7 +3,7 @@ open Weight_intf
 
 (** Algorithme de Parcours en Largeur (Breadth-First Search). Utile pour trouver
     le chemin avec le moins d'arêtes sans tenir compte des distances réelles. *)
-module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
+module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t) = struct
   module P = Path.Make (G) (W)
 
   type path = P.t
@@ -34,7 +34,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
               let neighbors = G.neighbors graph current in
               List.iter
                 (fun (neighbor, edge) ->
-                  match W.traverse current_weight edge with
+                  match W.traverse current_weight neighbor edge with
                   | None -> ()
                   | Some (edge_weight, step_data) ->
                       let neighbor_state =

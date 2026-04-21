@@ -32,6 +32,9 @@ let choose_load_mode () = let loading_mode = Cli.Console.raw_select "\nChoisisse
   loading_mode
 
 
+
+
+  
 let date_choose loading_mode = let date_cible =
   match loading_mode with
   | "En ligne" -> today_yyyymmdd ()
@@ -40,6 +43,18 @@ let date_choose loading_mode = let date_cible =
   in Logger.black "\n=== Lancement de MetroCaml ===\n%!";
   Logger.black "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
+
+let rt_alertes town loading_mode date_cible graph = 
+    let (rt_url_alertes) = 
+    match town with
+    | "Ile-de-France" -> 
+        ( "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2")
+    | _ -> ("") 
+  in
+  if (rt_url_alertes <> "" && loading_mode == "En ligne" ) then begin
+    Printf.printf "\n[Système] Démarrage du moteur Temps Réel en arrière-plan...\n%!";
+    Gtfs_rt.start_auto_refresh date_cible graph;
+  end; ()
 
   let affichage_interface graphe =
     Printf.printf "\nChoisissez l'interface à lancer :\n%!";
@@ -72,7 +87,8 @@ let () =
   let (town, url) = choose_city loading_mode in
   let date_cible = date_choose loading_mode in
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
-  Logger.black "Graphe chargé avec succès !\n%!";
+  rt_alertes town loading_mode date_cible graph;
+  Logger.black "\nGraphe chargé avec succès !\n%!";
   let benchmark =
     match Cli.Console.raw_select "\nVoulez-vous activer le mode benchmark ?" [ "Oui"; "Non" ]  with
     |"Oui" -> true
