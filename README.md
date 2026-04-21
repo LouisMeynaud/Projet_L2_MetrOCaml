@@ -15,7 +15,8 @@ opam install . --deps-only
 Utilisez la commande suivante (nécessite **OCaml 5.1** ou une version ultérieure) : 
 
 ```bash
-dune exec metrocaml
+dune exec metrocaml #pour metrocaml
+dune exec tiktocaml #pour tiktocaml
 ```
 
 ### Compiler le Programme soi-même depuis le code source :
@@ -38,10 +39,12 @@ Le binaire exécutable se trouve dans le répertoire `_build` sous le nom `metro
 ## Description:
 
 ### Présentation du projet et objectifs
-Notre projet s'articule autour de deux composantes principales :
+Notre projet s'articule autour de trois composantes principales :
 
 * **Une bibliothèque de graphes générique :** Conçue pour implémenter des structures de graphes et des algorithmes de parcours de manière hautement efficace. Elle a été pensée pour être la plus modulaire et abstraite possible ce qui permet de la réutiliser facilement dans des contextes totalement différents de notre application (par exemple : analyse de réseaux sociaux, modélisation de réseaux de neurones, etc.).
 * **L'application MetroCaml :** Une implémentation concrète de cette bibliothèque qui propose une interface complète de recherche d'itinéraires basée sur les réseaux de transports en commun.
+
+* **L'application TiktoCaml :** Un mini-projet annexe utilisant la même bibliothèque de graphes pour démontrer son potentiel et sa généricité. TiktoCaml est un moteur d'analyse de graphes fondé sur la modélisation de liens d'amitié au sein d'un réseau social.
 
 ## MetroCaml : Un moteur de recherche d'itinéraires pour les transports en commun
 ### Modes de fonctionnement : En ligne / Local
