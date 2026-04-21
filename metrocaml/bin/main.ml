@@ -6,14 +6,18 @@ let today_yyyymmdd () =
   let tm = Unix.localtime (Unix.time ()) in
   Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 
+let dir_exists path =
+  try (Unix.stat path).Unix.st_kind = Unix.S_DIR with _ -> false
+
+let local_city_exists ville =
+  dir_exists ("data/" ^ ville) || dir_exists ("metrocaml/data/" ^ ville)
 
 let choose_city loading_mode = 
     let town = match loading_mode with
     | "En ligne" -> Cli.Console.raw_select "\nChoisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"]
     | "Local" -> 
       Cli.Console.raw_select "\nChoisissez la ville : "
-      (List.filter(fun ville -> try (Unix.stat ("data/" ^ ville )).Unix.st_kind = Unix.S_DIR (*Vérifie si le dossier existe et si c'est bien un dossier (S_DIR)*)
-                                with _ -> false (*Plutôt que de planter on retourne false.*))
+      (List.filter (fun ville -> local_city_exists ville)
       [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"])
     | _ -> failwith "Mode de chargement inconnu"
   in

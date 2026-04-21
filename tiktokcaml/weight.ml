@@ -1,8 +1,9 @@
 open Network
 
-module Forceheight : Routing.WEIGHT with type edge = connection = struct
+module Forceheight : Routing.WEIGHT with type edge = connection and type node = person = struct
   type t = float
   type edge = connection
+  type node = person
   type step_data = unit
   type state_key = unit
 
@@ -10,7 +11,7 @@ module Forceheight : Routing.WEIGHT with type edge = connection = struct
   let infinity = Float.infinity
   let is_inf w = w = Float.infinity
 
-  let traverse current_weight edge =
+  let traverse current_weight (_ : node) edge =
     if edge.force <= 0.0 then 
       None
     else
