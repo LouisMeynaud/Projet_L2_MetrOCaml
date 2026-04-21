@@ -23,7 +23,7 @@ let station_to_noeud s =
   @param dst La station d'arrivée
   @param conn La connexion à convertir
   @return L'arête correspondante *)
-let connexion_to_arete src dst conn =
+let connexion_to_arete src dst (conn : Metrocaml.Network.connection) =
   {
     source = src.id;
     destination = dst.id;
@@ -69,7 +69,7 @@ let extraire_horaires graph =
               station_id = source.id;
               station_name = source.name;
               direction = conn.terminus.name;
-              times = (List.map snd conn.schedules);
+              times = List.map snd conn.schedules;
             })
           voisins)
       stations in

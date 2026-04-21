@@ -48,7 +48,7 @@ let geocode_address_lwt address =
       (fun () ->
         Lwt_unix.with_timeout 6.0 (fun () ->
             Lwt.bind (Http_client.get ~headers uri) (fun (resp, body) ->
-                Printf.printf "Requête Nominatim pour '%s' : %s\n%!" address
+                Logger.black "Requête Nominatim pour '%s' : %s\n%!" address
                   (Cohttp.Code.string_of_status (Cohttp.Response.status resp));
                 let code =
                   resp |> Cohttp.Response.status |> Cohttp.Code.code_of_status
@@ -59,11 +59,11 @@ let geocode_address_lwt address =
                         (try parse_nominatim_coordinates payload
                          with _ -> None))
                 else (
-                  Printf.eprintf "Erreur HTTP pour '%s': %d %s\n%!" address code
+                  Logger.bold_red "Erreur HTTP pour '%s': %d %s\n%!" address code
                     (Cohttp.Code.reason_phrase_of_code code);
                   Lwt.return_none))))
       (fun exn ->
-        Printf.eprintf "Échec Cohttp pour '%s': %s\n%!" address
+        Logger.bold_red "Échec Cohttp pour '%s': %s\n%!" address
           (Printexc.to_string exn);
         Lwt.return_none)
 
@@ -136,7 +136,7 @@ let walk_speed_m_per_s = 1.0
     @return La connexion à pied *)
 let make_walk_connection ~to_station ~distance =
   {
-    Network.line = { name = "Marche"; color = "AAAAAA" };
+    Network.line = { name = "Marche"; color = "AAAAAA"; id = "" };
     Network.duration =
       max 1 (int_of_float (ceil (distance /. walk_speed_m_per_s)));
     Network.schedules = [];

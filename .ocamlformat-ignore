@@ -4,6 +4,11 @@ cli/console.ml
 lib/gtfs_adapter.ml
 lib/endpoint.ml
 lib/network.ml
+lib/show.ml
 routing/src/dijkstra.ml
 bin/runner.ml
 bench/*
+lib/*
+*
+*/*
+*/*/*
