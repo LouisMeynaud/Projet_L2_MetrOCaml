@@ -11,26 +11,26 @@ let rec raw_select prompt options =
     match List.find_opt (fun s -> String.lowercase_ascii (String.trim s) = choice2) options with
       | Some c -> c 
       | None -> 
-          Printf.printf "Erreur : Choix invalide. Veuillez taper l'une des options exactement.\n%!";
+          Logger.bold_red "Erreur : Choix invalide. Veuillez taper l'une des options exactement.\n%!";
           raw_select prompt options
 
 (** Fonction principale pour le mode console. Elle demande à l'utilisateur les informations nécessaires pour effectuer une recherche de chemin, puis appelle la fonction de callback avec ces informations.
   @param graphe Le graphe de transport à utiliser pour la recherche
   @param search_callback La fonction à appeler avec les paramètres de recherche une fois que l'utilisateur les a fournis **)
 let rec run_console graphe search_callback =
-  Printf.printf "\n=== Mode Ligne de Commande ===\n%!";
+  Logger.black "\n=== Mode Ligne de Commande ===\n%!";
 
-  Printf.printf "Entrez la station source (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
+  Printf.printf "\nEntrez la station source (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
   let source_query = String.trim (read_line ()) in
 
-  Printf.printf "Entrez la station destination (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
+  Printf.printf "\nEntrez la station destination (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
   let dest_query = String.trim (read_line ()) in
 
-  let algo = raw_select "Choisissez l'algorithme : " [ "BFS"; "Dijkstra" ] in
+  let algo = raw_select "\nChoisissez l'algorithme : " [ "BFS"; "Dijkstra" ] in
 
   let poids =
     if algo = "Dijkstra" then begin
-      raw_select "Choisissez le poids : " ["Default"; "Combinaison" ];
+      raw_select "\nChoisissez le poids : " ["Default"; "Combinaison" ];
     end else ""
   in
 
@@ -41,7 +41,7 @@ let rec run_console graphe search_callback =
           La fonction vérifie que l'utilisateur a entré exactement 4 valeurs et que chacune d'elles est un nombre flottant valide.
           Si l'entrée est invalide, un message d'erreur est affiché et l'utilisateur est invité à réessayer. **)
       let rec ask_coeffs() =
-        Printf.printf "Entrez les 4 coefficients (flottants) (Temps Distance Arrêts Correspondances) : %!";
+        Printf.printf "\nEntrez les 4 coefficients (flottants) (Temps Distance Arrêts Correspondances) : %!";
         let input = read_line () in
         let parts = String.split_on_char ' ' input |> List.filter (fun s -> s <> "") in
           
@@ -50,11 +50,11 @@ let rec run_console graphe search_callback =
           if List.length floats = 4 then 
             floats
           else (
-            Printf.printf "Erreur : Il faut exactement 4 valeurs (reçu : %d).\n" (List.length floats);
+            Logger.bold_red "Erreur : Il faut exactement 4 valeurs (reçu : %d).\n" (List.length floats);
             ask_coeffs ()
           )
         with Failure _ ->
-          Printf.printf "Erreur : Saisie invalide. Veuillez n'entrer que des nombres.\n";
+          Logger.bold_red "Erreur : Saisie invalide. Veuillez n'entrer que des nombres.\n";
           ask_coeffs()
       in ask_coeffs()
     else []
@@ -83,7 +83,7 @@ let rec run_console graphe search_callback =
     L'utilisateur peut entrer plusieurs modes séparés par des espaces, ou laisser vide pour n'exclure aucun mode.
     Si une entrée invalide est détectée, un message d'erreur est affiché et l'utilisateur est invité à réessayer. **)
     let rec ask_modes() =
-      Printf.printf "Entrez les modes de transport à exclure (séparés par des espaces) parmi : %s, ou laissez vide pour aucun : %!"
+      Printf.printf "\nEntrez les modes de transport à exclure (séparés par des espaces) parmi : %s, ou laissez vide pour aucun : %!"
         (String.concat " " modes);
       let input = read_line () in
       let parts = String.split_on_char ' ' input |> List.filter (fun s -> s <> "")
@@ -111,7 +111,7 @@ let rec run_console graphe search_callback =
     match validate_parts [] parts with
     | Some valid_modes -> valid_modes
     | None ->
-        Printf.printf "Erreur : Modes invalides. Veuillez n'entrer que les modes listés.\n%!";
+        Logger.bold_red "Erreur : Modes invalides. Veuillez n'entrer que les modes listés.\n%!";
         ask_modes()
     in ask_modes() 
   in
@@ -123,7 +123,7 @@ let rec run_console graphe search_callback =
     La fonction vérifie que l'entrée est au format correct et que les valeurs d'heure et de minute sont dans les plages valides.
     Si l'entrée est invalide, un message d'erreur est affiché et l'utilisateur est invité à réessayer. **)
     let rec ask_time() =
-      Printf.printf "Entrez l'heure de départ (HH:MM) ou laissez vide pour l'heure actuelle : %!";
+      Printf.printf "\nEntrez l'heure de départ (HH:MM) ou laissez vide pour l'heure actuelle : %!";
       let input = String.trim (read_line ()) in
       if input = "" then
         let tm = Unix.localtime (Unix.time ()) in
@@ -132,18 +132,18 @@ let rec run_console graphe search_callback =
         try
           Scanf.sscanf input "%2d:%2d%!" (fun h m ->
             if h < 0 || h > 23 || m < 0 || m > 59 then (
-              Printf.printf "Erreur : Heure hors plage. HH:MM doit être compris entre 00:00 et 23:59.\n%!";
+              Logger.bold_red "Erreur : Heure hors plage. HH:MM doit être compris entre 00:00 et 23:59.\n%!";
               ask_time ();)
             else
               h * 3600 + m * 60
             )
         with _ ->
-          Printf.printf "Erreur : Format invalide. Veuillez entrer l'heure au format HH:MM.\n%!";
+          Logger.bold_red "Erreur : Format invalide. Veuillez entrer l'heure au format HH:MM.\n%!";
           ask_time()          
     in ask_time() 
   in
 
-  let pmr_transfer = raw_select "Activer PMR : " [ "Oui"; "Non" ] in
+  let pmr_transfer = raw_select "\nActiver PMR : " [ "Oui"; "Non" ] in
     let pmr_transfer =
         match pmr_transfer with
         | "Oui" -> true
@@ -152,8 +152,8 @@ let rec run_console graphe search_callback =
 
   search_callback source_query dest_query algo poids coeffs excluded_modes start_time pmr_transfer;
 
-  let continue = raw_select "Voulez-vous effectuer une nouvelle recherche ? " [ "Oui"; "Non" ] in
+  let continue = raw_select "\nVoulez-vous effectuer une nouvelle recherche ? " [ "Oui"; "Non" ] in
     if continue = "Oui" then
       run_console graphe search_callback
     else
-      Printf.printf "Fermeture de l'interface ligne de commande.\n%!";
+      Printf.printf "\nFermeture de l'interface ligne de commande.\n%!";

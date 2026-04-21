@@ -2,6 +2,6 @@
  (name metrocaml)
  (public_name metrocaml)
  (libraries routing csv unix  threads lwt lwt.unix cohttp-lwt-unix uri yojson str)
- (modules network weight gtfs_adapter show util endpoint gtfs_rt)
+ (modules network weight gtfs_adapter show util endpoint logger gtfs_rt)
  (instrumentation (backend bisect_ppx)))
 
