@@ -11,7 +11,7 @@ let thomas = { name = "Thomas"; age = 20 }
 let people = [ lorenzo; leo; matthys; louis; baptiste; thomas ]
 
 let connect g a b force =
-  FriendGraph.add_edge g a b force
+  FriendGraph.add_edge g a b { force }
 
 let create_test_graph () =
   let g = FriendGraph.create () in
