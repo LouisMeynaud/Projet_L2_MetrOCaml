@@ -101,11 +101,41 @@ let yyyymmdd_to_midnight s =
             int_of_float (fst (Unix.mktime tm)))
       with _ -> 0
 
-let string_to_severite s =
-  match s with
-  | "PERTURBEE" -> PERTURBEE
+let string_to_severite = function
   | "BLOQUANTE" -> BLOQUANTE
   | _ -> PERTURBEE
+
+let string_of_severite = function
+  | BLOQUANTE -> "BLOQUANTE"
+  | PERTURBEE -> "PERTURBEE"
+
+let nettoyer_html s =
+  let sans_balises = Str.global_replace (Str.regexp "<[^>]*>") "" s in
+  
+  sans_balises
+  |> Str.global_replace (Str.regexp "&nbsp;") " " (*regexp car global_replace prend que des type regexp*)
+  |> Str.global_replace (Str.regexp "&amp;") "&"
+  |> Str.global_replace (Str.regexp "&#39;") "'"
+  |> Str.global_replace (Str.regexp "&quot;") "\""
+  |> Str.global_replace (Str.regexp "&lt;") "<"
+  |> Str.global_replace (Str.regexp "&gt;") ">"
+
+let format_alerte alerte =
+  let message = String.trim (nettoyer_html alerte.message) in
+  let msg = if message = "" then "Message non renseigné" else message in
+  
+  let lignes = match alerte.lignes_impactees with
+    | [] -> ["Inconnue"]
+    | l -> l
+  in
+  let format_ligne ligne =
+    Printf.sprintf "------\nLigne impactée: %s\nGravité: %s\nMessage: %s\n------"
+      ligne (string_of_severite alerte.niveau_severite) msg
+  in
+  
+  lignes
+  |> List.map format_ligne
+  |> String.concat "\n"
 (* ================================================== *)
 (* 2. TÉLÉCHARGEMENT                                  *)
 (* ================================================== *)
