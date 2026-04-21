@@ -1,0 +1,31 @@
+module Forceheight : Routing.WEIGHT with type edge = connection = struct
+  type t = float
+  type edge = connection
+  type step_data = unit
+  type state_key = unit
+
+  let start_at time = 0.0
+  let infinity = Float.infinity
+  let is_inf w = w = Float.infinity
+
+  let traverse current_weight edge =
+    if edge.force <= 0.0 then 
+      None
+    else
+      let cost = 1.0 /. edge.force in
+      Some (current_weight +. cost, ())
+
+  let compare a b = Float.compare a b
+  let ( < ) a b = a < b
+  let ( > ) a b = a > b
+  let ( = ) a b = a = b
+
+  let get_time _w = 0
+  
+  let to_string w = 
+    if is_inf w then "∞" 
+    else Printf.sprintf "Coût : %.2f" w
+
+  let step_data_to_string () = ""
+  let get_state_key _w = ()
+end
