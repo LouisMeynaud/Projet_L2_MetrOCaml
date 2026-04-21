@@ -19,4 +19,4 @@ module ConnectionEdge : Routing.EDGE with type t = connection = struct
   type t = connection
 end
 
-module TransportGraph = Routing.Graph.Make (StationNode) (ConnectionEdge)
+module FriendGraph = Routing.Graph.Make (StationNode) (ConnectionEdge)
