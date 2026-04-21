@@ -6,16 +6,8 @@ open Network
     gère la lecture des horaires, les pénalités de correspondances, les marges
     de tolérance, et le filtrage dynamique des modes de transport. *)
 
-(** Temps de marche simulé (en secondes) ajouté lors d'un changement de ligne.
-*)
+(** Temps de marche simulé (en secondes) ajouté lors d'un changement de ligne. *)
 let transfer_penalty = 180
-
-(** Équivalent-temps (en secondes) d'une correspondance. Fixé à 15 minutes
-    (900s). Sert à évaluer s'il vaut mieux faire un long trajet direct ou un
-    trajet plus court mais avec des correspondances. *)
-let transfer_time_tradeoff = 900
-
-let perturbation_penalty = 600
 
 (** Liste globale des modes de transport désactivés par l'utilisateur. *)
 let excluded_modes = ref []
@@ -31,6 +23,7 @@ let is_mode_excluded mode =
 
 (** Outils de Formatage *)
 
+(** Convertisseur du temps en secondes en string pour l'affichage *)
 let time_to_string time =
   if time = max_int then "∞"
   else
@@ -50,108 +43,94 @@ let format_metro_step_data s =
   if s.wait_time > 0 then Printf.sprintf " [attente %d min]" (s.wait_time / 60)
   else ""
 
-(** Évaluation Physique de l'Arête *)
-
+(** Évaluation Physique de l'Arête, renvoie l'heure d'arrivée à la station suivante, avec le temps
+d'attente et la ligne empreintée du prochain train, ou None s'il n'y en a pas *)
 let eval_edge current_time current_line_name (target_station : station) (edge : connection) =
   if current_time = max_int then None
+  (** si c'est un walk ou un transfert, il n'y a pas d'horraire, on part directement *)
   else if edge.mode = Walk || edge.mode = Transfert then
     Some (current_time + edge.duration, 0, current_line_name)
   else
+    (** on vérifie si on fait une correspondance ou non *)
     let is_transfer =
-    match current_line_name with
-    | Some l when l <> edge.line.name -> true
-    | _ -> false
-  in
+      match current_line_name with
+      | Some l when l <> edge.line.name -> true
+      | _ -> false
+    in
 
-  let margin =
-    match current_line_name with
-    | None -> 0
-    | Some l when l = edge.line.name -> 180
-    | _ -> 0
-  in
+    (** ajout d'une marge de -3 minutes à l'arrivée en gare pour être sûr de pouvoir rester dans 
+    le même train (éviter des bugs liés à des arrondis dans le gtfs) *)
+    let margin =
+      match current_line_name with
+      | None -> 0
+      | Some l when l = edge.line.name -> 180
+      | _ -> 0
+    in
 
-  let ready_time =
-    if is_transfer then current_time + transfer_penalty
-    else current_time - margin
-  in
+    let ready_time =
+      if is_transfer then current_time + transfer_penalty
+      else current_time - margin
+    in
 
-  let rec find_next_dep schedules =
-    match schedules with
-    | [] -> max_int
-    | (_, t) :: rest -> 
-        if t >= ready_time then t 
-        else find_next_dep rest
-  in
-  let next_dep = find_next_dep edge.schedules in
+    (** recherche du prochain départ dans la liste des horaires *)
+    let rec find_next_dep schedules =
+      match schedules with
+      | [] -> max_int
+      | (_, t) :: rest -> 
+          if t >= ready_time then t 
+          else find_next_dep rest
+    in
+    let next_dep = find_next_dep edge.schedules in
 
-  if next_dep = max_int then None
-  else
-    let is_blocked = ref false in
-    let is_perturbed = ref false in
+    if next_dep = max_int then None
+    else begin
+      (** vérification que la ligne n'est pas bloquée *)
+      let is_blocked = ref false in
 
-    let current_line_id = edge.line.id in 
-    let target_station_id = target_station.id in 
-    let cleaned_line_id = Gtfs_rt.nettoyer_id current_line_id in
-    let cleaned_station_id = Gtfs_rt.nettoyer_id target_station_id in
+      let current_line_id = edge.line.id in 
+      let target_station_id = target_station.id in 
+      let cleaned_line_id = Gtfs_rt.nettoyer_id current_line_id in
+      let cleaned_station_id = Gtfs_rt.nettoyer_id target_station_id in
 
-    begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra cleaned_line_id with
-    | None -> () 
-    | Some alertes_ligne ->
-        
-        (* --- SNIPER DE STATIONS (Uniquement sur la ligne 9) --- *)
-        let is_ligne_9 = (edge.line.name = "9" || edge.line.name = "M9") in
-        if is_ligne_9 then begin
-          Printf.printf "\n[DEBUG STATION : %s]\n" target_station.name;
-          Printf.printf "-> ID Statique (Nettoyé) cherché par Dijkstra : '%s'\n" cleaned_station_id;
+      begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra cleaned_line_id with
+      | None -> () 
+      | Some alertes_ligne ->
           List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
-            Printf.printf "-> IDs présents dans l'alerte RATP pour cette ligne :\n";
-            if Hashtbl.length alerte.stations_hash = 0 then
-              Printf.printf "   (Aucun ID spécifique, toute la ligne est censée être impactée)\n"
-            else
-              Hashtbl.iter (fun k _ -> Printf.printf "   - '%s'\n" k) alerte.stations_hash
-          ) alertes_ligne;
-          Printf.printf "--------------------------------------------------\n%!";
-        end;
-        (* ------------------------------------------------------ *)
-
-        List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
-          let concerne_station =
-            Hashtbl.length alerte.stations_hash = 0 || 
-            Hashtbl.mem alerte.stations_hash cleaned_station_id
-          in
-          
-          if concerne_station then begin
-            let est_en_cours =
-              match alerte.periodes with
-              | [] -> true 
-              | ps -> List.exists (fun (p : Gtfs_rt.periode) -> current_time >= p.debut && current_time <= p.fin) ps
+            let concerne_station =
+              Hashtbl.length alerte.stations_hash = 0 || 
+              Hashtbl.mem alerte.stations_hash cleaned_station_id
             in
+            
+            if concerne_station then begin
+              let est_en_cours =
+                match alerte.periodes with
+                | [] -> true 
+                | ps -> List.exists (fun (p : Gtfs_rt.periode) -> current_time >= p.debut && current_time <= p.fin) ps
+              in
 
-            if est_en_cours then begin
-              match alerte.severite with
-              | Gtfs_rt.BLOQUANTE -> is_blocked := true
-              | Gtfs_rt.PERTURBEE -> is_perturbed := true
+              if est_en_cours then begin
+                match alerte.severite with
+                | Gtfs_rt.BLOQUANTE -> is_blocked := true
+                | Gtfs_rt.PERTURBEE -> ()
+              end
             end
-          end
-        ) alertes_ligne
-    end;
+          ) alertes_ligne
+      end;
 
-    if !is_blocked then None
-    else
-      (* Même si la "marge" nous a fait accrocher un train parti avant notre heure
-         d'arrivée théorique, l'heure ne doit jamais reculer. On force l'heure 
-         à current_time minimum pour ne pas déclencher de cycle infini de poids 
-         négatif dans Dijkstra. *)
-         let actual_dep = max current_time next_dep in
-         let final_dep = if !is_perturbed then actual_dep + perturbation_penalty else actual_dep in
-         let wait = max 0 (final_dep - current_time) in
- 
-         Some (final_dep + edge.duration, wait, Some edge.line.name)
+      (* Si la ligne ou la station est bloquée, l'arête est coupée *)
+      if !is_blocked then None
+      else begin
+        let actual_dep = max current_time next_dep in
+        let wait = max 0 (actual_dep - current_time) in
+        Some (actual_dep + edge.duration, wait, Some edge.line.name)
+      end
+    end
 
 (* ========================================================== *)
 (* Les Modules de Poids                                       *)
 (* ========================================================== *)
 
+(** Module de poids pour le temps *)
 module TimeWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
   type t = { time : int; walk_time : int; line_name : string option }
   type edge = connection
@@ -164,7 +143,6 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
   let is_inf w = w.time = max_int
 
   let traverse w (v : node) e =
-    (* Filtrage dynamique : Si le mode est exclu (ex: bus), l'arête est coupée. *)
     if is_mode_excluded e.mode then None
     else
       match eval_edge w.time w.line_name v e with
@@ -203,6 +181,7 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
   let get_state_key w = w.line_name
 end
 
+(** Module de poids pour la distance *)
 module DistanceWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
   type t = { time : int; distance : float; line_name : string option }
   type edge = connection
@@ -256,6 +235,7 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection and type node
   let get_state_key w = w.line_name
 end
 
+(** Module de poids pour le nombre de stations *)
 module HopWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
   type t = { time : int; hops : int; line_name : string option }
   type edge = connection
@@ -302,6 +282,7 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
   let get_state_key w = w.line_name
 end
 
+(** Module de poids pour le nombre de correspondances *)
 module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and type node = station = struct
   type t = { time : int; transfers : int; line_name : string option }
   type edge = connection
@@ -319,9 +300,6 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
       match eval_edge w.time w.line_name v e with
       | None -> None
       | Some (next_time, wait_time, next_line) ->
-          (* On ne compte une "correspondance" que si l'on monte dans un nouveau véhicule. 
-             Si le segment est purement piéton (Walk ou Transfert), on ne l'ajoute 
-             pas au compteur de correspondances. *)
           let is_transfer =
             match w.line_name with
             | Some l
@@ -343,9 +321,6 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
-      (* Chaque correspondance ajoute un "coût virtuel" de 15 minutes (transfer_time_tradeoff).
-         Permet à l'algorithme d'accepter une correspondance si et seulement si elle fait gagner
-         plus de 15 minutes sur le temps de trajet direct. *)
          let diff_transfers = w1.transfers - w2.transfers in
          if diff_transfers = 0 then 0.0
          else

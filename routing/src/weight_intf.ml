@@ -1,4 +1,4 @@
-(** Abstract weight interface for time-dependent routing algorithms. *)
+(** Interface pour les modules de poids *)
 module type WEIGHT = sig
   type t
   type edge
@@ -6,27 +6,26 @@ module type WEIGHT = sig
   type node
 
   type step_data
-  (** Opaque payload generated during edge traversal (e.g., wait times). *)
+  (** Données opaques générées lors de la traversée des nœuds (par exemple : les temps d'attente) *)
 
   type state_key
-  (** NEW: Opaque key used to differentiate states at the same node (State-Space
-      Routing). *)
+  (** Clé opaque utilisée pour distinguer les états au niveau d'un même nœud (nom des lignes) *)
 
   val start_at : int -> t
-  (** Initialize the weight with a departure time (in seconds from midnight). *)
+  (** Initialise le poids avec une heure de départ (en secondes à partir de minuit) *)
 
   val infinity : t
-  (** Value representing unreachable/infinite cost. *)
+  (** Valeur correspondant à un coût inaccessible/infini *)
 
   val is_inf : t -> bool
-  (** Check if the weight is infinity. *)
+  (** Vérifie si la valeur est infinie *)
 
   val traverse : t -> node -> edge -> (t * step_data) option
-  (** Attempt to traverse an edge. Returns None if impossible (e.g. no train),
-      otherwise returns the new weight and the opaque step_data. *)
+  (** Tente de parcourir une arête. Renvoie None si cela est impossible (par exemple, s'il n'y a 
+      pas de train), sinon, renvoie le nouveau poids *)
 
   val compare : t -> t -> float
-  (** Normalised comparison returning a value within [-1, 1]. *)
+  (** Comparaison normalisée renvoyant une valeur comprise entre [-1, 1] *)
 
   val ( < ) : t -> t -> bool
   val ( > ) : t -> t -> bool
@@ -35,10 +34,9 @@ module type WEIGHT = sig
   val to_string : t -> string
 
   val step_data_to_string : step_data -> string
-  (** Formats the opaque step_data into a printable string for UI/Show. *)
+  (** Convertit les données « step_data » opaques en une chaîne imprimable pour l'interface UI/Show *)
 
   val get_state_key : t -> state_key
-  (** NEW: Extracts the state key from the current weight to prevent Dijkstra
-      from prematurely pruning paths that have different context (e.g. different
-      subway lines). *)
+  (** Extrait la clé d'état du poids actuel afin d'empêcher Dijkstra de supprimer prématurément 
+      les chemins ayant un contexte différent (par exemple, différentes lignes de métro) *)
 end

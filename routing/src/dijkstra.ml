@@ -8,21 +8,19 @@ open Weight_intf
     pour répondre aux contraintes des réseaux de transports en commun (GTFS)
     avec :
 
-    - Découplage Total : Il ignore la logique métier (métro, horaires) et
-      délègue l'évaluation au module [WEIGHT].
+    - Découplage Total : Il ignore la logique métier et délègue l'évaluation au module [WEIGHT].
     - State-Space Routing : Il ne route pas d'une "station" à une autre, mais
       d'un "état" à un autre (Station + Ligne) pour ne pas écraser les chemins
       valides.
-    - Pairing Heap : Il utilise un Tas d'Appariement garantissant des
-      performances quasi-instantanées, même sur des graphes massifs comme celui
-      de Paris. *)
+    - Tas d'appariement : Il utilise un Tas d'Appariement garantissant des
+      performances quasi-instantanées, même sur des graphes massifs. *)
 module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t) = struct
   module P = Path.Make (G) (W)
 
   type path = P.t
 
-  (** Le Tas d'Appariement (Pairing Heap) *)
-  module PH = struct
+  (** Le Tas d'Appariement *)
+  module TA = struct
     (* Il permet de résoudre un soucis récurent : le meilleur moyen d'arriver à une station intermédiaire
        n'est pas forcément celui qui permettra d'arriver à destination le plus vite (notamment à cause
        des correspondances). Pour cela on retient donc toutes les manières d'arriver à cette station pour
@@ -32,7 +30,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
 
     let empty = Empty
 
-    (* L'opération centrale du Pairing Heap. Pour insérer un élément, on ne parcourt 
+    (* L'opération centrale du tas. Pour insérer un élément, on ne parcourt 
        rien. On prend les deux racines, on les compare, et l'arbre perdant 
        devient un simple enfant de l'arbre gagnant. *)
     let merge h1 h2 =
@@ -58,7 +56,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                           Some (w, n, s, merge_pairs l)
   end
 
-  (** Trouve le chemin optimal de la [source] à la [destination].
+  (** Trouve le chemin optimal de la source à la destination.
       @param start_time L'heure de départ (sert de poids initial).
       @param graph Le graphe pré-construit du réseau.
       @param transfer_allowed Fonction de vérification des transferts. *)
@@ -71,22 +69,22 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
         Some { P.steps = []; total_weight = initial_weight }
       else
         (* 'dist' stocke le meilleur poids connu pour un état donné.
-           'prev' stocke l'historique (le fil d'Ariane) pour reconstruire le chemin à la fin. *)
+           'prev' stocke l'historique pour reconstruire le chemin à la fin. *)
         let dist = Hashtbl.create 10000 in
         let prev = Hashtbl.create 10000 in
 
         let initial_state = (source, W.get_state_key initial_weight) in
-        let ph = ref (PH.push initial_weight initial_state PH.empty) in
+        let ta = ref (TA.push initial_weight initial_state TA.empty) in
         Hashtbl.add dist initial_state initial_weight;
 
         let rec process () =
-          match PH.pop !ph with
+          match TA.pop !ta with
           | None -> None (* Le tas est vide, la destination est inatteignable *)
-          | Some (d, u, u_state, rest_ph) ->
-              ph := rest_ph;
+          | Some (d, u, u_state, rest_ta) ->
+              ta := rest_ta;
 
               if G.Node.equal u destination then
-                (* On remonte le fil d'Ariane dans 'prev' pour créer la liste des étapes *)
+                (* On remonte l'historique dans 'prev' pour créer la liste des étapes *)
                 let rec build_steps acc state =
                   match Hashtbl.find_opt prev state with
                   | None -> acc
@@ -120,7 +118,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                     | Some (new_dist, step_data) ->
                         let next_state_key = W.get_state_key new_dist in
                         let _, current_state_key = u_state in
-                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in (*detecte si on a changer de ligne ou pas*)
+                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in (*detecte si on a changé de ligne ou pas*)
                         let is_transfer = is_line_change && not (G.Node.equal u source) in (*on considère que le changement de ligne à la station de départ n'est pas une correspondance*)
                         if (not is_transfer) || transfer_allowed u then (
                           let v_state = (v, next_state_key) in
@@ -129,16 +127,16 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                               (Hashtbl.find_opt dist v_state)
                           in
 
-                          (* Si le passage par cette arête nous offre un meilleur score (new_dist < old_dist) 
-                             que notre précédent record pour cet état, on procède à une "Relaxation" :
-                             1. On met à jour le record officiel dans 'dist'.
-                             2. On lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
-                             3. On propulse ce nouvel état prometteur dans le tas 'ph'. *)
+                          (* Si le passage par cette arête nous offre un meilleur score que notre 
+                             précédent record pour cet état, on :
+                             1. met à jour le record officiel dans 'dist'.
+                             2. lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
+                             3. propulse ce nouvel état prometteur dans le tas 'ta'. *)
                           if W.(new_dist < old_dist) then begin
                             Hashtbl.replace dist v_state new_dist;
                             Hashtbl.replace prev v_state
                               (u_state, u, v, edge, new_dist, step_data);
-                            ph := PH.push new_dist v_state !ph
+                            ta := TA.push new_dist v_state !ta
                           end))
                   (G.neighbors graph u);
 
