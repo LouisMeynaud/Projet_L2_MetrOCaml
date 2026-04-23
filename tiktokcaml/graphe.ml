@@ -10,6 +10,15 @@ let thomas = { name = "Thomas"; age = 20 }
 
 let people = [ lorenzo; leo; matthys; louis; baptiste; thomas ]
 
+let find_person name =
+  let key = String.lowercase_ascii (String.trim name) in
+  List.find_opt (fun (p : person) -> String.lowercase_ascii p.name = key) people
+
+let resolve_people graph src dst =
+  match (find_person src, find_person dst) with
+  | Some s, Some d -> Some (graph, s, d)
+  | _ -> None
+
 let connect g a b force =
   FriendGraph.add_edge g a b { force }
 
