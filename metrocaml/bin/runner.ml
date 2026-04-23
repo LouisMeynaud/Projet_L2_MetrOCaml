@@ -29,19 +29,13 @@ module type ALGO = sig
 
 end
 
-(** Construit l'heuristique A* admissible adaptée au graphe fourni.
-
-    Scanne une seule fois toutes les arêtes pour extraire la vitesse maximale
-    observée [v_max = max(distance / duration)] en ne retenant que les arêtes
-    véhiculées (arêtes piétonnes exclues, car ce sont des déplacements piétons
-    qui ne représentent pas la vitesse du réseau).
-
-    Retourne ensuite une closure [station -> station -> float] qui calcule une
-    borne inférieure du temps de trajet via la distance orthodromique (Haversine)
-    divisée par [v_max]. L'heuristique est admissible par construction : aucun
-    véhicule du réseau ne peut parcourir la distance à vol d'oiseau plus vite
-    que le meilleur tronçon observé.*)
-
+(** Construit l'heuristique A* pour un réseau GTFS donné.
+    Parcourt toutes les arêtes véhiculées pour extraire la vitesse maximale observée sur le réseau.
+    Retourne une fonction de type station -> station -> float estimant le temps de trajet minimal
+    restant entre deux stations (haversine / v_max).
+    En cas de graphe vide ou sans connexion véhiculée valide, v_max est remplacé par 13.89 m/s (~50 km/h).
+    Le coefficient appliqué pour les presets Rapide (0.75) et Confort (0.5) correspond à la part du
+    critère Temps dans ces presets.*)
 let make_heuristic (graph : Network.TransportGraph.t) =
   let v_max =
     List.fold_left (fun acc_v node ->
@@ -88,7 +82,6 @@ let load_gtfs_data town url date_cible loading_mode =
       exit 1
 
 (* Fonction pour lancer la recherche de trajet *)
-
 let choose_weight algo poids coeffs pmr_transfer graph =
   match algo, poids with
   | "Dijkstra", "Default" ->
