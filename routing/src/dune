@@ -10,6 +10,6 @@
   combinator
   path_intf
   path
-    bench
+  bench
   bfs
   dijkstra))
