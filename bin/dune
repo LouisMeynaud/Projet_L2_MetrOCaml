@@ -1,5 +1,0 @@
-(executable
- (public_name metrocaml)
- (name main)
- (modules main presets)
- (libraries metrocaml gui cli csv routing))

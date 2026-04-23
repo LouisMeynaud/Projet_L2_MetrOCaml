@@ -1,0 +1,4 @@
+(library
+ (name gui)
+ (libraries routing metrocaml graphics bogue tsdl-ttf)
+ (modules gui_types gui_draw gui_utils gui_view gui_controller gui_main transport_view))

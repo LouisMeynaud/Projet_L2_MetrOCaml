@@ -1,0 +1,5 @@
+(executable
+ (public_name metrocaml)
+ (name main)
+ (modules main presets runner)
+ (libraries metrocaml gui cli csv routing bench))

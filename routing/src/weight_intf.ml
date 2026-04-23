@@ -1,27 +1,42 @@
-(** Abstract weight interface for time-dependent routing algorithms. *)
+(** Interface pour les modules de poids *)
 module type WEIGHT = sig
   type t
   type edge
 
+  type node
+
+  type step_data
+  (** Données opaques générées lors de la traversée des nœuds (par exemple : les temps d'attente) *)
+
+  type state_key
+  (** Clé opaque utilisée pour distinguer les états au niveau d'un même nœud (nom des lignes) *)
+
   val start_at : int -> t
-  (** Initialize the weight with a departure time (in seconds from midnight). *)
+  (** Initialise le poids avec une heure de départ (en secondes à partir de minuit) *)
 
   val infinity : t
-  (** Value representing unreachable/infinite cost. *)
+  (** Valeur correspondant à un coût inaccessible/infini *)
 
   val is_inf : t -> bool
-  (** Check if the weight is infinity. *)
+  (** Vérifie si la valeur est infinie *)
 
-  val add : t -> edge -> t
-  (** Combine the accumulated weight at a node with the next edge. This function
-      checks schedules based on the current time. *)
+  val traverse : t -> node -> edge -> (t * step_data) option
+  (** Tente de parcourir une arête. Renvoie None si cela est impossible (par exemple, s'il n'y a 
+      pas de train), sinon, renvoie le nouveau poids *)
 
   val compare : t -> t -> float
-  (** Normalised comparison returning a value within [-1, 1]. *)
+  (** Comparaison normalisée renvoyant une valeur comprise entre [-1, 1] *)
 
   val ( < ) : t -> t -> bool
   val ( > ) : t -> t -> bool
   val ( = ) : t -> t -> bool
   val get_time : t -> int
   val to_string : t -> string
+
+  val step_data_to_string : step_data -> string
+  (** Convertit les données « step_data » opaques en une chaîne imprimable pour l'interface UI/Show *)
+
+  val get_state_key : t -> state_key
+  (** Extrait la clé d'état du poids actuel afin d'empêcher Dijkstra de supprimer prématurément 
+      les chemins ayant un contexte différent (par exemple, différentes lignes de métro) *)
 end
