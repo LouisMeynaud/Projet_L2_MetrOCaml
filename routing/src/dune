@@ -1,6 +1,7 @@
 (library
  (name routing)
  (public_name routing)
+ (libraries unix)
  (modules
   routing
   graph_intf
@@ -9,5 +10,6 @@
   combinator
   path_intf
   path
+    bench
   bfs
   dijkstra))

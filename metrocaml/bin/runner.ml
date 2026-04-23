@@ -229,7 +229,10 @@ let build_bench_routeurs () =
     let dest_query = String.trim (read_line ()) in
     let tm = Unix.localtime (Unix.time ()) in
     let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
-    Bench.run graphe source_query dest_query start_time routeurs Cli.Console.raw_select;
+    Routing.Bench.run
+      ~title:"Benchmark"
+      ~resolve:(fun g src dst -> Endpoint.build_routing_context g src dst)
+      graphe source_query dest_query start_time routeurs Cli.Console.raw_select;
     let continue = Cli.Console.raw_select "\nVoulez-vous effectuer un nouveau benchmark ? " [ "Oui"; "Non" ] in
     if continue = "Oui" then
       run_bench_console graphe
