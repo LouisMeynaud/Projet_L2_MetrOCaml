@@ -7,21 +7,20 @@ open Weight_intf
     Foncteur. Il est dérivé du module Dijkstra optimisé et en conserve toutes
     les spécificités :
 
-    - Découplage Total : Il ignore la logique métier (métro, horaires) et
-      délègue l'évaluation au module [WEIGHT].
+    - Découplage Total : Il ignore la logique métier et délègue l'évaluation au module [WEIGHT].
     - State-Space Routing : Il ne route pas d'une "station" à une autre, mais
       d'un "état" à un autre (Station + Ligne) pour ne pas écraser les chemins
       valides.
-    - Pairing Heap : Il utilise un Tas d'Appariement garantissant des
-      performances quasi-instantanées, même sur des graphes massifs. *)
-module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
+    - Tas d'appariement : Il utilise un Tas d'Appariement garantissant des
+      performances quasi-instantanées, même sur des graphes massifs.
+    - Contraitement à Dijkstra, A* utilise une heuristique orientant son choix d'arête. *)
+module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t) = struct
   module P = Path.Make (G) (W)
 
   type path = P.t
 
-  (** Le Tas d'Appariement (Pairing Heap) 
-      (Strictement identique à celui de Dijkstra) *)
-  module PQ = struct
+  (** Le Tas d'Appariement (Strictement identique à celui de Dijkstra) *)
+  module TA = struct
     type state_tuple = G.Node.t * W.state_key
 
     type t =
@@ -58,11 +57,11 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
           Some (n.f_cost, n.g_cost, n.node, n.state, merge_pairs n.children)
   end
 
-  (** Trouve le chemin optimal de la [source] à la [destination].
+  (** Trouve le chemin optimal de la source à la destination.
       @param start_time L'heure de départ (sert de poids initial).
       @param graph Le graphe pré-construit du réseau.
-      @param source Le nœud de départ.
-      @param destination Le nœud d'arrivée.
+      @param source Le noeud de départ.
+      @param destination Le noeud d'arrivée.
       @param transfer_allowed Fonction de vérification des correspondances.
       @param heuristic Fonction [h : node -> node -> float] estimant le coût restant. *)
   let find_path ~start_time ~(graph : G.t) ~(source : G.Node.t)
@@ -87,14 +86,14 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
         (* La différence avec Dijkstra : on ajoute l'heuristique au f_cost *)
         let initial_f = g_scalar initial_weight +. heuristic source destination in
         
-        let pq = ref (PQ.push ~f_cost:initial_f ~g_cost:initial_weight source initial_state PQ.empty) in
+        let ta = ref (TA.push ~f_cost:initial_f ~g_cost:initial_weight source initial_state TA.empty) in
         Hashtbl.add dist initial_state initial_weight;
 
         let rec process () =
-          match PQ.pop !pq with
+          match TA.pop !ta with
           | None -> !best_path
-          | Some (_f_cost, g_cost, u, u_state, rest_pq) ->
-              pq := rest_pq;
+          | Some (_f_cost, g_cost, u, u_state, rest_ta) ->
+              ta := rest_ta;
               let recorded_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist u_state) in
               if W.(g_cost > recorded_g) then process ()
               else if W.(g_cost > !best_weight) then process ()
@@ -114,7 +113,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
               end else begin
                 List.iter
                   (fun (v, edge) ->
-                    match W.traverse g_cost edge with
+                    match W.traverse g_cost u edge with
                     | None -> ()
                     | Some (new_g, step_data) ->
                         let next_state_key = W.get_state_key new_g in
@@ -131,7 +130,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                             let new_f = g_scalar new_g +. heuristic v destination in
                             Hashtbl.replace dist v_state new_g;
                             Hashtbl.replace prev v_state (u_state, u, v, edge, new_g, step_data);
-                            pq := PQ.push ~f_cost:new_f ~g_cost:new_g v v_state !pq
+                            ta := TA.push ~f_cost:new_f ~g_cost:new_g v v_state !ta
                           end))
                   (G.neighbors graph u);
                 process ()

@@ -157,7 +157,7 @@ let choose_weight algo poids coeffs pmr_transfer graph =
       in
       let module CombinedWeight =
         (val Combinator.combine critere
-            : Routing.WEIGHT with type edge = Network.connection)
+            : Routing.WEIGHT with type edge = Network.connection and type node = Network.station)
       in
       let module A = Astar.Make (Network.TransportGraph) (CombinedWeight) in
       let base = make_heuristic graph in
@@ -354,7 +354,7 @@ let build_bench_routeurs graph =
 
   let rec run_bench_console graphe =
   Printf.printf "\nBenchmark activé \n%!";
-  let routeurs = build_bench_routeurs () in
+  let routeurs = build_bench_routeurs graphe in
     Printf.printf "\nStation source : %!";
     let source_query = String.trim (read_line ()) in
     Printf.printf "Station destination : %!";
