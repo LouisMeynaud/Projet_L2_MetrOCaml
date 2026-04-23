@@ -56,7 +56,7 @@ Au lancement du programme, l'utilisateur peut choisir entre deux modes :
 
 **Réseaux disponibles :**
 
-| Type | Réseaux supportés |
+| Type | Réseaux installés |
 | :--- | :--- |
 | **Local** | Toulouse, Montpellier |
 | **En ligne** | Île-de-France, Toulouse, Montpellier, Marseille, SNCF, Corsica |
@@ -76,7 +76,7 @@ Le projet implémente différents critères de recherche (poids) :
 
 Lors de la recherche, vous pouvez choisir le mode **Combinaison** (pour mixer les critères manuellement) ou le mode **Défaut** (pour utiliser les profils prédéfinis).
 
-Vous pouvez également désactiver certains modes de transport (ex: bus, métro) ou filtrer les itinéraires pour n'utiliser que des stations accessibles aux **PMR** (Personnes à Mobilité Réduite).
+Vous pouvez également désactiver certains modes de transport (ex: bus, métro), choisir l'heure de départ ou filtrer les itinéraires pour n'utiliser que des stations accessibles aux **PMR** (Personnes à Mobilité Réduite).
 
 ### Chercher un itinéraire depuis l'ui graphique:
 1.  **Réglages :** Sélectionnez un algorithme, un type de poids (Défaut ou Combinaison) et activez les transports souhaités (*attention : les bus sont désactivés par défaut*).
@@ -93,7 +93,7 @@ Plusieurs facteurs peuvent expliquer une différence de résultat :
 * Les critères de recherche choisis ne correspondent pas à vos préférences personnelles.
 * Certaines lignes sont évitées par le moteur pour prévenir la surfréquentation (ex: ligne B du réseau Île-de-France).
 * Les perturbations en temps réel ne sont pas prises en compte (hors IDF en ligne).
-* La vitesse de marche est une moyenne et peut différer de la votre ou celle choisie par les autres moteurs de calcule d'itinéraires.
+* La vitesse de marche est une moyenne et peut différer de la votre ou de celle choisie par les autres moteurs de calculs d'itinéraires.
 * D'après nos tests, les itinéraires d'autres moteurs de recherche ne sont pas systématiquement les "meilleurs".
 * [??]
 

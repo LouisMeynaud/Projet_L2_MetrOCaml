@@ -13,7 +13,7 @@ git clone https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml.git
 7) Après approbation, la MR peut être fusionnée dans dev par le mainteneur.
 
 ### Informations supplémentaires :
-lors de la relécture de votre code, les mainteneurs accorderons une attention particulière à :
-- La générésité et la clarté de votre code.
+Lors de la relecture de votre code, les mainteneurs accorderont une attention particulière à :
+- La généricité et la clarté de votre code.
 - La qualité de votre documentation (commentaires, README, etc.).
 - La couverture de vos tests unitaires et d'intégration.
