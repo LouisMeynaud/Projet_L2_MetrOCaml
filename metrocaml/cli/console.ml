@@ -1,3 +1,44 @@
+
+**Réseaux disponibles :**
+
+| Type | Réseaux installés |
+| :--- | :--- |
+| **Local** | Toulouse, Montpellier |
+| **En ligne** | Île-de-France, Toulouse, Montpellier, Marseille, SNCF, Corsica |
+
+### Algorithmes et critères de recherche:
+Notre librairie propose plusieurs algorithmes de routage, tels que **Dijkstra (amélioré)**, **BFS**, AUTRE ?.
+
+Le projet implémente différents critères de recherche (poids) :
+* **Temps :** Privilégie l'arrivée la plus tôt.
+* **Distance :** Privilégie le trajet géographique le plus court.
+* **Arrêts :** Minimise le nombre de stations traversées.
+* **Correspondances :** Minimise les changements de lignes.
+
+#### Profils prédéfinis
+* **Rapide :** Priviligie l'heure d'arrivée tout en gardant un nombre limité de correspondances.
+* **Confort :** Priorité absolue aux trajets avec peu de changements, tout en restant raisonnable sur le temps de trajet.
+
+Lors de la recherche, vous pouvez choisir le mode **Combinaison** (pour mixer les critères manuellement) ou le mode **Défaut** (pour utiliser les profils prédéfinis).
+
+Vous pouvez également désactiver certains modes de transport (ex: bus, métro), choisir l'heure de départ ou filtrer les itinéraires pour n'utiliser que des stations accessibles aux **PMR** (Personnes à Mobilité Réduite).
+
+### Chercher un itinéraire depuis l'ui graphique:
+1.  **Réglages :** Sélectionnez un algorithme, un type de poids (Défaut ou Combinaison) et activez les transports souhaités (*attention : les bus sont désactivés par défaut*).
+2.  **Itinéraire :** Saisissez les stations de départ et d'arrivée, ou cliquez sur "Sélectionner" pour les choisir directement sur la carte.
+3.  **Options :** Choisissez l'heure de départ et l'option d'accessibilité PMR si nécessaire.
+4.  **Résultats :** Cliquez sur "Chercher". Le programme affichera les itinéraires disponibles. Saisissez le nom de l'itinéraire souhaité pour en afficher les détails.
+
+## Benchmarks
+Nous intégrons un outil de benchmark permettant de comparer les performances des algorithmes et la pertinence des critères de recherche. Il permet d'évaluer en un coup d'œil les **temps de calcul** et la **qualité des itinéraires** proposés.
+
+## Pourquoi l'itinéraire trouvé est-il différent du vôtre ?
+Plusieurs facteurs peuvent expliquer une différence de résultat :
+* Les données utilisées pour le calcul ne sont pas à jour.
+* Les critères de recherche choisis ne correspondent pas à vos préférences personnelles.
+* Certaines lignes sont évitées par le moteur pour prévenir la surfréquentation (ex: ligne B du réseau Île-de-France).
+* Les perturbations en temps réel ne sont pas prises en compte (hors IDF en ligne).
+* La vitesse de marche est une moyenne et peut différer de la votre ou de celle choisie par les autres moteurs de calculs d'itinéraires.
 open Metrocaml
 
 (** Affiche un prompt et demande à l'utilisateur de choisir parmi une liste d'options.
@@ -11,19 +52,19 @@ let rec raw_select prompt options =
     match List.find_opt (fun s -> String.lowercase_ascii (String.trim s) = choice2) options with
       | Some c -> c 
       | None -> 
-          Printf.printf "Erreur : Choix invalide. Veuillez taper l'une des options exactement.\n%!";
+          Logger.bold_red "Erreur : Choix invalide. Veuillez taper l'une des options exactement.\n%!";
           raw_select prompt options
 
 (** Fonction principale pour le mode console. Elle demande à l'utilisateur les informations nécessaires pour effectuer une recherche de chemin, puis appelle la fonction de callback avec ces informations.
   @param graphe Le graphe de transport à utiliser pour la recherche
   @param search_callback La fonction à appeler avec les paramètres de recherche une fois que l'utilisateur les a fournis **)
 let rec run_console graphe search_callback =
-  Printf.printf "\n=== Mode Ligne de Commande ===\n%!";
+  Logger.black "\n=== Mode Ligne de Commande ===\n%!";
 
-  Printf.printf "Entrez la station source (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
+  Printf.printf "\nEntrez la station source (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
   let source_query = String.trim (read_line ()) in
 
-  Printf.printf "Entrez la station destination (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
+  Printf.printf "\nEntrez la station destination (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
   let dest_query = String.trim (read_line ()) in
 
   let algo = raw_select "Choisissez l'algorithme : " [ "BFS"; "Dijkstra"; "A*"] in
@@ -40,22 +81,22 @@ let rec run_console graphe search_callback =
       (** Affiche un prompt pour demander à l'utilisateur d'entrer 4 coefficients flottants séparés par des espaces, correspondant à Temps, Distance, Arrêts et Correspondances.
           La fonction vérifie que l'utilisateur a entré exactement 4 valeurs et que chacune d'elles est un nombre flottant valide.
           Si l'entrée est invalide, un message d'erreur est affiché et l'utilisateur est invité à réessayer. **)
-      let rec ask_coeffs () =
-        Printf.printf "Entrez les 4 coefficients (flottants) (Temps Distance Arrêts Correspondances) : %!";
+      let rec ask_coeffs() =
+        Printf.printf "\nEntrez les 4 coefficients (flottants) (Temps Distance Arrêts Correspondances) : %!";
         let input = read_line () in
         let parts = String.split_on_char ' ' input |> List.filter (fun s -> s <> "") in
         try
           let floats = List.map float_of_string parts in
           if List.length floats = 4 then floats
           else (
-            Printf.printf "Erreur : Il faut exactement 4 valeurs (reçu : %d).\n" (List.length floats);
+            Logger.bold_red "Erreur : Il faut exactement 4 valeurs (reçu : %d).\n" (List.length floats);
             ask_coeffs ()
           )
         with Failure _ ->
-          Printf.printf "Erreur : Saisie invalide. Veuillez n'entrer que des nombres.\n";
-          ask_coeffs ()
+          Logger.bold_red "Erreur : Saisie invalide. Veuillez n'entrer que des nombres.\n";
+          ask_coeffs()
       in
-      ask_coeffs ()
+      ask_coeffs()
     else []
   in
 
@@ -81,8 +122,8 @@ let rec run_console graphe search_callback =
     en vérifiant que les entrées sont valides par rapport à la liste des modes disponibles.
     L'utilisateur peut entrer plusieurs modes séparés par des espaces, ou laisser vide pour n'exclure aucun mode.
     Si une entrée invalide est détectée, un message d'erreur est affiché et l'utilisateur est invité à réessayer. **)
-    let rec ask_modes () =
-      Printf.printf "Entrez les modes de transport à exclure (séparés par des espaces) parmi : %s, ou laissez vide pour aucun : %!"
+    let rec ask_modes() =
+      Printf.printf "\nEntrez les modes de transport à exclure (séparés par des espaces) parmi : %s, ou laissez vide pour aucun : %!"
         (String.concat " " modes);
       let input = read_line () in
       let parts = String.split_on_char ' ' input |> List.filter (fun s -> s <> "") in
@@ -109,7 +150,7 @@ let rec run_console graphe search_callback =
       match validate_parts [] parts with
       | Some valid_modes -> valid_modes
       | None ->
-          Printf.printf "Erreur : Modes invalides. Veuillez n'entrer que les modes listés.\n%!";
+          Logger.bold_red "Erreur : Modes invalides. Veuillez n'entrer que les modes listés.\n%!";
           ask_modes ()
     in
     ask_modes ()
@@ -121,8 +162,8 @@ let rec run_console graphe search_callback =
     ou permet de laisser vide pour utiliser l'heure actuelle.
     La fonction vérifie que l'entrée est au format correct et que les valeurs d'heure et de minute sont dans les plages valides.
     Si l'entrée est invalide, un message d'erreur est affiché et l'utilisateur est invité à réessayer. **)
-    let rec ask_time () =
-      Printf.printf "Entrez l'heure de départ (HH:MM) ou laissez vide pour l'heure actuelle : %!";
+    let rec ask_time() =
+      Printf.printf "\nEntrez l'heure de départ (HH:MM) ou laissez vide pour l'heure actuelle : %!";
       let input = String.trim (read_line ()) in
       if input = "" then
         let tm = Unix.localtime (Unix.time ()) in
@@ -131,12 +172,12 @@ let rec run_console graphe search_callback =
         try
           Scanf.sscanf input "%2d:%2d%!" (fun h m ->
             if h < 0 || h > 23 || m < 0 || m > 59 then (
-              Printf.printf "Erreur : Heure hors plage. HH:MM doit être compris entre 00:00 et 23:59.\n%!";
-              ask_time ())
+              Logger.bold_red "Erreur : Heure hors plage. HH:MM doit être compris entre 00:00 et 23:59.\n%!";
+              ask_time ();)
             else
               h * 3600 + m * 60)
         with _ ->
-          Printf.printf "Erreur : Format invalide. Veuillez entrer l'heure au format HH:MM.\n%!";
+          Logger.bold_red "Erreur : Format invalide. Veuillez entrer l'heure au format HH:MM.\n%!";
           ask_time ()
     in
     ask_time ()
@@ -147,8 +188,8 @@ let rec run_console graphe search_callback =
 
   search_callback source_query dest_query algo poids coeffs excluded_modes start_time pmr_transfer;
 
-  let continue = raw_select "Voulez-vous effectuer une nouvelle recherche ? " [ "Oui"; "Non" ] in
+  let continue = raw_select "\nVoulez-vous effectuer une nouvelle recherche ? " [ "Oui"; "Non" ] in
   if continue = "Oui" then
     run_console graphe search_callback
   else
-    Printf.printf "Fermeture de l'interface ligne de commande.\n%!"
+    Printf.printf "\nFermeture de l'interface ligne de commande.\n%!"

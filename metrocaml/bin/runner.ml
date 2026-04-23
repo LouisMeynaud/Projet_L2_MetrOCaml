@@ -58,15 +58,19 @@ let make_heuristic (graph : Network.TransportGraph.t) =
 
 (* Fonction pour charger les données GTFS *)
 let load_gtfs_data town url date_cible loading_mode =
-  let local_data_dir = "data/" ^ town in
+  let local_data_dir =
+    let p1 = "data/" ^ town in
+    let p2 = "metrocaml/data/" ^ town in
+    if Sys.file_exists p1 then p1 else p2
+  in
   try
     let graphe =
       if loading_mode = "Local" then begin
-        Printf.printf "Chargement local GTFS depuis %s...\n%!" local_data_dir;
+        Logger.black "Chargement local GTFS depuis %s...\n%!" local_data_dir;
         Gtfs_adapter.load_network_gtfs local_data_dir date_cible
       end
       else begin
-        Printf.printf "Téléchargement en cours...\n%!";
+        Logger.black "Téléchargement en cours...\n%!";
         Gtfs_adapter.load_network_from_url url date_cible
       end
     in
@@ -74,13 +78,13 @@ let load_gtfs_data town url date_cible loading_mode =
     graphe
   with
   | Failure msg ->
-      Printf.eprintf "ERREUR : %s\n" msg;
+      Logger.bold_red "ERREUR : %s\n" msg;
       exit 1
   | Sys_error msg ->
-      Printf.eprintf "ERREUR FICHIER : %s\n" msg;
+      Logger.bold_red "ERREUR FICHIER : %s\n" msg;
       exit 1
   | e ->
-      Printf.eprintf "ERREUR INCONNUE : %s\n" (Printexc.to_string e);
+      Logger.bold_red "ERREUR INCONNUE : %s\n" (Printexc.to_string e);
       exit 1
 
 (* Fonction pour lancer la recherche de trajet *)
@@ -111,7 +115,7 @@ let choose_weight algo poids coeffs pmr_transfer graph =
       in
       let module CombinedWeight =
         (val Combinator.combine critere
-            : Routing.WEIGHT with type edge = Network.connection)
+            : Routing.WEIGHT with type edge = Network.connection and type node = Network.station)
       in
       let module DIJKSTRA_CombinedWeight =
       Dijkstra.Make (Network.TransportGraph) (CombinedWeight) in
@@ -204,7 +208,7 @@ let show_details details_afficheurs =
       in
       afficher_detail ();
       flush stdout
-    with Not_found -> Printf.printf "Algorithme non trouvé.\n%!"
+    with Not_found -> Logger.bold_red "Algorithme non trouvé.\n%!"
 
 let search_callback source_query dest_query algo poids coeffs excluded_modes
   start_time pmr_transfer graphe use_color =
@@ -228,7 +232,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
       details
   | None ->
       [
-        ( "Erreur : Stations introuvables, coordonnées invalides ou adresse introuvable.",
+        ( "\x1b[31mErreur : Stations introuvables, coordonnées invalides ou adresse introuvable.\x1b[0m",
           "",
           None );
       ]
@@ -348,18 +352,18 @@ let build_bench_routeurs graph =
   ] in
   preset_dijkstra @ preset_astar @ unit_routeurs
 
-let rec run_bench_console graphe =
-  Printf.printf "\n Benchmark activé \n%!";
-let routeurs = build_bench_routeurs graphe in
-  Printf.printf "Station source : %!";
-  let source_query = String.trim (read_line ()) in
-  Printf.printf "Station destination : %!";
-  let dest_query = String.trim (read_line ()) in
-  let tm = Unix.localtime (Unix.time ()) in
-  let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
-  Bench.run graphe source_query dest_query start_time routeurs Cli.Console.raw_select;
-  let continue = Cli.Console.raw_select "Voulez-vous effectuer un nouveau benchmark ? " [ "Oui"; "Non" ] in
-  if continue = "Oui" then
-    run_bench_console graphe
-  else
+  let rec run_bench_console graphe =
+  Printf.printf "\nBenchmark activé \n%!";
+  let routeurs = build_bench_routeurs () in
+    Printf.printf "\nStation source : %!";
+    let source_query = String.trim (read_line ()) in
+    Printf.printf "Station destination : %!";
+    let dest_query = String.trim (read_line ()) in
+    let tm = Unix.localtime (Unix.time ()) in
+    let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
+    Bench.run graphe source_query dest_query start_time routeurs Cli.Console.raw_select;
+    let continue = Cli.Console.raw_select "\nVoulez-vous effectuer un nouveau benchmark ? " [ "Oui"; "Non" ] in
+    if continue = "Oui" then
+      run_bench_console graphe
+    else
       Printf.printf "Fermeture du mode benchmark.\n%!";

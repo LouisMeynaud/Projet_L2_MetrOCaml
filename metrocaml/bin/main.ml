@@ -6,14 +6,18 @@ let today_yyyymmdd () =
   let tm = Unix.localtime (Unix.time ()) in
   Printf.sprintf "%04d%02d%02d" (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 
+let dir_exists path =
+  try (Unix.stat path).Unix.st_kind = Unix.S_DIR with _ -> false
+
+let local_city_exists ville =
+  dir_exists ("data/" ^ ville) || dir_exists ("metrocaml/data/" ^ ville)
 
 let choose_city loading_mode = 
     let town = match loading_mode with
-    | "En ligne" -> Cli.Console.raw_select "Choisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"]
+    | "En ligne" -> Cli.Console.raw_select "\nChoisissez la ville : " [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"]
     | "Local" -> 
-      Cli.Console.raw_select "Choisissez la ville : "
-      (List.filter(fun ville -> try (Unix.stat ("data/" ^ ville )).Unix.st_kind = Unix.S_DIR (*Vérifie si le dossier existe et si c'est bien un dossier (S_DIR)*)
-                                with _ -> false (*Plutôt que de planter on retourne false.*))
+      Cli.Console.raw_select "\nChoisissez la ville : "
+      (List.filter (fun ville -> local_city_exists ville)
       [ "Toulouse"; "Montpellier"; "Marseille"; "Ile-de-France"; "SNCF"; "Corsica"])
     | _ -> failwith "Mode de chargement inconnu"
   in
@@ -32,17 +36,32 @@ let choose_load_mode () = let loading_mode = Cli.Console.raw_select "\nChoisisse
   loading_mode
 
 
+
+
+  
 let date_choose loading_mode = let date_cible =
   match loading_mode with
   | "En ligne" -> today_yyyymmdd ()
   | "Local" -> "20260330"
   | _ -> failwith "Mode de chargement inconnu"
-  in Printf.printf "=== Lancement de MetroCaml ===\n%!";
-  Printf.printf "Date GTFS cible: %s\n%!" date_cible;
+  in Logger.black "\n=== Lancement de MetroCaml ===\n%!";
+  Logger.black "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
 
+let rt_alertes town loading_mode date_cible graph = 
+    let (rt_url_alertes) = 
+    match town with
+    | "Ile-de-France" -> 
+        ( "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2")
+    | _ -> ("") 
+  in
+  if (rt_url_alertes <> "" && loading_mode == "En ligne" ) then begin
+    Printf.printf "\n[Système] Démarrage du moteur Temps Réel en arrière-plan...\n%!";
+    Gtfs_rt.start_auto_refresh date_cible graph;
+  end; ()
+
   let affichage_interface graphe =
-    Printf.printf "Choisissez l'interface à lancer :\n%!";
+    Printf.printf "\nChoisissez l'interface à lancer :\n%!";
     Printf.printf "  1 - Interface Graphique (GUI)\n%!";
     Printf.printf "  2 - Interface Ligne de Commande (CLI)\n%!";
 
@@ -53,7 +72,7 @@ let date_choose loading_mode = let date_cible =
       List.iter (fun (nom, details, _) -> Printf.printf "%s\n%s\n%!" nom details) results
     in
       Cli.Console.run_console graphe cli_callback; ()
-    | _ -> Printf.printf "Lancement de l'interface graphique...\n%!";
+    | _ -> Logger.black "\nLancement de l'interface graphique...\n%!";
     let gui_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
       Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false
     in
@@ -72,7 +91,8 @@ let () =
   let (town, url) = choose_city loading_mode in
   let date_cible = date_choose loading_mode in
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
-  Printf.printf "\nGraphe chargé avec succès !\n%!";
+  rt_alertes town loading_mode date_cible graph;
+  Logger.black "\nGraphe chargé avec succès !\n%!";
   let benchmark =
     match Cli.Console.raw_select "\nVoulez-vous activer le mode benchmark ?" [ "Oui"; "Non" ]  with
     |"Oui" -> true

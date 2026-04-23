@@ -12,7 +12,7 @@ let format_duration secs =
 let run graphe source_query dest_query start_time
     (routeurs : (string * (Network.TransportGraph.t -> Network.station -> Network.station -> int -> string * (unit -> unit))) list)
     raw_select =
-  Printf.printf "\x1b[1;31m%s\x1b[0m" "                                       
+  Logger.bold_red "\x1b[1;31m%s\x1b[0m" "                                       
 @@@@@@@   @@@@@@@@  @@@  @@@   @@@@@@@  @@@  @@@  
 @@@@@@@@  @@@@@@@@  @@@@ @@@  @@@@@@@@  @@@  @@@  
 @@!  @@@  @@!       @@!@!@@@  !@@       @@!  @@@  
@@ -24,10 +24,10 @@ let run graphe source_query dest_query start_time
  :: ::::   :: ::::   ::   ::   ::: :::  ::   :::  
 :: : ::   : :: ::   ::    :    :: :: :   :   : :
 ";
-  Printf.printf "Benchmark de %s à %s \n" source_query dest_query;
+  Printf.printf "\nBenchmark de %s à %s \n" source_query dest_query;
   match Endpoint.build_routing_context graphe source_query dest_query with
   | None ->
-    Printf.printf "Stations introuvable, benchmark annulé \n"
+    Logger.bold_red "Stations introuvable, benchmark annulé \n"
   | Some (graph_for_search, source, destination) ->
     Printf.printf "\n%-30s  %-12s  %-15s %-20s\n%!" "Algorithme/Preset" "Temps" "Resultat" "Temps du Chemin";
     separator ();

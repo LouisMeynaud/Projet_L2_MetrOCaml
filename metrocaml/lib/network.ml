@@ -2,8 +2,8 @@
     Ce module fournit les types de base nécessaires à la construction d'un TransportGraph
     et peut servir de fondation pour tout algorithme de routage basé sur les graphes. *)
 
+type line = { name : string; color : string;id : string;}
 (** Informations relatives à la ligne. *)
-type line = { name : string; color : string }
 
 type transport_mode =
   | Metro
@@ -12,7 +12,7 @@ type transport_mode =
   | Tram
   | Walk
   | Transfert
-  | Custom of string
+  | Custom of string  (** Transport mode enumerated type. *)
 
 let string_of_mode = function
   | Metro -> "Metro"

@@ -8,21 +8,19 @@ open Weight_intf
     pour répondre aux contraintes des réseaux de transports en commun (GTFS)
     avec :
 
-    - Découplage Total : Il ignore la logique métier (métro, horaires) et
-      délègue l'évaluation au module [WEIGHT].
+    - Découplage Total : Il ignore la logique métier et délègue l'évaluation au module [WEIGHT].
     - State-Space Routing : Il ne route pas d'une "station" à une autre, mais
       d'un "état" à un autre (Station + Ligne) pour ne pas écraser les chemins
       valides.
-    - Pairing Heap : Il utilise un Tas d'Appariement garantissant des
-      performances quasi-instantanées, même sur des graphes massifs comme celui
-      de Paris. *)
-module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
+    - Tas d'appariement : Il utilise un Tas d'Appariement garantissant des
+      performances quasi-instantanées, même sur des graphes massifs. *)
+module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t) = struct
   module P = Path.Make (G) (W)
 
   type path = P.t
 
-  (** Le Tas d'Appariement (Pairing Heap) *)
-  module PQ = struct
+  (** Le Tas d'Appariement *)
+  module TA = struct
     (* Il permet de résoudre un soucis récurent : le meilleur moyen d'arriver à une station intermédiaire
        n'est pas forcément celui qui permettra d'arriver à destination le plus vite (notamment à cause
        des correspondances). Pour cela on retient donc toutes les manières d'arriver à cette station pour
@@ -41,7 +39,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
 
     let empty = Empty
 
-    (* L'opération centrale du Pairing Heap. Pour insérer un élément, on ne parcourt 
+    (* L'opération centrale du tas. Pour insérer un élément, on ne parcourt 
        rien. On prend les deux racines, on les compare, et l'arbre perdant 
        devient un simple enfant de l'arbre gagnant. *)
     let merge h1 h2 =
@@ -55,7 +53,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
     let push ~f_cost ~g_cost node state h =
       merge (Node { f_cost; g_cost; node; state; children = [] }) h
 
-    (* Quand on retire la racine (pop), tous ses enfants deviennent orphelins.
+    (* Quand on retire la racine, tous ses enfants deviennent orphelins.
        Pour garder un arbre compact, on les fait s'affronter deux par deux. 
        Le motif récursif fusionne de gauche à droite, puis de droite à gauche. *)
     let rec merge_pairs = function
@@ -69,7 +67,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
           Some (n.f_cost, n.g_cost, n.node, n.state, merge_pairs n.children)
   end
 
-  (** Trouve le chemin optimal de la [source] à la [destination].
+  (** Trouve le chemin optimal de la source à la destination.
       @param start_time L'heure de départ (sert de poids initial).
       @param graph Le graphe pré-construit du réseau.
       @param source Le nœud de départ.
@@ -85,7 +83,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
         Some { P.steps = []; total_weight = initial_weight }
       else
         (* 'dist' stocke le meilleur poids connu pour un état donné.
-           'prev' stocke l'historique (le fil d'Ariane) pour reconstruire le chemin à la fin. *)
+           'prev' stocke l'historique pour reconstruire le chemin à la fin. *)
         let dist = Hashtbl.create 10000 in
         let prev = Hashtbl.create 10000 in
 
@@ -131,7 +129,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t) = struct
                     | Some (new_g, step_data) ->
                         let next_state_key = W.get_state_key new_g in
                         let _, current_state_key = u_state in
-                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in (*detecte si on a changer de ligne ou pas*)
+                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in (*detecte si on a changé de ligne ou pas*)
                         let is_transfer = is_line_change && not (G.Node.equal u source) in (*on considère que le changement de ligne à la station de départ n'est pas une correspondance*)
                         
                         if (not is_transfer) || transfer_allowed u then (
