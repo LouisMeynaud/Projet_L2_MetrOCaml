@@ -158,7 +158,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
 
 (* Construit un routeur pour les tests de bench *)
 let make_routeur nom (module Algo : ALGO) =
-  let fn graph source destination start_time =
+  let compute_route graph source destination start_time =
     match
       Algo.find_path ~start_time ~graph ~source ~destination
         ~transfer_allowed:(fun _ -> true)
@@ -168,13 +168,17 @@ let make_routeur nom (module Algo : ALGO) =
         let module ShowPath = Show.Make (Algo.P) in
         let stats = ShowPath.compute_summary ~start_time p in
         let temps = stats.total_time in
+        let correspondance = stats.transfers in 
+        let arrival_time = stats.arrival_time in 
         let h = temps / 3600 in
         let m = temps / 60 mod 60 in
-        let result_str = Printf.sprintf "OK - %d etape(s) %d heures %d minutes" (List.length p.Algo.P.steps) h m in
+        let h_arr = arrival_time / 3600 mod 24 in
+        let m_arr = arrival_time / 60 mod 60 in
+        let result_str = Printf.sprintf "OK - %d Etape(s)     %d Heures %d Minutes     Arrivé à %d:%d     en %d Correspondances" (List.length p.Algo.P.steps) h m h_arr m_arr correspondance in
         let print () = Printf.printf "%s\n" (ShowPath.string_of_path ~start_time ~use_color:true p) in
         (result_str, print)
   in
-  (nom, fn)
+  (nom, compute_route)
 
     
 let build_bench_routeurs () =

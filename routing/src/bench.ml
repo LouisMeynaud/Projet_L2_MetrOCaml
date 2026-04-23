@@ -1,27 +1,18 @@
 let separator () =
-  print_string (String.make 70 '-');
+  print_string (String.make 130 '-');
   print_newline ()
 
 let format_duration secs =
   let ms = secs *. 1000.0 in
   Printf.sprintf "%.3f ms" ms
 
-let run
-    ?(title = "Benchmark")
-    ~(resolve : 'graph -> string -> string -> ('graph * 'node * 'node) option)
-    (graph : 'graph)
-    (source_query : string)
-    (dest_query : string)
-    (start_time : int)
-    (routeurs :
-      (string * ('graph -> 'node -> 'node -> int -> string * (unit -> unit))) list)
-    raw_select =
+let run ~title ~resolve graph source_query dest_query start_time routeurs raw_select =
   Printf.printf "\n%s de %s à %s\n%!" title source_query dest_query;
   match resolve graph source_query dest_query with
   | None -> Printf.printf "Entrées introuvables, benchmark annulé.\n%!"
   | Some (graph_for_search, source, destination) ->
-      Printf.printf "\n%-30s  %-12s  %-15s %-20s\n%!" "Algorithme/Preset"
-        "Temps" "Resultat" "Temps du Chemin";
+      Printf.printf "\n%-30s  %-12s  %s\n%!" "Algorithme/Preset"
+        "Temps" "Resultat";
       separator ();
 
       let afficheurs =
@@ -32,7 +23,7 @@ let run
               search_fn graph_for_search source destination start_time
             in
             let t1 = Unix.gettimeofday () in
-            Printf.printf "%-30s  %-12s  %s\n%!" nom
+            Printf.printf "%-30s  %-12s  %-20s\n%!" nom
               (format_duration (t1 -. t0)) result_str;
             match result_str with
             | "Aucun chemin" -> None
@@ -46,10 +37,10 @@ let run
           raw_select "\nAfficher les details des chemins ?" [ "Oui"; "Non" ]
         in
         if choix = "Oui" then begin
-          Printf.printf "\n== Details des chemins : ==============\n%!";
+          Printf.printf "\n== Details des chemins : ==============\n";
           List.iter
             (fun (nom, print_detail) ->
-              Printf.printf "-------> %s\n%!" nom;
+              Printf.printf "-------> %s\n" nom;
               print_detail ();
               separator ())
             afficheurs
