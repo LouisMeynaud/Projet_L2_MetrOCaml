@@ -4,74 +4,157 @@ let dummy_station : Metrocaml.Network.station =
   { id = "0"; name = "Dummy"; latitude = 0.0; longitude = 0.0; pmr = false }
 
 (* ========================================================== *)
-(* TESTS: HopWeight                                           *)
+(* eval_edge                                                  *)
 (* ========================================================== *)
 
-module HW = Metrocaml.Weight.HopWeight
+module EvalEdge_Tests = struct
+  open Metrocaml.Weight
 
-let hop_weight_t =
-  Alcotest.testable (fun ppf w -> Fmt.string ppf (HW.to_string w)) HW.( = )
+  (** Initialisation du type de retour de eval_edge pour les comparaisons *)
+  let eval_res_t =
+    let pp_opt_str ppf = function
+      | None -> Fmt.string ppf "None"
+      | Some s -> Fmt.pf ppf "Some %s" s
+    in
+    let pp_tuple ppf (time, wait, line) =
+      Fmt.pf ppf "(%d, %d, %a)" time wait pp_opt_str line
+    in
+    Alcotest.(option (testable pp_tuple ( = )))
 
-let force_traverse traverse_fn w e =
-  match traverse_fn w dummy_station e with
-  | Some (new_w, _) -> new_w
-  | None -> Alcotest.fail "Traverse a renvoyé None (chemin bloqué)"
+  let line_A : Metrocaml.Network.line = { name = "A"; color = ""; id = "A" }
+  let line_B : Metrocaml.Network.line = { name = "B"; color = ""; id = "B" }
+  let line_C : Metrocaml.Network.line = { name = "C"; color = ""; id = "C" }
 
-let test_hop_of_edge () =
-  let dummy_line : Metrocaml.Network.line =
-    { name = "Ligne 1"; color = "#FFBE00"; id="" }
-  in
-  let dummy_conn : Metrocaml.Network.connection =
-    {
-      line = dummy_line;
-      duration = 120;
-      distance = 500.0;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  let expected = force_traverse HW.traverse (HW.start_at 0) dummy_conn in
-  Alcotest.(check string)
-    "Un segment vaut 1 arrêt" "1 arrêts (Aujourd'hui à 00h02m00s)"
-    (HW.to_string expected)
+  (** Test de marche donc pas de contrainte de temps *)
+  let test_eval_edge_walk () =
+    let conn =
+      {
+        Metrocaml.Network.line = line_A;
+        duration = 120;
+        distance = 100.;
+        mode = Walk;
+        schedules = [];
+        terminus = dummy_station;
+      }
+    in
+    let res = eval_edge 1000 None dummy_station conn in
+    Alcotest.(check eval_res_t)
+      "Marche: ajoute juste la durée, pas d'attente, garde la ligne"
+      (Some (1120, 0, None)) res
 
-let test_hop_arithmetic () =
-  let dummy_conn =
-    {
-      Metrocaml.Network.line = { name = ""; color = "";id= "" };
-      duration = 0;
-      distance = 0.;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  let one = force_traverse HW.traverse (HW.start_at 0) dummy_conn in
-  let two = force_traverse HW.traverse one dummy_conn in
-  Alcotest.(check string)
-    "1 + 1 = 2" "2 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string two);
-  Alcotest.(check hop_weight_t)
-    "Vérifie l'accumulation" two
-    (force_traverse HW.traverse one dummy_conn)
+  (** Test si on ne change pas de ligne, avec vérification que la marge fonctionne bien *)
+  let test_eval_edge_same_line () =
+    let conn =
+      {
+        Metrocaml.Network.line = line_A;
+        duration = 300;
+        distance = 1000.;
+        mode = Metro;
+        schedules = [ ("id1", 900); ("id2", 1100); ("id3", 1300) ];
+        terminus = dummy_station;
+      }
+    in
+    let res = eval_edge 1150 (Some "A") dummy_station conn in
+    Alcotest.(check eval_res_t)
+      "Même ligne: profite de la marge pour attraper le train"
+      (Some (1450, 0, Some "A")) res
 
-let test_hop_infinity () =
-  let dummy_conn =
-    {
-      Metrocaml.Network.line = { name = ""; color = ""; id = "" };
-      duration = 0;
-      distance = 0.;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  Alcotest.(check bool)
-    "L'infini empêche la traversée (None)" true
-    (HW.traverse HW.infinity dummy_station dummy_conn = None)
+  (** Test de l'ajout de pénalité en cas de correspondance *)
+  let test_eval_edge_transfer () =
+    let conn =
+      {
+        Metrocaml.Network.line = line_B;
+        duration = 200;
+        distance = 1000.;
+        mode = Metro;
+        schedules = [ ("id1", 1000); ("id2", 1100); ("id3", 1500) ];
+        terminus = dummy_station;
+      }
+    in
+    let res = eval_edge 1000 (Some "A") dummy_station conn in
+    Alcotest.(check eval_res_t)
+      "Transfert: applique la pénalité et trouve le bon train"
+      (Some (1700, 500, Some "B")) res
+
+  (** Test s'il n'y a plus de train disponible *)
+  let test_eval_edge_missed_train () =
+    let conn =
+      {
+        Metrocaml.Network.line = line_A;
+        duration = 200;
+        distance = 1000.;
+        mode = Metro;
+        schedules = [ ("id1", 500); ("id2", 600) ];
+        terminus = dummy_station;
+      }
+    in
+    let res = eval_edge 1000 None dummy_station conn in
+    Alcotest.(check eval_res_t)
+      "Train raté: renvoie None si plus de trains dans la journée"
+      None res
+
+  (** Test de l'ajout de pénalité en cas de perturbations sur la ligne *)
+  let test_eval_edge_perturbed_entry () =
+    let conn =
+      {
+        Metrocaml.Network.line = line_C;
+        duration = 200;
+        distance = 1000.;
+        mode = Metro;
+        schedules = [ ("id1", 1200); ("id2", 1800) ];
+        terminus = dummy_station;
+      }
+    in
+    let alerte : Metrocaml.Gtfs_rt.alerte_dijkstra =
+      {
+        severite = Metrocaml.Gtfs_rt.PERTURBEE;
+        stations_hash = Hashtbl.create 0;
+        periodes = [];
+      }
+    in
+    Hashtbl.replace !Metrocaml.Gtfs_rt.index_alertes_dijkstra "C" [ alerte ];
+    
+    let res = eval_edge 1000 None dummy_station conn in
+    
+    Hashtbl.clear !Metrocaml.Gtfs_rt.index_alertes_dijkstra;
+    
+    Alcotest.(check eval_res_t)
+      "Perturbation: ajoute 10min à la montée et fait rater le premier train"
+      (Some (2000, 800, Some "C")) res
+
+  (** Test si la ligne est bloquée *)
+  let test_eval_edge_blocked () =
+    let conn =
+      {
+        Metrocaml.Network.line = line_C;
+        duration = 200;
+        distance = 1000.;
+        mode = Metro;
+        schedules = [ ("id1", 2000) ];
+        terminus = dummy_station;
+      }
+    in
+    let alerte : Metrocaml.Gtfs_rt.alerte_dijkstra =
+      {
+        severite = Metrocaml.Gtfs_rt.BLOQUANTE;
+        stations_hash = Hashtbl.create 0;
+        periodes = [];
+      }
+    in
+    Hashtbl.replace !Metrocaml.Gtfs_rt.index_alertes_dijkstra "C" [ alerte ];
+
+    let res = eval_edge 1000 None dummy_station conn in
+
+    Hashtbl.clear !Metrocaml.Gtfs_rt.index_alertes_dijkstra;
+
+    Alcotest.(check eval_res_t)
+      "Bloqué: la perturbation coupe la connexion (None)"
+      None res
+end
+
 
 (* ========================================================== *)
-(* TESTS: TimeWeight                                          *)
+(* TimeWeight                                                 *)
 (* ========================================================== *)
 
 module TimeW = Metrocaml.Weight.TimeWeight
@@ -81,146 +164,122 @@ let time_weight_t =
     (fun ppf w -> Fmt.string ppf (TimeW.to_string w))
     TimeW.( = )
 
-let test_time_of_edge () =
-  let dummy_line : Metrocaml.Network.line =
-    { name = "Ligne 1"; color = "#FFBE00"; id = "" }
-  in
-  let dummy_conn : Metrocaml.Network.connection =
-    {
-      line = dummy_line;
-      duration = 120;
-      distance = 500.0;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  Alcotest.(check string)
-    "Extraction de la duree" "Aujourd'hui à 00h02m00s"
-    (TimeW.to_string
-       (force_traverse TimeW.traverse (TimeW.start_at 0) dummy_conn))
+(* --- Outils de création d'arêtes pour les tests --- *)
+let make_line name = { Metrocaml.Network.name; color = ""; id = name }
 
-let test_time_arithmetic () =
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = ""; id="" } in
-  let c1 =
-    {
-      Metrocaml.Network.line = dummy_line;
-      duration = 60;
-      distance = 0.;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  let c2 =
-    {
-      Metrocaml.Network.line = dummy_line;
-      duration = 40;
-      distance = 0.;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  let c_100 =
-    {
-      Metrocaml.Network.line = dummy_line;
-      duration = 100;
-      distance = 0.;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  let w1 = force_traverse TimeW.traverse (TimeW.start_at 0) c1 in
-  let w2 = force_traverse TimeW.traverse w1 c2 in
-  let expected_100 = force_traverse TimeW.traverse (TimeW.start_at 0) c_100 in
-  Alcotest.(check time_weight_t) "60 + 40 = 100" expected_100 w2
+let make_conn mode duration schedules line_name =
+  {
+    Metrocaml.Network.line = make_line line_name;
+    duration;
+    distance = 0.;
+    mode;
+    schedules;
+    terminus = dummy_station;
+  }
 
-let test_time_compare () =
-  let open TimeW in
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = ""; id=""} in
-  let w_60 =
-    force_traverse traverse (start_at 0)
-      {
-        line = dummy_line;
-        duration = 60;
-        distance = 0.;
-        mode = Walk;
-        schedules = [];
-        terminus = dummy_station;
-      }
-  in
-  let w_120 =
-    force_traverse traverse (start_at 0)
-      {
-        line = dummy_line;
-        duration = 120;
-        distance = 0.;
-        mode = Walk;
-        schedules = [];
-        terminus = dummy_station;
-      }
-  in
-  Alcotest.(check bool) "Moins de temps gagne (<)" true (w_60 < w_120);
-  Alcotest.(check bool) "Plus de temps perd (>)" true (w_120 > w_60);
-  Alcotest.(check bool) "Temps egaux (=)" true (w_60 = w_60)
+let force_traverse traverse_fn w e =
+  match traverse_fn w dummy_station e with
+  | Some (new_w, _) -> new_w
+  | None -> Alcotest.fail "Traverse a renvoyé None (chemin bloqué inattendu)"
 
-let test_time_to_string () =
-  Alcotest.(check string)
-    "Formatage 0s" "Aujourd'hui à 00h00m00s"
-    (TimeW.to_string (TimeW.start_at 0));
-  Alcotest.(check string)
-    "Formatage minutes exactes (2m00s)" "Aujourd'hui à 00h02m00s"
-    (TimeW.to_string (TimeW.start_at 120))
+(** Test d'initialisation des données *)
+let test_timew_init_states () =
+  let start_w = TimeW.start_at 1000 in
+  Alcotest.(check int) "start_at initialise le temps" 1000 (TimeW.get_time start_w);
+  Alcotest.(check bool) "start_at n'est pas l'infini" false (TimeW.is_inf start_w);
+  
+  let inf_w = TimeW.infinity in
+  Alcotest.(check bool) "infinity est reconnu comme l'infini" true (TimeW.is_inf inf_w)
 
-let test_time_prefers_less_walk_when_arrival_equal () =
-  let line_b = { Metrocaml.Network.name = "Bus 43"; color = "#00AA00"; id = "" } in
-  let line_walk = { Metrocaml.Network.name = "Marche"; color = "#AAAAAA"; id = "" } in
-  let bus_direct : Metrocaml.Network.connection =
-    {
-      line = line_b;
-      duration = 300;
-      distance = 1200.;
-      mode = Bus;
-      schedules = [ ("x", 600) ];
-      terminus = dummy_station;
-    }
+(** Tests pour traverse *)
+
+(** Test d'un mode de transport exclu *)
+let test_timew_traverse_excluded_mode () =
+  Metrocaml.Weight.set_excluded_modes ["Bus"];
+  
+  let conn = make_conn Bus 100 [] "B1" in
+  let res = TimeW.traverse (TimeW.start_at 0) dummy_station conn in
+  
+  Metrocaml.Weight.set_excluded_modes []; 
+  
+  Alcotest.(check bool) "Mode exclu renvoie None (sans appeler eval_edge)" true (res = None)
+
+(** Test valeur de sortie *)
+let test_timew_traverse_transport () =
+  let conn = make_conn Metro 120 [("id1", 50)] "M1" in
+  let start_w = TimeW.start_at 0 in
+  let next_w = force_traverse TimeW.traverse start_w conn in
+  Alcotest.(check int) "Temps mis à jour (50 attente + 120 trajet)" 170 (TimeW.get_time next_w)
+
+(** Test accumulations de Walk + incrémentation du temps de trajet en cas de Walk ou de Transfert *)
+let test_timew_traverse_walk () =
+  let conn_walk1 = make_conn Walk 100 [] "Marche" in
+  let conn_walk2 = make_conn Walk 20 [] "Marche" in
+  let conn_trans = make_conn Transfert 80 [] "Couloir" in
+  
+  let w_walk1 = force_traverse TimeW.traverse (TimeW.start_at 0) conn_walk1 in
+  let w_walk2 = force_traverse TimeW.traverse w_walk1 conn_walk2 in
+  let w_total = force_traverse TimeW.traverse w_walk2 conn_trans in
+  
+  Alcotest.(check int) "Temps total après 2 marches" 200 (TimeW.get_time w_total)
+
+(** Tests des comparaisons *)
+
+(** gestion de l'infini *)
+let test_timew_compare_infinity () =
+  let w_norm = TimeW.start_at 100 in
+  let w_inf = TimeW.infinity in
+  
+  Alcotest.(check bool) "Infini = Infini" true (TimeW.(w_inf = w_inf));
+  Alcotest.(check bool) "Normal < Infini" true (TimeW.(w_norm < w_inf));
+  Alcotest.(check bool) "Infini > Normal" true (TimeW.(w_inf > w_norm))
+
+(** Temps domine *)
+let test_timew_compare_time_dominates () =
+  let w1 = force_traverse TimeW.traverse (TimeW.start_at 0) (make_conn Walk 100 [] "W") in
+  let w2 = force_traverse TimeW.traverse (TimeW.start_at 0) (make_conn Metro 200 [("id",0)] "M") in
+  
+  Alcotest.(check bool) "Le temps le plus court gagne, peu importe la marche" true (TimeW.(w1 < w2));
+  Alcotest.(check bool) "Les opérateurs inversés fonctionnent" true (TimeW.(w2 > w1))
+
+  (** Si temps égaux, marche départage *)
+let test_timew_tie_breaker () =
+  let w1 = force_traverse TimeW.traverse (TimeW.start_at 0) (make_conn Metro 500 [("id",0)] "M") in
+  let w2 = force_traverse TimeW.traverse (TimeW.start_at 0) (make_conn Walk 500 [] "W") in
+  
+  Alcotest.(check bool) "À temps égal, celui qui a le moins de marche gagne" true (TimeW.(w1 < w2));
+  Alcotest.(check bool) "Les opérateurs inversés fonctionnent" true (TimeW.(w2 > w1))
+
+(** Cas d'égalité parfaite *)
+let test_timew_perfect_tie () =
+  let w1 = force_traverse TimeW.traverse (TimeW.start_at 0) (make_conn Walk 100 [] "W") in
+  let w2 = force_traverse TimeW.traverse (TimeW.start_at 0) (make_conn Walk 100 [] "W") in
+  Alcotest.(check bool) "Égalité parfaite renvoie =" true (TimeW.(w1 = w2))
+
+(** Tests temps d'attente *)
+let test_timew_formatters () =
+  
+  let conn_walk = make_conn Walk 120 [] "Marche" in
+  let _, step_0 = 
+    match TimeW.traverse (TimeW.start_at 0) dummy_station conn_walk with
+    | Some res -> res
+    | None -> Alcotest.fail "Traversée Walk a échoué"
   in
-  let walk_to_next_stop : Metrocaml.Network.connection =
-    {
-      line = line_walk;
-      duration = 120;
-      distance = 150.;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
+  
+  let conn_metro = make_conn Metro 100 [("id", 120)] "M1" in
+  let _, step_120 = 
+    match TimeW.traverse (TimeW.start_at 0) dummy_station conn_metro with
+    | Some res -> res
+    | None -> Alcotest.fail "Traversée Metro a échoué"
   in
-  let bus_after_walk : Metrocaml.Network.connection =
-    {
-      line = line_b;
-      duration = 200;
-      distance = 1000.;
-      mode = Bus;
-      schedules = [ ("x", 700) ];
-      terminus = dummy_station;
-    }
-  in
-  let direct = force_traverse TimeW.traverse (TimeW.start_at 0) bus_direct in
-  let with_walk =
-    force_traverse TimeW.traverse
-      (force_traverse TimeW.traverse (TimeW.start_at 0) walk_to_next_stop)
-      bus_after_walk
-  in
-  Alcotest.(check int)
-    "Même heure d'arrivée" (TimeW.get_time direct) (TimeW.get_time with_walk);
-  Alcotest.(check bool)
-    "À temps égal, moins de marche est préféré" true
-    TimeW.(direct < with_walk)
+  
+  Alcotest.(check string) "Attente de 0min n'affiche rien" "" (TimeW.step_data_to_string step_0);
+  Alcotest.(check string) "Attente formatée en minutes" " [attente 2 min]" (TimeW.step_data_to_string step_120);
+  Alcotest.(check string) "Formatage de la date à 0s" "Aujourd'hui à 00h00m00s" (TimeW.to_string (TimeW.start_at 0))
+
 
 (* ========================================================== *)
-(* TESTS: DistanceWeight                                      *)
+(* DistanceWeight                                             *)
 (* ========================================================== *)
 
 module DW = Metrocaml.Weight.DistanceWeight
@@ -228,145 +287,219 @@ module DW = Metrocaml.Weight.DistanceWeight
 let distance_weight_t =
   Alcotest.testable (fun ppf w -> Fmt.string ppf (DW.to_string w)) DW.( = )
 
-let test_distance_of_edge () =
-  let dummy_line : Metrocaml.Network.line =
-    { name = "Ligne 1"; color = "#FFBE00"; id="" }
-  in
-  let dummy_conn : Metrocaml.Network.connection =
-    {
-      line = dummy_line;
-      duration = 120;
-      distance = 1500.0;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  Alcotest.(check string)
-    "Extraction de la distance" "1.5 km (Aujourd'hui à 00h02m00s)"
-    (DW.to_string (force_traverse DW.traverse (DW.start_at 0) dummy_conn))
+(** Tests des états de bases *)
+let test_dw_init_states () =
+  let start_w = DW.start_at 0 in
+  Alcotest.(check bool) "start_at n'est pas infini" false (DW.is_inf start_w);
+  Alcotest.(check bool) "infinity est reconnu" true (DW.is_inf DW.infinity)
 
-let test_distance_arithmetic () =
-  let dummy_line : Metrocaml.Network.line = { name = ""; color = ""; id ="" } in
-  let conn1 =
-    {
-      Metrocaml.Network.line = dummy_line;
-      duration = 60;
-      distance = 400.0;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  let conn2 =
-    {
-      Metrocaml.Network.line = dummy_line;
-      duration = 60;
-      distance = 800.0;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
+(** Tests pour traverse *)
+
+(** Test d'un mode de transport exclu *)
+let test_dw_traverse_excluded_mode () =
+  Metrocaml.Weight.set_excluded_modes ["Bus"];
+  let conn = make_conn Bus 100 [] "B1" in
+  let res = DW.traverse (DW.start_at 0) dummy_station conn in
+  Metrocaml.Weight.set_excluded_modes [];
+  Alcotest.(check bool) "Mode exclu renvoie None" true (res = None)
+
+(** Test que la somme lors de l'ajout d'une nouvelle arête se fasse bien *)
+let test_dw_traverse_accumulation () =
+  let conn1 = { (make_conn Walk 60 [] "W") with distance = 400.5 } in
+  let conn2 = { (make_conn Walk 60 [] "W") with distance = 800.0 } in
+  
   let w1 = force_traverse DW.traverse (DW.start_at 0) conn1 in
   let w2 = force_traverse DW.traverse w1 conn2 in
-  Alcotest.(check string)
-    "400m + 800m = 1.2 km" "1.2 km (Aujourd'hui à 00h02m00s)" (DW.to_string w2)
+  
+  Alcotest.(check string) "Accumulation correcte des distances" 
+    "1.2 km (Aujourd'hui à 00h02m00s)" (DW.to_string w2)
 
-let test_distance_infinity () =
-  let dummy_conn =
-    {
-      Metrocaml.Network.line = { name = ""; color = "";id="" };
-      duration = 0;
-      distance = 100.0;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  Alcotest.(check bool)
-    "L'infini empêche la traversée (None)" true
-    (DW.traverse DW.infinity dummy_station dummy_conn = None)
+(** Tests des comparaisons *)
+
+(** gestion de l'infini *)
+let test_dw_compare_infinity () =
+  let w_norm = force_traverse DW.traverse (DW.start_at 0) { (make_conn Walk 0 [] "W") with distance = 10. } in
+  let w_inf = DW.infinity in
+  Alcotest.(check bool) "Infini = Infini" true (DW.(w_inf = w_inf));
+  Alcotest.(check bool) "Fini < Infini" true (DW.(w_norm < w_inf));
+  Alcotest.(check bool) "Infini > Fini" true (DW.(w_inf > w_norm))
+
+(** Vérifie que seule la distance départage, qu'importe le temps *)
+let test_dw_compare_distance_dominates () =
+  let w_court = force_traverse DW.traverse (DW.start_at 0) { (make_conn Walk 3600 [] "W") with distance = 500.0 } in
+  let w_long = force_traverse DW.traverse (DW.start_at 0) { (make_conn Metro 120 [("id", 0)] "M") with distance = 1500.0 } in
+  
+  Alcotest.(check bool) "La distance la plus courte gagne, peu importe le temps" true (DW.(w_court < w_long));
+  Alcotest.(check bool) "Les opérateurs inversés fonctionnent" true (DW.(w_long > w_court))
+
+(** Cas d'égalité, on ignore toujours le temps *)
+let test_dw_compare_tie () =
+  let w1 = force_traverse DW.traverse (DW.start_at 0) { (make_conn Walk 60 [] "W") with distance = 500.0 } in
+  let w2 = force_traverse DW.traverse (DW.start_at 0) { (make_conn Walk 120 [] "W") with distance = 500.0 } in
+  Alcotest.(check bool) "Distances égales renvoient l'égalité parfaite" true (DW.(w1 = w2))
+
+(** Test du formatage des données *)
+let test_dw_formatters () =
+  let w_m = force_traverse DW.traverse (DW.start_at 0) { (make_conn Walk 0 [] "W") with distance = 850.0 } in
+  let w_km = force_traverse DW.traverse (DW.start_at 0) { (make_conn Walk 0 [] "W") with distance = 2500.0 } in
+  
+  Alcotest.(check string) "Affichage en mètres si < 1000m" "850 m (Aujourd'hui à 00h00m00s)" (DW.to_string w_m);
+  Alcotest.(check string) "Affichage en km si >= 1000m" "2.5 km (Aujourd'hui à 00h00m00s)" (DW.to_string w_km);
+  Alcotest.(check string) "Affichage de l'infini" "∞" (DW.to_string DW.infinity)
 
 (* ========================================================== *)
-(* TESTS: CorrespondenceWeight                                *)
+(* HopWeight                                                  *)
+(* ========================================================== *)
+
+module HW = Metrocaml.Weight.HopWeight
+
+let hop_weight_t =
+  Alcotest.testable (fun ppf w -> Fmt.string ppf (HW.to_string w)) HW.( = )
+
+(** Tests des états de bases *)
+let test_hopw_init_states () =
+  let start_w = HW.start_at 0 in
+  Alcotest.(check bool) "start_at n'est pas infini" false (HW.is_inf start_w);
+  Alcotest.(check bool) "infinity est reconnu" true (HW.is_inf HW.infinity)
+
+(** Tests pour traverse *)
+
+(** Test d'un mode de transport exclu *)
+let test_hopw_traverse_excluded_mode () =
+  Metrocaml.Weight.set_excluded_modes ["Bus"];
+  let conn = make_conn Bus 100 [] "B1" in
+  let res = HW.traverse (HW.start_at 0) dummy_station conn in
+  Metrocaml.Weight.set_excluded_modes [];
+  Alcotest.(check bool) "Mode exclu renvoie None" true (res = None)
+
+(** Test que la somme lors de l'ajout d'une nouvelle arête se fasse bien *)
+let test_hopw_traverse_accumulation () =
+  let conn = make_conn Metro 60 [("id", 0)] "M1" in
+  
+  let w1 = force_traverse HW.traverse (HW.start_at 0) conn in
+  let w2 = force_traverse HW.traverse w1 conn in
+  let w3 = force_traverse HW.traverse w2 conn in
+  
+  Alcotest.(check string) "Accumulation compte bien +1 à chaque fois" 
+    "3 arrêts (Aujourd'hui à 00h03m00s)" (HW.to_string w3)
+
+(** Tests des comparaisons *)
+
+(** gestion de l'infini *)
+let test_hopw_compare_infinity () =
+  let w_norm = force_traverse HW.traverse (HW.start_at 0) (make_conn Metro 60 [("id", 0)] "M1") in
+  let w_inf = HW.infinity in
+  Alcotest.(check bool) "Infini = Infini" true (HW.(w_inf = w_inf));
+  Alcotest.(check bool) "Fini < Infini" true (HW.(w_norm < w_inf));
+  Alcotest.(check bool) "Infini > Fini" true (HW.(w_inf > w_norm))
+
+(** Vérifie que seule le nombre d'arrêts départage, qu'importe le temps *)
+let test_hopw_compare_hops_dominates () =
+  let w_peu = force_traverse HW.traverse (HW.start_at 0) (make_conn Metro 3600 [("id", 0)] "M1") in
+  let w_bcp_1 = force_traverse HW.traverse (HW.start_at 0) (make_conn Metro 60 [("id", 0)] "M2") in
+  let w_bcp_2 = force_traverse HW.traverse w_bcp_1 (make_conn Metro 60 [("id", 60)] "M2") in
+  let w_bcp_3 = force_traverse HW.traverse w_bcp_2 (make_conn Metro 60 [("id", 120)] "M2") in
+  
+  Alcotest.(check bool) "Celui avec le moins d'arrêts gagne, peu importe le temps" true (HW.(w_peu < w_bcp_3));
+  Alcotest.(check bool) "Les opérateurs inversés fonctionnent" true (HW.(w_bcp_3 > w_peu))
+
+(** Cas d'égalité, on ignore toujours le temps *)
+let test_hopw_compare_tie () =
+  let w1 = force_traverse HW.traverse (HW.start_at 0) (make_conn Walk 60 [] "W") in
+  let w2 = force_traverse HW.traverse (HW.start_at 0) (make_conn Walk 500 [] "W") in
+  
+  Alcotest.(check bool) "À nombre d'arrêts égal, c'est une égalité parfaite (Temps ignoré)" true (HW.(w1 = w2))
+
+(** Test du formatage des données *)
+let test_hopw_formatters () =
+  let w_0 = HW.start_at 0 in
+  let w_1 = force_traverse HW.traverse w_0 (make_conn Walk 120 [] "W") in
+  
+  Alcotest.(check string) "Affichage 0 arrêts" "0 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string w_0);
+  Alcotest.(check string) "Affichage 1 arrêt" "1 arrêts (Aujourd'hui à 00h02m00s)" (HW.to_string w_1);
+  Alcotest.(check string) "Affichage infini" "∞" (HW.to_string HW.infinity)
+
+
+(* ========================================================== *)
+(* CorrespondenceWeight                                       *)
 (* ========================================================== *)
 
 module CW = Metrocaml.Weight.CorrespondenceWeight
 
-let test_cw_transfer_penalty () =
-  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000";id="" } in
-  let line_b = { Metrocaml.Network.name = "Ligne B"; color = "#0000FF"; id="" } in
-  let conn_a : Metrocaml.Network.connection =
-    {
-      line = line_a;
-      duration = 60;
-      distance = 100.;
-      mode = Metro;
-      schedules = [ ("x", 0); ("y", 60); ("z", 120) ];
-      terminus = dummy_station;
-    }
-  in
-  let conn_b : Metrocaml.Network.connection =
-    {
-      line = line_b;
-      duration = 60;
-      distance = 100.;
-      mode = Metro;
-      schedules =
-        [ ("x", 0); ("y", 60); ("z", 120); ("w", 180); ("v", 240); ("u", 300) ];
-      terminus = dummy_station;
-    }
-  in
+let cw_t =
+  Alcotest.testable (fun ppf w -> Fmt.string ppf (CW.to_string w)) CW.( = )
 
-  let w_a = force_traverse CW.traverse (CW.start_at 0) conn_a in
-  let total = force_traverse CW.traverse w_a conn_b in
-  Alcotest.(check string)
-    "Changement de ligne : +1 correspondance"
-    "1 correspondances (Aujourd'hui à 00h05m00s)" (CW.to_string total)
+(** Tests des états de bases *)
+let test_cw_init_states () =
+  let start_w = CW.start_at 0 in
+  Alcotest.(check bool) "start_at n'est pas infini" false (CW.is_inf start_w);
+  Alcotest.(check string) "Commence à 0" "0 correspondances (Aujourd'hui à 00h00m00s)" (CW.to_string start_w);
+  Alcotest.(check bool) "infinity est reconnu" true (CW.is_inf CW.infinity)
 
-let test_cw_no_transfer () =
-  let line_a = { Metrocaml.Network.name = "Ligne A"; color = "#FF0000"; id="" } in
-  let conn1 =
-    {
-      Metrocaml.Network.line = line_a;
-      duration = 60;
-      distance = 100.;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  let conn2 =
-    {
-      Metrocaml.Network.line = line_a;
-      duration = 60;
-      distance = 100.;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  let w1 = force_traverse CW.traverse (CW.start_at 0) conn1 in
-  let w2 = force_traverse CW.traverse w1 conn2 in
-  Alcotest.(check string)
-    "Meme ligne : 0 correspondance"
-    "0 correspondances (Aujourd'hui à 00h02m00s)" (CW.to_string w2)
+(** Tests pour traverse *)
 
-let test_cw_infinity () =
-  let conn =
-    {
-      Metrocaml.Network.line = { name = ""; color = "";id="" };
-      duration = 0;
-      distance = 100.0;
-      mode = Walk;
-      schedules = [];
-      terminus = dummy_station;
-    }
-  in
-  Alcotest.(check bool)
-    "L'infini empêche la traversée (None)" true
-    (CW.traverse CW.infinity dummy_station conn = None)
+(** Test d'un mode de transport exclu *)
+let test_cw_traverse_excluded_mode () =
+  Metrocaml.Weight.set_excluded_modes ["Bus"];
+  let conn = make_conn Bus 100 [] "B1" in
+  let res = CW.traverse (CW.start_at 0) dummy_station conn in
+  Metrocaml.Weight.set_excluded_modes []; 
+  Alcotest.(check bool) "Mode exclu renvoie None" true (res = None)
+
+(** Test quand on reste sur la même ligne *)
+let test_cw_traverse_same_line () =
+  let conn_m1_a = make_conn Metro 60 [("id", 100)] "M1" in
+  let conn_m1_b = make_conn Metro 60 [("id", 200)] "M1" in
+  
+  let w_1 = force_traverse CW.traverse (CW.start_at 0) conn_m1_a in
+  let w_2 = force_traverse CW.traverse w_1 conn_m1_b in
+  
+  Alcotest.(check string) "Rester sur M1 = 0 correspondance" 
+    "0 correspondances (Aujourd'hui à 00h04m20s)" (CW.to_string w_2)
+
+let test_cw_traverse_real_transfer () =
+  (* Scénario réaliste : On prend M1, on marche, on prend M2 *)
+  let conn_m1 = make_conn Metro 60 [("id", 100)] "M1" in
+  let conn_walk = make_conn Walk 120 [] "Couloir" in
+  let conn_m2 = make_conn Metro 60 [("id", 1000)] "M2" in
+  
+  let w_m1 = force_traverse CW.traverse (CW.start_at 0) conn_m1 in
+  let w_walk = force_traverse CW.traverse w_m1 conn_walk in
+  let w_total = force_traverse CW.traverse w_walk conn_m2 in
+  
+  Alcotest.(check string) "Changement de M1 à M2 compte exactement 1 correspondance" 
+    "1 correspondances (Aujourd'hui à 00h17m40s)" (CW.to_string w_total)
+
+(* ---------------------------------------------------------- *)
+(* 3. LA COMPARAISON (TRI)                                    *)
+(* ---------------------------------------------------------- *)
+
+let test_cw_compare_infinity () =
+  let w_norm = force_traverse CW.traverse (CW.start_at 0) (make_conn Metro 60 [("id", 100)] "M1") in
+  let w_inf = CW.infinity in
+  Alcotest.(check bool) "Infini = Infini" true (CW.(w_inf = w_inf));
+  Alcotest.(check bool) "Fini < Infini" true (CW.(w_norm < w_inf));
+  Alcotest.(check bool) "Infini > Fini" true (CW.(w_inf > w_norm))
+
+let test_cw_compare_transfers_dominates () =
+  (* Trajet Direct : 0 correspondance, prend très longtemps (3600s) *)
+  let direct = force_traverse CW.traverse (CW.start_at 0) (make_conn Metro 3600 [("id", 100)] "M1") in
+  
+  (* Trajet avec Transfert : 1 correspondance, mais très rapide *)
+  let w1 = force_traverse CW.traverse (CW.start_at 0) (make_conn Metro 60 [("id", 100)] "M1") in
+  let transfert = force_traverse CW.traverse w1 (make_conn Metro 60 [("id", 1000)] "M2") in
+  
+  Alcotest.(check bool) "0 correspondance gagne, même si le trajet prend plus de temps" 
+    true (CW.(direct < transfert))
+
+let test_cw_compare_tie () =
+  (* Deux trajets à 0 correspondance, avec des temps différents *)
+  let w_rapide = force_traverse CW.traverse (CW.start_at 0) (make_conn Metro 60 [("id", 100)] "M1") in
+  let w_lent = force_traverse CW.traverse (CW.start_at 0) (make_conn Metro 3600 [("id", 100)] "M1") in
+  
+  Alcotest.(check bool) "À correspondances égales, = renvoie true (temps ignoré par ce poids)" 
+    true (CW.(w_rapide = w_lent))
+
 
 (* ========================================================== *)
 (* TESTS: BFS (Parcours en largeur)                           *)
@@ -486,32 +619,56 @@ let () =
   let open Alcotest in
   run "MetroCaml Suite"
     [
-      ( "HopWeight",
+      ( "eval_edge",
         [
-          test_case "Poids unitaire" `Quick test_hop_of_edge;
-          test_case "Arithmétique" `Quick test_hop_arithmetic;
-          test_case "Gestion Infini" `Quick test_hop_infinity;
+          test_case "Marche sans horaires" `Quick EvalEdge_Tests.test_eval_edge_walk;
+          test_case "Rester dans le train (Marge)" `Quick EvalEdge_Tests.test_eval_edge_same_line;
+          test_case "Correspondance (Pénalité)" `Quick EvalEdge_Tests.test_eval_edge_transfer;
+          test_case "Horaires épuisés" `Quick EvalEdge_Tests.test_eval_edge_missed_train;
+          test_case "Perturbations Temps Réel" `Quick EvalEdge_Tests.test_eval_edge_perturbed_entry;
+          test_case "Fermeture Temps Réel" `Quick EvalEdge_Tests.test_eval_edge_blocked;
         ] );
       ( "TimeWeight",
         [
-          test_case "Extraction de la durée" `Quick test_time_of_edge;
-          test_case "Arithmétique" `Quick test_time_arithmetic;
-          test_case "Comparaison booléenne" `Quick test_time_compare;
-          test_case "Formatage de l'affichage" `Quick test_time_to_string;
-          test_case "Préférence attente vs marche" `Quick
-            test_time_prefers_less_walk_when_arrival_equal;
+          test_case "États de base et infini" `Quick test_timew_init_states;
+          test_case "Traversée - Mode exclu" `Quick test_timew_traverse_excluded_mode;
+          test_case "Traversée - Transport" `Quick test_timew_traverse_transport;
+          test_case "Traversée - Cumul marche" `Quick test_timew_traverse_walk;
+          test_case "Comparaison - Logique Infini" `Quick test_timew_compare_infinity;
+          test_case "Comparaison - Temps dominant" `Quick test_timew_compare_time_dominates;
+          test_case "Comparaison - Tie-Breaker Marche" `Quick test_timew_tie_breaker;
+          test_case "Comparaison - Égalité parfaite" `Quick test_timew_perfect_tie;
+          test_case "Formatage des données" `Quick test_timew_formatters;
         ] );
       ( "DistanceWeight",
         [
-          test_case "Extraction de la distance" `Quick test_distance_of_edge;
-          test_case "Arithmétique" `Quick test_distance_arithmetic;
-          test_case "Gestion Infini" `Quick test_distance_infinity;
+          test_case "États de base et infini" `Quick test_dw_init_states;
+          test_case "Traversée - Mode exclu" `Quick test_dw_traverse_excluded_mode;
+          test_case "Traversée - Accumulation" `Quick test_dw_traverse_accumulation;
+          test_case "Comparaison - Logique Infini" `Quick test_dw_compare_infinity;
+          test_case "Comparaison - Distance dominante" `Quick test_dw_compare_distance_dominates;
+          test_case "Comparaison - Égalité parfaite" `Quick test_dw_compare_tie;
+          test_case "Formatage intelligent (m/km)" `Quick test_dw_formatters;
+        ] );
+      ( "HopWeight",
+        [
+          test_case "États de base et infini" `Quick test_hopw_init_states;
+          test_case "Traversée - Mode exclu" `Quick test_hopw_traverse_excluded_mode;
+          test_case "Traversée - Incrémentation (+1)" `Quick test_hopw_traverse_accumulation;
+          test_case "Comparaison - Logique Infini" `Quick test_hopw_compare_infinity;
+          test_case "Comparaison - Sauts dominants" `Quick test_hopw_compare_hops_dominates;
+          test_case "Comparaison - Égalité (Temps ignoré)" `Quick test_hopw_compare_tie;
+          test_case "Formatage de l'affichage" `Quick test_hopw_formatters;
         ] );
       ( "CorrespondenceWeight",
         [
-          test_case "Pénalité de changement" `Quick test_cw_transfer_penalty;
-          test_case "Maintien sur la ligne" `Quick test_cw_no_transfer;
-          test_case "Gestion Infini" `Quick test_cw_infinity;
+          test_case "États de base et infini" `Quick test_cw_init_states;
+          test_case "Traversée - Mode exclu" `Quick test_cw_traverse_excluded_mode;
+          test_case "Traversée - Rester sur la ligne (0)" `Quick test_cw_traverse_same_line;
+          test_case "Traversée - Vraie correspondance (+1)" `Quick test_cw_traverse_real_transfer;
+          test_case "Comparaison - Logique Infini" `Quick test_cw_compare_infinity;
+          test_case "Comparaison - Confort dominant (Moins de correspondances)" `Quick test_cw_compare_transfers_dominates;
+          test_case "Comparaison - Égalité (Temps ignoré)" `Quick test_cw_compare_tie;
         ] );
       ( "BFS",
         [ test_case "Chemin simple" `Quick BFS_Tests.test_bfs_simple_path ] );

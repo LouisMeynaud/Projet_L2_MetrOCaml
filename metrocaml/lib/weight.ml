@@ -71,7 +71,7 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
     in
 
     begin
-      (** vérification que la ligne n'est pas bloquée iou perturbée *)
+      (** vérification que la ligne n'est pas bloquée ou perturbée *)
       let is_blocked = ref false in
       let is_perturbed = ref false in
 
@@ -100,7 +100,7 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
                 match alerte.severite with
                 | Gtfs_rt.BLOQUANTE -> is_blocked := true
                 | Gtfs_rt.PERTURBEE -> is_perturbed := true
-            end
+              end
         end
       ) alertes_ligne
     end;
@@ -109,7 +109,8 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
     if !is_blocked then None
     else 
       let perturbation_time =
-        if !is_perturbed then current_time + perturbations_penalty
+        if !is_perturbed && (is_transfer || current_line_name = None) 
+        then current_time + perturbations_penalty
         else current_time
       in
       let ready_time =
@@ -118,14 +119,12 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
       in
 
       (** recherche du prochain départ dans la liste des horaires *)
-      let rec find_next_dep schedules =
-        match schedules with
-        | [] -> max_int
-        | (_, t) :: rest -> 
-            if t >= ready_time then t 
-            else find_next_dep rest
+      let next_dep = 
+        List.fold_left (fun meilleur_temps (_, t) ->
+          if t >= ready_time && t < meilleur_temps then t 
+          else meilleur_temps
+        ) max_int edge.schedules
       in
-      let next_dep = find_next_dep edge.schedules in
 
       if next_dep = max_int then None
       else begin
