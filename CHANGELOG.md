@@ -1,35 +1,36 @@
-Changelog v1.2
-### Nouvelle interface graphique :
-- nouveaux visuels
-- utilisation de vrais boutons
-- utilisation des poids personnalisés
-- suppression des caches de dessins (optimisation)
-- mise en cache des textes (optimisation)
-- ajout de l'onglet horaires (permet de voir les horaires de passage pour un arrêt/ligne)
-- nombreuses autres optimisations
+Changelog v0.1.3
 
-### Ajout UI console :
-- utilisation des poids personnalisés
-- affichage des chemins trouvés (détaillé ou simple)
-- ajout du temps et de la distance dans l'affichage pour un chemin choisi
-- possibilité de choisir entre plusieurs réseaux au lancement (Toulouse et IDF par exemple)
-- ajout de tolérance lors des questions à choix multiples / demandes de stations (la casse et les accents ne comptent plus)
+### Interface graphique (GUI) :
+- optimisation de l'affichage graphique
+- multiples corrections esthétiques
+- ajout de l'affichage des résultats trouvés directement dans l'interface
+- ajout des alertes en temps réel pour IDFM et de leur affichage
 
-### Parseur :
-- ajout des distances entre les stations
-- résolution de bugs sur les horaires
-- optimisation du chargement des fichiers à parser
-- ajout des connexions de transfert entre les stations proches
+### UI console (CLI) :
+- ajout de la prise en charge des horaires
+- ajout de la prise en charge des modes de transports à exclure
+- ajout de la prise en charge du critère PMR
 
-### Poids :
-- refonte des modules weight pour qu'ils prennent en compte les horaires des trains
-- ajout dans l'affichage des temps d'attente entre les correspondances
+### Parseur & Données :
+- ajout de nouveaux réseaux de transport
+- ajout de la prise en charge de l'accessibilité PMR (Personnes à Mobilité Réduite) dans le parseur
+
+### Algorithmes & Poids :
+- ajout de la possibilité de filtrer et de ne pas prendre certains modes de transport
+- ajout de la possibilité de limiter les correspondances uniquement aux stations accessibles PMR
+- correction du routage : l'algorithme préfère désormais attendre à une station plutôt que de marcher si c'est possible
+- implémentation de la prise en compte dans la recherche d’itinéraire des perturbations et blocages
+- amélioration de l’efficacité de la recherche
 
 ### Presets :
-- ajout des presets (combinaisons de poids prédéfinis) (Rapide, Confort, Équilibré, Explorateur, Court chemin)
+- équilibrage des profils de recherche "Rapide" et "Confort"
+- suppression des profils “Equilibre”, “Court Chemin” et “Explorateur”
 
 ### Général :
-- séparation du code de main et de la console
-- ajout d'une licence
-- vérification de si des datas sont déjà téléchargées, dans ce cas chargement des données locales
-- possibilité d'entrer des coordonnées GPS plutôt qu'une station (estimation du temps de marche)
+- ajout du choix du mode de chargement des données (en ligne ou local)
+- ajout de la possibilité de définir une adresse de départ plutôt qu'une station
+- correction : possibilité de lancer plusieurs recherches à la suite sans devoir relancer l'application
+- refonte et nettoyage du code du `main`
+- ajout de benchmarks pour évaluer les performances des algorithmes et des poids
+- ajout d'un logger coloré pour le suivi et le débogage
+- ajout de TiktoCaml (projet annexe)
