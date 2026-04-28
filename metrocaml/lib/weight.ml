@@ -9,6 +9,9 @@ open Network
 (** Temps de marche simulé (en secondes) ajouté lors d'un changement de ligne. *)
 let transfer_penalty = 180
 
+(** Temps de pénalité en cas de perturbations *)
+let perturbations_penalty = 600
+
 (** Liste globale des modes de transport désactivés par l'utilisateur. *)
 let excluded_modes = ref []
 
@@ -67,25 +70,10 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
       | _ -> 0
     in
 
-    let ready_time =
-      if is_transfer then current_time + transfer_penalty
-      else current_time - margin
-    in
-
-    (** recherche du prochain départ dans la liste des horaires *)
-    let rec find_next_dep schedules =
-      match schedules with
-      | [] -> max_int
-      | (_, t) :: rest -> 
-          if t >= ready_time then t 
-          else find_next_dep rest
-    in
-    let next_dep = find_next_dep edge.schedules in
-
-    if next_dep = max_int then None
-    else begin
-      (** vérification que la ligne n'est pas bloquée *)
+    begin
+      (** vérification que la ligne n'est pas bloquée ou perturbée *)
       let is_blocked = ref false in
+      let is_perturbed = ref false in
 
       let current_line_id = edge.line.id in 
       let target_station_id = target_station.id in 
@@ -93,8 +81,8 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
       let cleaned_station_id = Gtfs_rt.nettoyer_id target_station_id in
 
       begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra cleaned_line_id with
-      | None -> () 
-      | Some alertes_ligne ->
+        | None -> () 
+        | Some alertes_ligne ->
           List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
             let concerne_station =
               Hashtbl.length alerte.stations_hash = 0 || 
@@ -111,16 +99,36 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
               if est_en_cours then begin
                 match alerte.severite with
                 | Gtfs_rt.BLOQUANTE -> is_blocked := true
-                | Gtfs_rt.PERTURBEE -> ()
+                | Gtfs_rt.PERTURBEE -> is_perturbed := true
               end
-            end
-          ) alertes_ligne
-      end;
+        end
+      ) alertes_ligne
+    end;
 
-      (* Si la ligne ou la station est bloquée, l'arête est coupée *)
-      if !is_blocked then None
+    (** Si la ligne est bloquée, on coupe la recherche *)
+    if !is_blocked then None
+    else 
+      let perturbation_time =
+        if !is_perturbed && (is_transfer || current_line_name = None) 
+        then current_time + perturbations_penalty
+        else current_time
+      in
+      let ready_time =
+        if is_transfer then perturbation_time + transfer_penalty
+        else perturbation_time - margin
+      in
+
+      (** recherche du prochain départ dans la liste des horaires *)
+      let next_dep = 
+        List.fold_left (fun meilleur_temps (_, t) ->
+          if t >= ready_time && t < meilleur_temps then t 
+          else meilleur_temps
+        ) max_int edge.schedules
+      in
+
+      if next_dep = max_int then None
       else begin
-        let actual_dep = max current_time next_dep in
+        let actual_dep = max perturbation_time next_dep in
         let wait = max 0 (actual_dep - current_time) in
         Some (actual_dep + edge.duration, wait, Some edge.line.name)
       end
