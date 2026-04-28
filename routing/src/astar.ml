@@ -126,7 +126,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                           let old_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist v_state) in
 
                           if W.(new_g < old_g) && not W.(new_g > !best_weight) then begin
-                            (* Application de l'heuristique sur le nouveau nœud *)
+                            (* Application de l'heuristique sur le nouveau noeud *)
                             let new_f = g_scalar new_g +. heuristic v destination in
                             Hashtbl.replace dist v_state new_g;
                             Hashtbl.replace prev v_state (u_state, u, v, edge, new_g, step_data);

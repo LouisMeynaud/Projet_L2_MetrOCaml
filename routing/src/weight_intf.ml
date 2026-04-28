@@ -6,10 +6,10 @@ module type WEIGHT = sig
   type node
 
   type step_data
-  (** Données opaques générées lors de la traversée des nœuds (par exemple : les temps d'attente) *)
+  (** Données opaques générées lors de la traversée des noeuds (par exemple : les temps d'attente) *)
 
   type state_key
-  (** Clé opaque utilisée pour distinguer les états au niveau d'un même nœud (nom des lignes) *)
+  (** Clé opaque utilisée pour distinguer les états au niveau d'un même noeud (nom des lignes) *)
 
   val start_at : int -> t
   (** Initialise le poids avec une heure de départ (en secondes à partir de minuit) *)

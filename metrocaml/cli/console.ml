@@ -26,11 +26,11 @@ let rec run_console graphe search_callback =
   Printf.printf "\nEntrez la station destination (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
   let dest_query = String.trim (read_line ()) in
 
-  let algo = raw_select "Choisissez l'algorithme : " [ "BFS"; "Dijkstra"; "A*"] in
+  let algo = raw_select "\nChoisissez l'algorithme : " [ "BFS"; "Dijkstra"; "A*"] in
 
   let poids =
     if algo = "Dijkstra" || algo = "A*" then
-      raw_select "Choisissez le poids : " ["Default"; "Combinaison"]
+      raw_select "\nChoisissez le poids : " ["Default"; "Combinaison"]
     else ""
   in
 
@@ -59,7 +59,7 @@ let rec run_console graphe search_callback =
     else []
   in
 
-  (** Construit la liste des modes de transport disponibles dans le graphe en parcourant tous les nœuds et leurs connexions,
+  (** Construit la liste des modes de transport disponibles dans le graphe en parcourant tous les noeuds et leurs connexions,
   puis extrait les modes uniques sous forme de chaînes de caractères. **)
   let modes =
     let all_nodes = Network.TransportGraph.nodes graphe in    
@@ -142,7 +142,7 @@ let rec run_console graphe search_callback =
     ask_time ()
   in
 
-  let pmr_transfer = raw_select "Activer PMR : " [ "Oui"; "Non" ] in
+  let pmr_transfer = raw_select "\nActiver PMR : " [ "Oui"; "Non" ] in
   let pmr_transfer = match pmr_transfer with "Oui" -> true | _ -> false in
 
   search_callback source_query dest_query algo poids coeffs excluded_modes start_time pmr_transfer;

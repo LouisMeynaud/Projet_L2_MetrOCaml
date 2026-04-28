@@ -75,7 +75,7 @@ Vous pouvez entrer une station, des coordonnées géographiques, ou bien une adr
 4.  **Résultats :** Cliquez sur "Chercher". Le programme affichera les itinéraires disponibles. Saisissez le nom de l'itinéraire souhaité pour en afficher les détails.
 
 ## Benchmarks
-Nous intégrons un outil de benchmark permettant de comparer les performances des algorithmes et la pertinence des critères de recherche. Il permet d'évaluer en un coup d'œil les **temps de calcul** et la **qualité des itinéraires** proposés.
+Nous intégrons un outil de benchmark permettant de comparer les performances des algorithmes et la pertinence des critères de recherche. Il permet d'évaluer en un coup d'oeil les **temps de calcul** et la **qualité des itinéraires** proposés.
 
 ## Pourquoi l'itinéraire trouvé est-il différent du vôtre ?
 Plusieurs facteurs peuvent expliquer une différence de résultat :
