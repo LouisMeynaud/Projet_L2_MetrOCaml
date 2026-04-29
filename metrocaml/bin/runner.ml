@@ -8,21 +8,10 @@ module DIJKSTRA_TimeWeight =           Dijkstra.Make (Network.TransportGraph) (W
 module DIJKSTRA_HopWeight =            Dijkstra.Make (Network.TransportGraph) (Weight.HopWeight)
 module BFS_HopWeight =                 Bfs.Make (Network.TransportGraph) (Weight.HopWeight)
 
-module type ALGO = sig
-  module P :
-    Routing.PATH
-      with type Node.t = Network.station
-       and type Edge.t = Network.connection
-
-  val find_path :
-    start_time:int ->
-    graph:Network.TransportGraph.t ->
-    source:Network.station ->
-    destination:Network.station ->
-    transfer_allowed:(Network.station -> bool) ->
-    P.t option
-
-end
+module type ALGO = Routing.Algo.S
+  with type graph = Network.TransportGraph.t
+  with type P.Node.t = Network.station
+  with type P.Edge.t = Network.connection
 
 (* Fonction pour charger les données GTFS *)
 let load_gtfs_data town url date_cible loading_mode =
@@ -140,6 +129,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
             ( "BFS",
               (module struct
                 module P = BFS_HopWeight.P
+                type graph = Network.TransportGraph.t
 
                 let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
                   BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
@@ -190,6 +180,7 @@ let build_bench_routeurs () =
         (Printf.sprintf "Preset : %s" preset.name)
         (module struct
           module P = D.P
+          type graph = Network.TransportGraph.t
           let find_path = D.find_path
         end)
     ) Presets.all
@@ -198,26 +189,31 @@ let build_bench_routeurs () =
     make_routeur "Poids : Temps"
       (module struct
         module P = DIJKSTRA_TimeWeight.P
+        type graph = Network.TransportGraph.t
         let find_path = DIJKSTRA_TimeWeight.find_path
       end);
     make_routeur "Poids :  Distance"
       (module struct
         module P = DIJKSTRA_DistanceWeight.P
+        type graph = Network.TransportGraph.t
         let find_path = DIJKSTRA_DistanceWeight.find_path
       end);
     make_routeur "Poids : Arrets"
       (module struct
         module P = DIJKSTRA_HopWeight.P
+        type graph = Network.TransportGraph.t
         let find_path = DIJKSTRA_HopWeight.find_path
       end);
     make_routeur "Poids : Correspondances"
       (module struct
         module P = DIJKSTRA_CorrespondenceWeight.P
+        type graph = Network.TransportGraph.t
         let find_path = DIJKSTRA_CorrespondenceWeight.find_path
       end);
     make_routeur "Arrets (BFS) : "
       (module struct
         module P = BFS_HopWeight.P
+        type graph = Network.TransportGraph.t
         let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
           BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
       end);

@@ -7,6 +7,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
   module P = Path.Make (G) (W)
 
   type path = P.t
+  type graph = G.t
 
   let find_path ~start_time ~graph ~source ~destination =
     if not (G.has_node graph source) then None

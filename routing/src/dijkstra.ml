@@ -18,6 +18,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
   module P = Path.Make (G) (W)
 
   type path = P.t
+  type graph = G.t
 
   (** Le Tas d'Appariement *)
   module TA = struct

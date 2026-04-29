@@ -2,6 +2,7 @@
  (name routing)
  (public_name routing)
  (libraries unix)
+ (modules_without_implementation algo)
  (modules
   routing
   graph_intf
@@ -12,4 +13,5 @@
   path
   bench
   bfs
-  dijkstra))
+  dijkstra
+  algo))

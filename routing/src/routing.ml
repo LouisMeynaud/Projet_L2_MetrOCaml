@@ -15,3 +15,4 @@ module Combinator = Combinator
 module Bench = Bench
 module Bfs = Bfs
 module Dijkstra = Dijkstra
+module Algo = Algo
