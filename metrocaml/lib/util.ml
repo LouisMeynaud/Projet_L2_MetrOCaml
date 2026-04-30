@@ -57,3 +57,5 @@ let haversine_distance lat1 lon1 lat2 lon2 =
 
 (** Vérifie si une station est accessible aux personnes à mobilité réduite *)
 let is_pmr (s : station) = s.pmr
+
+let edge_is_walk (c : connection) = c.mode = Walk || c.mode = Transfert

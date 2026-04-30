@@ -782,6 +782,88 @@ module Dijkstra_Tests = struct
 end
 
 (* ========================================================== *)
+(* TESTS: Astar                                               *)
+(* ========================================================== *)
+
+module Astar_Tests = struct
+  module TestNode = Dijkstra_Tests.TestNode
+  module TestEdge = Dijkstra_Tests.TestEdge
+  module TestGraph = Routing.Graph.Make (TestNode) (TestEdge)
+  module MockWeight = Dijkstra_Tests.MockWeight
+
+  module Astar = Routing.Astar.Make (TestGraph) (MockWeight)
+
+  let st_A = { dummy_station with id = "A"; name = "A" }
+  let st_B = { dummy_station with id = "B"; name = "B" }
+  let st_C = { dummy_station with id = "C"; name = "C" }
+
+  let mock_conn dur line_name =
+    { (Dijkstra_Tests.mock_conn dur line_name) with duration = dur }
+
+  (* Heuristique nulle : A* se comporte comme Dijkstra.
+     Garantit l'admissibilité et isole le comportement de l'algorithme. *)
+  let h_zero _ _ = 0.0
+
+  (** Garde-fous : destination absente et source = destination *)
+  let test_astar_missing_node () =
+    let g = TestGraph.create () in
+    TestGraph.add_node g st_A;
+    let res = Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero in
+    Alcotest.(check bool) "Destination absente renvoie None" true (res = None)
+
+  let test_astar_same_node () =
+    let g = TestGraph.create () in
+    TestGraph.add_node g st_A;
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    | None -> Alcotest.fail "Source = destination doit renvoyer un chemin"
+    | Some path ->
+        Alcotest.(check int) "Chemin sur place = coût 0" 0
+          (MockWeight.get_time path.total_weight)
+
+  (** Optimalité : A* choisit le détour moins coûteux *)
+  let test_astar_optimal_path () =
+    let g = TestGraph.create () in
+    TestGraph.add_edge g st_A st_B (mock_conn 10  "L1");
+    TestGraph.add_edge g st_B st_C (mock_conn 10  "L1");
+    TestGraph.add_edge g st_A st_C (mock_conn 100 "L2");
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    | None -> Alcotest.fail "Chemin introuvable"
+    | Some path ->
+        Alcotest.(check int) "A* préfère le détour (20 vs 100)" 20
+          (MockWeight.get_time path.total_weight)
+
+  (** State-Space Routing : même test que Dijkstra, A* doit anticiper les correspondances interdites et choisir la bonne ligne dès le départ *)
+  let test_astar_state_space_routing () =
+    let g = TestGraph.create () in
+    TestGraph.add_edge g st_A st_B (mock_conn 50 "L1");
+    TestGraph.add_edge g st_B st_C (mock_conn 10 "L1");
+    TestGraph.add_edge g st_A st_B (mock_conn 5  "L2");
+    TestGraph.add_edge g st_B st_C (mock_conn 90 "L2");
+
+    let path_ok = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero) in
+    Alcotest.(check int)
+      "Transferts autorisés : L2→L1 en B (coût 15)" 15
+      (MockWeight.get_time path_ok.total_weight);
+
+    let path_no = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun s -> s.Metrocaml.Network.id <> "B") ~heuristic:h_zero) in
+    Alcotest.(check int)
+      "Transferts interdits en B : anticipe et prend L1 dès A (coût 60)" 60
+      (MockWeight.get_time path_no.total_weight)
+
+  (** Résilience : recalcul après blocage *)
+  let test_astar_rerouting_after_blockage () =
+    let g = TestGraph.create () in
+    TestGraph.add_edge g st_A st_B (mock_conn 10   "L2");
+    TestGraph.add_edge g st_B st_C (mock_conn 90   "L2");
+    TestGraph.add_edge g st_A st_C (mock_conn (-1) "L1");
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    | None -> Alcotest.fail "A* devrait trouver le chemin de secours via L2"
+    | Some path ->
+        Alcotest.(check int) "A* ignore le blocage et prend L2 (coût 100)" 100
+          (MockWeight.get_time path.total_weight)
+end
+
+(* ========================================================== *)
 (* MAIN RUNNER                                                *)
 (* ========================================================== *)
 
@@ -862,4 +944,13 @@ let () =
           test_case "Résilience : Changement d'itinéraire suite à perturbation" `Quick Dijkstra_Tests.test_dij_perturbation_impact;
           test_case "Résilience : Recalcul après blocage" `Quick Dijkstra_Tests.test_dij_rerouting_after_blockage;
         ] );
+      ( "Astar",
+        [
+          test_case "Garde-fou : Destination absente" `Quick Astar_Tests.test_astar_missing_node;
+          test_case "Garde-fou : Source = Destination" `Quick Astar_Tests.test_astar_same_node;
+          test_case "Optimalité : Détour moins coûteux" `Quick Astar_Tests.test_astar_optimal_path;
+          test_case "State-Space : Anticipation correspondances" `Quick Astar_Tests.test_astar_state_space_routing;
+          test_case "Résilience : Recalcul après blocage" `Quick Astar_Tests.test_astar_rerouting_after_blockage;
+        ] );
+
     ]
