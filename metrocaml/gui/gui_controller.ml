@@ -337,7 +337,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 			(text_select "Correspondance PMR uniquement" etat.pmr_transfer);
 
 		(* Visibilite conditionnelle des sections selon algo + poids *)
-		let show_poids = (etat.algo_actif = "Dijkstra") in
+		let show_poids = (etat.algo_actif = "Dijkstra" || etat.algo_actif = "A*") in
 		let show_combinaison = show_poids && etat.poids_actif = "Combinaison" in
 		Layout.set_show view.weights_block show_poids;
 		Layout.set_show view.sliders_box show_combinaison;

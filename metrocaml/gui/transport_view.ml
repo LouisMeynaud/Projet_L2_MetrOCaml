@@ -75,7 +75,7 @@ let extraire_horaires graph =
       stations in
         List.flatten horaires_par_station
 
-let algos_disponibles = [ "Dijkstra"; "BFS" ]
+let algos_disponibles = [ "Dijkstra"; "A*"; "BFS" ]
 
 let poids_disponibles =
   [

@@ -36,8 +36,6 @@ let edge_label (c : connection) =
   | Walk | Transfert -> "Marche"
   | _ -> Printf.sprintf "%s %s" (string_of_mode c.mode) c.line.name
 
-let edge_is_walk (c : connection) = c.mode = Walk || c.mode = Transfert
-
 let normalize_seconds seconds =
   let day = 24 * 3600 in
   ((seconds mod day) + day) mod day
@@ -100,7 +98,7 @@ module Make (P : Routing.PATH with type Node.t = station and type Edge.t = conne
           let duration = step.edge.duration in
           let step_start = max prev_time (step_end - duration) in
           let wait_here = max 0 (step_start - prev_time) in
-          let is_walk = edge_is_walk step.edge in
+          let is_walk = Util.edge_is_walk step.edge in
           let onboard' = if is_walk then onboard else onboard + duration in
           let walking' = if is_walk then walking + duration else walking in
           let waiting' = waiting + wait_here in
