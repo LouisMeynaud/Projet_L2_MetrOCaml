@@ -12,7 +12,7 @@ module ASTAR_DistanceWeight =          Astar.Make (Network.TransportGraph) (Weig
 module ASTAR_TimeWeight =              Astar.Make (Network.TransportGraph) (Weight.TimeWeight)
 module ASTAR_HopWeight =               Astar.Make (Network.TransportGraph) (Weight.HopWeight)
 
-module type ALGO = Routing.Algo.S
+module type ALGO = Routing.ALGO
   with type graph = Network.TransportGraph.t
   with type P.Node.t = Network.station
   with type P.Edge.t = Network.connection

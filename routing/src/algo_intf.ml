@@ -1,4 +1,4 @@
-module type S = sig
+module type ALGO = sig
   module P : Path_intf.PATH
   type graph
 
