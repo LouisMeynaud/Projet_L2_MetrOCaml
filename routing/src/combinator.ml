@@ -41,6 +41,12 @@ let combine (type e n) (criteria : (e, n) criterion list) :
           slots
       in
 
+      (* Fonction utilitaire pour clarifier les types auprès du compilateur et éviter les casts ambigus *)
+      let with_w : type w r. (e, n, w) criterion_t -> w
+          -> ((module WEIGHT with type edge = e and type node = n and type t = w) -> w -> r) -> r =
+        fun c v f -> f c.weight v
+      in
+
       (module struct
         type t = (e, n) entry array
         type edge = e
@@ -64,15 +70,7 @@ let combine (type e n) (criteria : (e, n) criterion list) :
 
         let is_inf (t : t) : bool =
           Array.exists
-            (fun entry ->
-              match entry with
-              | Entry (c, v) ->
-                  let module W =
-                    (val c.weight
-                        : WEIGHT with type edge = edge and type node = node and type t = 'w)
-                  in
-                  let v : W.t = Obj.magic v in
-                  W.is_inf v)
+            (fun (Entry (c, v)) -> with_w c v (fun (module W) v -> W.is_inf v))
             t
 
         (** Traversée combinée : interroge chaque sous-poids. Si un seul bloque
@@ -84,19 +82,18 @@ let combine (type e n) (criteria : (e, n) criterion list) :
 
           for i = 0 to n - 1 do
             if !possible then
-              match (slots.(i), a.(i)) with
-              | Criterion c, Entry (_, va) -> (
-                  let module W = (val c.weight) in
-                  let va_typed : W.t = Obj.magic va in
-                  if W.is_inf va_typed then
-                    new_states.(i) <- Entry (c, W.infinity)
-                  else
-                    match W.traverse va_typed v e with
-                    | None -> possible := false
-                    | Some (new_va, s_data) ->
-                        (* On ne garde la donnée d'affichage que du premier critère *)
-                        if i = 0 then step_str := W.step_data_to_string s_data;
-                        new_states.(i) <- Entry (c, new_va))
+              match a.(i) with
+              | Entry (c, va) ->
+                  with_w c va (fun (module W) va ->
+                    if W.is_inf va then
+                      new_states.(i) <- Entry (c, W.infinity)
+                    else
+                      match W.traverse va v e with
+                      | None -> possible := false
+                      | Some (new_va, s_data) ->
+                          (* On ne garde la donnée d'affichage que du premier critère *)
+                          if i = 0 then step_str := W.step_data_to_string s_data;
+                          new_states.(i) <- Entry (c, new_va))
           done;
           if !possible then Some (new_states, !step_str) else None
 
@@ -113,12 +110,11 @@ let combine (type e n) (criteria : (e, n) criterion list) :
           else
             let sum = ref 0.0 in
             for i = 0 to n - 1 do
-              match (slots.(i), a.(i), b.(i)) with
-              | Criterion c, Entry (_, va), Entry (_, vb) ->
-                  let module W = (val c.weight) in
-                  let va : W.t = Obj.magic va in
-                  let vb : W.t = Obj.magic vb in
-                  sum := !sum +. (norm_coeffs.(i) *. W.compare va vb)
+              match (a.(i), b.(i)) with
+              | Entry (c, va), Entry (_, vb) ->
+                  with_w c va (fun (module W) va ->
+                    let vb : W.t = Obj.magic vb in
+                    sum := !sum +. (norm_coeffs.(i) *. W.compare va vb))
             done;
             !sum
 
@@ -128,9 +124,7 @@ let combine (type e n) (criteria : (e, n) criterion list) :
 
         let get_time (t : t) : int =
           match t.(0) with
-          | Entry (c, v) ->
-              let module W = (val c.weight) in
-              W.get_time (Obj.magic v)
+          | Entry (c, v) -> with_w c v (fun (module W) v -> W.get_time v)
 
         let entry_to_string : type w. (edge, node, w) criterion_t -> w -> string =
          fun c value ->
@@ -156,7 +150,6 @@ let combine (type e n) (criteria : (e, n) criterion list) :
           Array.init n (fun i ->
               match t.(i) with
               | Entry (c, v) ->
-                  let module W = (val c.weight) in
-                  Obj.repr (W.get_state_key (Obj.magic v)))
+                  with_w c v (fun (module W) v -> Obj.repr (W.get_state_key v)))
       end : WEIGHT
         with type edge = e and type node = n)
