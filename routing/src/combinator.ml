@@ -122,9 +122,9 @@ let combine (type e n) (criteria : (e, n) criterion list) :
             done;
             !sum
 
-        let ( < ) a b = compare a b < 0.0
-        let ( > ) a b = compare a b > 0.0
-        let ( = ) a b = compare a b = 0.0
+        let ( < ) a b = Float.compare (compare a b) 0.0 < 0
+        let ( > ) a b = Float.compare (compare a b) 0.0 > 0
+        let ( = ) a b = Float.equal (compare a b) 0.0
 
         let get_time (t : t) : int =
           match t.(0) with

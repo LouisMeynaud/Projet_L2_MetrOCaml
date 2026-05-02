@@ -11,6 +11,7 @@
   path_intf
   path
   algo_intf
+  heuristic_intf
   bfs
   dijkstra
   astar

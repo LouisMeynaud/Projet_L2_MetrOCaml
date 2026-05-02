@@ -532,14 +532,14 @@ module BFS_Tests = struct
   let test_bfs_missing_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g st_A;
-    let res = BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B in
+    let res = BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true) in
     Alcotest.(check bool) "Destination absente du graphe renvoie None" true (res = None)
 
   (** Noeud de dépard = noeud ciblé *)
   let test_bfs_same_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g st_A;
-    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A with
+    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Même noeud devrait renvoyer un chemin vide"
     | Some path ->
         Alcotest.(check int) "Chemin sur place = 0 étape" 0 (List.length path.steps)
@@ -551,7 +551,7 @@ module BFS_Tests = struct
     TestGraph.add_edge g st_A st_B (make_conn Walk 60 [] "W");
     TestGraph.add_edge g st_B st_C (make_conn Walk 60 [] "W");
     
-    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C with
+    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Chemin A->C introuvable"
     | Some path ->
         Alcotest.(check int) "Chemin A->B->C fait 2 étapes" 2 (List.length path.steps)
@@ -562,7 +562,7 @@ module BFS_Tests = struct
     TestGraph.add_edge g st_A st_B (make_conn Walk 60 [] "W");
     TestGraph.add_node g st_C;
     
-    let res = BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C in
+    let res = BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) in
     Alcotest.(check bool) "Noeud déconnecté renvoie None" true (res = None)
 
   (** Test qu'on a bien le chemin avec le moins de sauts, qu'importe le temps *)
@@ -573,7 +573,7 @@ module BFS_Tests = struct
     
     TestGraph.add_edge g st_A st_C (make_conn Walk 3600 [] "W");
     
-    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C with
+    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Chemin A->C introuvable"
     | Some path ->
         Alcotest.(check int) "BFS choisit toujours le chemin avec le MOINS d'arêtes (1 au lieu de 2)" 
@@ -588,7 +588,7 @@ module BFS_Tests = struct
     TestGraph.add_edge g st_C st_B (make_conn Metro 60 [("id3", 200)] "L2");
     
     Metrocaml.Weight.set_excluded_modes ["Bus"];
-    let path_blocked = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_blocked = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Metrocaml.Weight.set_excluded_modes [];
     
     Alcotest.(check int) "BFS utilise le détour pour éviter le bus (2 étapes)" 2 (List.length path_blocked.steps)
@@ -598,7 +598,7 @@ module BFS_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_edge g st_A st_B (make_conn Metro 200 [("t1", 100); ("t2", 1000)] "L1");
   
-    let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int) "Temps normal (attrape le 1er train) = 300s" 
       300 (Metrocaml.Weight.HopWeight.get_time path_normal.total_weight);
   
@@ -607,7 +607,7 @@ module BFS_Tests = struct
     in
     Hashtbl.replace !Metrocaml.Gtfs_rt.index_alertes_dijkstra "L1" [ alerte ];
   
-    let path_perturbed = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_perturbed = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Hashtbl.clear !Metrocaml.Gtfs_rt.index_alertes_dijkstra; 
   
     Alcotest.(check int) "Temps perturbé (rate le train, prend le 2ème) = 1200s" 
@@ -621,7 +621,7 @@ module BFS_Tests = struct
     TestGraph.add_edge g st_C st_B (make_conn Metro 60 [("id3", 200)] "L2");
     
     (** Chemin normal *)
-    let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int) "Normalement, BFS prend le direct (1 étape)" 1 (List.length path_normal.steps);
     
     (** Avec blocage *)
@@ -630,7 +630,7 @@ module BFS_Tests = struct
     in
     Hashtbl.replace !Metrocaml.Gtfs_rt.index_alertes_dijkstra "L1" [ alerte ];
     
-    let path_blocked = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_blocked = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Hashtbl.clear !Metrocaml.Gtfs_rt.index_alertes_dijkstra;
     
     Alcotest.(check int) "Avec blocage, BFS contourne par le détour (2 étapes)" 2 (List.length path_blocked.steps)
@@ -790,8 +790,13 @@ module Astar_Tests = struct
   module TestEdge = Dijkstra_Tests.TestEdge
   module TestGraph = Routing.Graph.Make (TestNode) (TestEdge)
   module MockWeight = Dijkstra_Tests.MockWeight
-
-  module Astar = Routing.Astar.Make (TestGraph) (MockWeight)
+    (* Heuristique nulle : A* se comporte comme Dijkstra.
+     Garantit l'admissibilité et isole le comportement de l'algorithme. *)
+  module MockHeuristic = struct
+    type node = TestNode.t
+    let estimate _ _ = 0.0
+  end
+  module Astar = Routing.Astar.Make (TestGraph) (MockWeight) (MockHeuristic)
 
   let st_A = { dummy_station with id = "A"; name = "A" }
   let st_B = { dummy_station with id = "B"; name = "B" }
@@ -800,21 +805,18 @@ module Astar_Tests = struct
   let mock_conn dur line_name =
     { (Dijkstra_Tests.mock_conn dur line_name) with duration = dur }
 
-  (* Heuristique nulle : A* se comporte comme Dijkstra.
-     Garantit l'admissibilité et isole le comportement de l'algorithme. *)
-  let h_zero _ _ = 0.0
 
   (** Garde-fous : destination absente et source = destination *)
   let test_astar_missing_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g st_A;
-    let res = Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero in
+    let res = Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true) in
     Alcotest.(check bool) "Destination absente renvoie None" true (res = None)
 
   let test_astar_same_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g st_A;
-    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Source = destination doit renvoyer un chemin"
     | Some path ->
         Alcotest.(check int) "Chemin sur place = coût 0" 0
@@ -826,7 +828,7 @@ module Astar_Tests = struct
     TestGraph.add_edge g st_A st_B (mock_conn 10  "L1");
     TestGraph.add_edge g st_B st_C (mock_conn 10  "L1");
     TestGraph.add_edge g st_A st_C (mock_conn 100 "L2");
-    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Chemin introuvable"
     | Some path ->
         Alcotest.(check int) "A* préfère le détour (20 vs 100)" 20
@@ -840,12 +842,12 @@ module Astar_Tests = struct
     TestGraph.add_edge g st_A st_B (mock_conn 5  "L2");
     TestGraph.add_edge g st_B st_C (mock_conn 90 "L2");
 
-    let path_ok = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero) in
+    let path_ok = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int)
       "Transferts autorisés : L2→L1 en B (coût 15)" 15
       (MockWeight.get_time path_ok.total_weight);
 
-    let path_no = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun s -> s.Metrocaml.Network.id <> "B") ~heuristic:h_zero) in
+    let path_no = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun s -> s.Metrocaml.Network.id <> "B")) in
     Alcotest.(check int)
       "Transferts interdits en B : anticipe et prend L1 dès A (coût 60)" 60
       (MockWeight.get_time path_no.total_weight)
@@ -856,7 +858,7 @@ module Astar_Tests = struct
     TestGraph.add_edge g st_A st_B (mock_conn 10   "L2");
     TestGraph.add_edge g st_B st_C (mock_conn 90   "L2");
     TestGraph.add_edge g st_A st_C (mock_conn (-1) "L1");
-    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "A* devrait trouver le chemin de secours via L2"
     | Some path ->
         Alcotest.(check int) "A* ignore le blocage et prend L2 (coût 100)" 100

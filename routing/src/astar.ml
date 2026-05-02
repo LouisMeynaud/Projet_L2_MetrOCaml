@@ -1,6 +1,8 @@
 open Graph_intf
 open Weight_intf
 
+open Heuristic_intf
+
 (** A* Optimisé
 
     Ce module implémente l'algorithme de recherche de chemin A* via un
@@ -13,11 +15,17 @@ open Weight_intf
       valides.
     - Tas d'appariement : Il utilise un Tas d'Appariement garantissant des
       performances quasi-instantanées, même sur des graphes massifs.
-    - Contraitement à Dijkstra, A* utilise une heuristique orientant son choix d'arête. *)
-module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t) = struct
+    - Contrairement à Dijkstra, A* utilise une heuristique orientant son choix d'arête,
+      fournie via le module [H] à la construction du foncteur. *)
+module Make
+  (G : GRAPH)
+  (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t)
+  (H : HEURISTIC with type node = G.Node.t)
+= struct
   module P = Path.Make (G) (W)
 
   type path = P.t
+  type graph = G.t
 
   (** Le Tas d'Appariement (Strictement identique à celui de Dijkstra) *)
   module TA = struct
@@ -62,11 +70,9 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
       @param graph Le graphe pré-construit du réseau.
       @param source Le noeud de départ.
       @param destination Le noeud d'arrivée.
-      @param transfer_allowed Fonction de vérification des correspondances.
-      @param heuristic Fonction [h : node -> node -> float] estimant le coût restant. *)
+      @param transfer_allowed Fonction de vérification des correspondances. *)
   let find_path ~start_time ~(graph : G.t) ~(source : G.Node.t)
-      ~(destination : G.Node.t) ~(transfer_allowed : G.Node.t -> bool)
-      ~(heuristic : G.Node.t -> G.Node.t -> float) =
+      ~(destination : G.Node.t) ~(transfer_allowed : G.Node.t -> bool) =
     if not (G.has_node graph source) then None
     else if not (G.has_node graph destination) then None
     else
@@ -82,10 +88,10 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
 
         let initial_state = (source, W.get_state_key initial_weight) in
         let g_scalar g = float_of_int (W.get_time g) in
-        
+
         (* La différence avec Dijkstra : on ajoute l'heuristique au f_cost *)
-        let initial_f = g_scalar initial_weight +. heuristic source destination in
-        
+        let initial_f = g_scalar initial_weight +. H.estimate source destination in
+
         let ta = ref (TA.push ~f_cost:initial_f ~g_cost:initial_weight source initial_state TA.empty) in
         Hashtbl.add dist initial_state initial_weight;
 
@@ -120,14 +126,14 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                         let _, current_state_key = u_state in
                         let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in
                         let is_transfer = is_line_change && not (G.Node.equal u source) in
-                        
+
                         if (not is_transfer) || transfer_allowed u then (
                           let v_state = (v, next_state_key) in
                           let old_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist v_state) in
 
                           if W.(new_g < old_g) && not W.(new_g > !best_weight) then begin
                             (* Application de l'heuristique sur le nouveau noeud *)
-                            let new_f = g_scalar new_g +. heuristic v destination in
+                            let new_f = g_scalar new_g +. H.estimate v destination in
                             Hashtbl.replace dist v_state new_g;
                             Hashtbl.replace prev v_state (u_state, u, v, edge, new_g, step_data);
                             ta := TA.push ~f_cost:new_f ~g_cost:new_g v v_state !ta

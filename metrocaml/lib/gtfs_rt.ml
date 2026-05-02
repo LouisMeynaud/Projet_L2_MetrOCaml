@@ -37,8 +37,6 @@ type alerte_dijkstra= {
 let liste_alertes : alerte list ref = ref []
 let index_alertes_dijkstra : (string, alerte_dijkstra list) Hashtbl.t ref = ref (Hashtbl.create 0)
 
-let apiKey = "GBsIolemaspJPcsW7HbwQTp4RaiaBTQk"
-
 (* ================================================== *)
 (* 1. UTILITAIRES                                     *)
 (* ================================================== *)
@@ -148,6 +146,10 @@ let format_alerte alerte =
       Une promesse Lwt de type [unit] qui se résout une fois l'écriture
       terminée. *)
 let recupere_alertes () =
+  let apiKey = match Sys.getenv_opt "IDFM_API_KEY" with
+    | Some k -> k
+    | None -> failwith "La clé API IDFM_API_KEY introuvable. Veuillez la définir dans le fichier .env"
+  in
   let filename = "data/rt/alertes.json" in
   let uri =
     Uri.of_string
