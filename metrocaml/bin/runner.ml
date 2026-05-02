@@ -74,12 +74,6 @@ let build_combined_weight (ct, cd, ca, cc) =
     Combinator.criterion (module Weight.CorrespondenceWeight) ~coefficient:cc ~label:"Correspondances";
   ]
 
-let astar_preset_coef (preset : Presets.preset) =
-  match preset.name with
-  | "Rapide" -> 0.75
-  | "Confort" -> 0.5
-  | _ -> 1.0
-
 let choose_weight algo poids coeffs graph =
   match algo, poids with
   | "Dijkstra", "Default" ->
@@ -95,7 +89,7 @@ let choose_weight algo poids coeffs graph =
       let base = make_heuristic graph in
       List.map (fun (preset : Presets.preset) ->
         let module W = (val Presets.to_weight preset) in
-        let coef = astar_preset_coef preset in
+        let coef = preset.Presets.astar_coef in
         (preset.name, make_astar (module W) (fun a b -> base a b *. coef))
       ) Presets.all
   | "A*", "Combinaison" ->
@@ -155,7 +149,7 @@ let build_bench_routeurs graph =
   let base_heuristic = make_heuristic graph in
   let preset_routeurs = List.concat_map (fun (preset : Presets.preset) ->
     let module W = (val Presets.to_weight preset) in
-    let coef = astar_preset_coef preset in
+    let coef = preset.Presets.astar_coef in
     [
       make_routeur (Printf.sprintf "Dijkstra Preset : %s" preset.name) (make_dijkstra (module W));
       make_routeur (Printf.sprintf "A* Preset : %s"      preset.name) (make_astar (module W) (fun a b -> base_heuristic a b *. coef));
