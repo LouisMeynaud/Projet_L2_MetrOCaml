@@ -10,7 +10,8 @@
   combinator
   path_intf
   path
-  bench
+  algo_intf
   bfs
   dijkstra
-  astar))
+  astar
+  bench))

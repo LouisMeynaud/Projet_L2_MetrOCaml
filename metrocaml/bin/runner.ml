@@ -7,27 +7,15 @@ module DIJKSTRA_DistanceWeight =       Dijkstra.Make (Network.TransportGraph) (W
 module DIJKSTRA_TimeWeight =           Dijkstra.Make (Network.TransportGraph) (Weight.TimeWeight)
 module DIJKSTRA_HopWeight =            Dijkstra.Make (Network.TransportGraph) (Weight.HopWeight)
 module BFS_HopWeight =                 Bfs.Make (Network.TransportGraph) (Weight.HopWeight)
+module ASTAR_CorrespondenceWeight =    Astar.Make (Network.TransportGraph) (Weight.CorrespondenceWeight)
+module ASTAR_DistanceWeight =          Astar.Make (Network.TransportGraph) (Weight.DistanceWeight)
+module ASTAR_TimeWeight =              Astar.Make (Network.TransportGraph) (Weight.TimeWeight)
+module ASTAR_HopWeight =               Astar.Make (Network.TransportGraph) (Weight.HopWeight)
 
-module ASTAR_CorrespondenceWeight = Astar.Make (Network.TransportGraph) (Weight.CorrespondenceWeight)
-module ASTAR_DistanceWeight =       Astar.Make (Network.TransportGraph) (Weight.DistanceWeight)
-module ASTAR_TimeWeight =           Astar.Make (Network.TransportGraph) (Weight.TimeWeight)
-module ASTAR_HopWeight =            Astar.Make (Network.TransportGraph) (Weight.HopWeight)
-
-module type ALGO = sig
-  module P :
-    Routing.PATH
-      with type Node.t = Network.station
-      and type Edge.t = Network.connection
-
-  val find_path :
-    start_time:int ->
-    graph:Network.TransportGraph.t ->
-    source:Network.station ->
-    destination:Network.station ->
-    transfer_allowed:(Network.station -> bool) ->
-    P.t option
-
-end
+module type ALGO = Routing.ALGO
+  with type graph = Network.TransportGraph.t
+  with type P.Node.t = Network.station
+  with type P.Edge.t = Network.connection
 
 (** Construit l'heuristique A* pour un réseau GTFS donné.
     Parcourt toutes les arêtes véhiculées pour extraire la vitesse maximale observée sur le réseau.
@@ -126,13 +114,13 @@ let choose_weight algo poids coeffs pmr_transfer graph =
             | _ -> 1.0
           in
           let heuristic a b = base a b *. coef in
-          (preset.name,
-           (module struct
-             module P = A.P
-             let find_path ~start_time ~graph ~source ~destination ~transfer_allowed =
-               A.find_path ~start_time ~graph ~source ~destination
-                 ~transfer_allowed ~heuristic
-           end : ALGO)))
+          (preset.name, (module struct
+            module P = A.P
+            type graph = Network.TransportGraph.t
+            let find_path ~start_time ~graph ~source ~destination ~transfer_allowed =
+              A.find_path ~start_time ~graph ~source ~destination ~transfer_allowed ~heuristic
+          end : ALGO)))
+          (* can't use A directly because it doesn't match the signature. need to redefine find_path = A's find_path with the heuristic. this does not work if type "graph" is not provided.*)
         Presets.all
   | "A*", "Combinaison" ->
       let ct, cd, ca, cc =
@@ -158,6 +146,7 @@ let choose_weight algo poids coeffs pmr_transfer graph =
       [ ("Combinaison A*",
          (module struct
            module P = A.P
+            type graph = Network.TransportGraph.t
            let find_path ~start_time ~graph ~source ~destination ~transfer_allowed =
              A.find_path ~start_time ~graph ~source ~destination
                ~transfer_allowed ~heuristic
@@ -214,6 +203,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
             ( "BFS",
               (module struct
                 module P = BFS_HopWeight.P
+                type graph = Network.TransportGraph.t
 
                 let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
                   BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
@@ -266,6 +256,7 @@ let build_bench_routeurs graph =
         (Printf.sprintf "Dijkstra Preset : %s" preset.name)
         (module struct
           module P = D.P
+          type graph = Network.TransportGraph.t
           let find_path = D.find_path
         end)
     ) Presets.all
@@ -285,6 +276,7 @@ let build_bench_routeurs graph =
         (Printf.sprintf "A* Preset : %s" preset.name)
         (module struct
           module P = A.P
+          type graph = Network.TransportGraph.t
           let find_path ~start_time ~graph ~source ~destination ~transfer_allowed =
             A.find_path ~start_time ~graph ~source ~destination
               ~transfer_allowed ~heuristic
@@ -295,26 +287,31 @@ let build_bench_routeurs graph =
     make_routeur "Dijkstra : Temps"
       (module struct
         module P = DIJKSTRA_TimeWeight.P
+        type graph = Network.TransportGraph.t
         let find_path = DIJKSTRA_TimeWeight.find_path
       end);
     make_routeur "Dijkstra : Distance"
       (module struct
         module P = DIJKSTRA_DistanceWeight.P
+        type graph = Network.TransportGraph.t
         let find_path = DIJKSTRA_DistanceWeight.find_path
       end);
     make_routeur "Dijkstra : Arrets"
       (module struct
         module P = DIJKSTRA_HopWeight.P
+        type graph = Network.TransportGraph.t
         let find_path = DIJKSTRA_HopWeight.find_path
       end);
     make_routeur "Dijkstra : Correspondances"
       (module struct
         module P = DIJKSTRA_CorrespondenceWeight.P
+        type graph = Network.TransportGraph.t
         let find_path = DIJKSTRA_CorrespondenceWeight.find_path
       end);
     make_routeur "A* : Temps"
       (module struct
         module P = ASTAR_TimeWeight.P
+        type graph = Network.TransportGraph.t
         let find_path ~start_time ~graph ~source ~destination ~transfer_allowed =
           ASTAR_TimeWeight.find_path ~start_time ~graph ~source ~destination
             ~transfer_allowed ~heuristic:base_heuristic
@@ -322,6 +319,7 @@ let build_bench_routeurs graph =
     make_routeur "A* : Distance"
       (module struct
         module P = ASTAR_DistanceWeight.P
+        type graph = Network.TransportGraph.t
         let find_path ~start_time ~graph ~source ~destination ~transfer_allowed =
           ASTAR_DistanceWeight.find_path ~start_time ~graph ~source ~destination
             ~transfer_allowed ~heuristic:base_heuristic
@@ -329,6 +327,7 @@ let build_bench_routeurs graph =
     make_routeur "A* : Arrets"
       (module struct
         module P = ASTAR_HopWeight.P
+        type graph = Network.TransportGraph.t
         let find_path ~start_time ~graph ~source ~destination ~transfer_allowed =
           ASTAR_HopWeight.find_path ~start_time ~graph ~source ~destination
             ~transfer_allowed ~heuristic:base_heuristic
@@ -336,6 +335,7 @@ let build_bench_routeurs graph =
     make_routeur "A* : Correspondances"
       (module struct
         module P = ASTAR_CorrespondenceWeight.P
+        type graph = Network.TransportGraph.t
         let find_path ~start_time ~graph ~source ~destination ~transfer_allowed =
           ASTAR_CorrespondenceWeight.find_path ~start_time ~graph ~source ~destination
             ~transfer_allowed ~heuristic:base_heuristic
@@ -343,6 +343,7 @@ let build_bench_routeurs graph =
     make_routeur "Arrets (BFS) : "
       (module struct
         module P = BFS_HopWeight.P
+        type graph = Network.TransportGraph.t
         let find_path ~start_time ~graph ~source ~destination ~transfer_allowed:_ =
           BFS_HopWeight.find_path ~start_time ~graph ~source ~destination
       end);
