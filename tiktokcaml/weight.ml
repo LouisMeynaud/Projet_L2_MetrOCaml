@@ -1,6 +1,6 @@
 open Network
 
-module Forceheight : Routing.WEIGHT with type edge = connection and type node = person = struct
+module ForceWeight : Routing.WEIGHT with type edge = connection and type node = person = struct
   type t = float
   type edge = connection
   type node = person
@@ -9,28 +9,21 @@ module Forceheight : Routing.WEIGHT with type edge = connection and type node = 
 
   let start_at _time = 0.0
   let infinity = Float.infinity
-  let is_inf w = w = Float.infinity
+  let is_inf = Float.is_infinite
 
   let traverse current_weight (_ : node) edge =
-    if edge.force <= 0.0 then 
-      None
-    else
-      let cost = 1.0 /. edge.force in
-      Some (current_weight +. cost, ())
+    if edge.force <= 0.0 then None
+    else Some (current_weight +. (1.0 /. edge.force), ())
 
-  let compare a b =
-    if a = b then 0.0
-    else if a < b then -1.0
-    else 1.0
-
-  let ( < ) a b = compare a b < 0.0
-  let ( > ) a b = compare a b > 0.0
-  let ( = ) a b = compare a b = 0.0
+  let compare a b = float_of_int (Float.compare a b)
+  let ( < ) a b = Float.compare a b < 0
+  let ( > ) a b = Float.compare a b > 0
+  let ( = ) a b = Float.compare a b = 0
 
   let get_time _w = 0
-  
-  let to_string w = 
-    if is_inf w then "∞" 
+
+  let to_string w =
+    if Float.is_infinite w then "∞"
     else Printf.sprintf "Coût : %.2f" w
 
   let step_data_to_string () = ""

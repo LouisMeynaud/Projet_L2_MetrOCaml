@@ -1,7 +1,7 @@
 open Tiktocaml
 
-module DijkstraForce = Routing.Dijkstra.Make (Network.FriendGraph) (Weight.Forceheight)
-module Bfs            = Routing.Bfs.Make     (Network.FriendGraph) (Weight.Forceheight)
+module DijkstraForce = Routing.Dijkstra.Make (Network.FriendGraph) (Weight.ForceWeight)
+module Bfs            = Routing.Bfs.Make     (Network.FriendGraph) (Weight.ForceWeight)
 
 module type TIKTOK_ALGO = Routing.ALGO
   with type graph    = Network.FriendGraph.t
@@ -22,11 +22,7 @@ let make_heuristic (graph : Network.FriendGraph.t) =
 
 let make_astar h =
   let module H = struct type node = Network.person let estimate = h end in
-  (module Routing.Astar.Make (Network.FriendGraph) (Weight.Forceheight) (H) : TIKTOK_ALGO)
-
-let find_person name =
-  let clean = String.lowercase_ascii (String.trim name) in
-  List.find_opt (fun (p : Network.person) -> String.lowercase_ascii p.name = clean) Graphe.people
+  (module Routing.Astar.Make (Network.FriendGraph) (Weight.ForceWeight) (H) : TIKTOK_ALGO)
 
 let run_algo (module Algo : TIKTOK_ALGO) graph source destination =
   match Algo.find_path ~start_time:0 ~graph ~source ~destination ~transfer_allowed:(fun _ -> true) with
@@ -44,7 +40,7 @@ let make_bench_entry (module Algo : TIKTOK_ALGO) =
           Printf.printf "%s -> %s\n" s.from.name s.to_node.name) p.steps)
 
 let () =
-  let graph = Graphe.create_test_graph () in
+  let graph = Graph.create_test_graph () in
 
   Printf.printf "Algo (dijkstra/a*/bfs/bench) : \n";
   let algo = String.lowercase_ascii (String.trim (read_line ())) in
@@ -62,7 +58,7 @@ let () =
     ] in
     Bench.run graph src_query dst_query 0 routeurs (fun _ choices -> List.hd choices)
   end else
-    match find_person src_query, find_person dst_query with
+    match Graph.find_person src_query, Graph.find_person dst_query with
     | None, _ | _, None -> Printf.printf "Nom inconnu.\n"
     | Some source, Some destination ->
         let algo_module : (module TIKTOK_ALGO) = match algo with
