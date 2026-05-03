@@ -80,7 +80,8 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
       let cleaned_line_id = Gtfs_rt.nettoyer_id current_line_id in
       let cleaned_station_id = Gtfs_rt.nettoyer_id target_station_id in
 
-      begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra cleaned_line_id with
+      let index = Mutex.protect Gtfs_rt.mutex (fun () -> !Gtfs_rt.index_alertes_dijkstra) in
+      begin match Hashtbl.find_opt index cleaned_line_id with
         | None -> () 
         | Some alertes_ligne ->
           List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->

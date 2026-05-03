@@ -36,6 +36,7 @@ type alerte_dijkstra= {
     graphique et mise à jour en tâche de fond par le thread. *)
 let liste_alertes : alerte list ref = ref []
 let index_alertes_dijkstra : (string, alerte_dijkstra list) Hashtbl.t ref = ref (Hashtbl.create 0)
+let mutex = Mutex.create ()
 
 (* ================================================== *)
 (* 1. UTILITAIRES                                     *)
@@ -322,7 +323,7 @@ let charger_alertes_en_memoire date_cible =
             with _ -> acc)
           [] disruptions
       in
-      liste_alertes := nouvelles_alertes
+      Mutex.protect mutex (fun () -> liste_alertes := nouvelles_alertes)
     with _ ->
       Printf.printf "[Erreur] Impossible de parser le fichier %s.\n%!" filename
     end
@@ -447,7 +448,8 @@ let start_auto_refresh date graph =
   let rec loop () =
     actualiser_fichier_alertes ();
     charger_alertes_en_memoire date;
-    index_alertes_dijkstra := compiler_alertes_pour_dijkstra graph;
+    let nouv_index = compiler_alertes_pour_dijkstra graph in
+    Mutex.protect mutex (fun () -> index_alertes_dijkstra := nouv_index);
     (**DEBUG
     exporter_index_debug();**)
     Unix.sleep 60;

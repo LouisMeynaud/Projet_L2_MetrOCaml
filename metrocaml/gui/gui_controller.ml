@@ -69,7 +69,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
 	let update_perturbations_view () =
 		clear_perturbation_rows ();
-		let alerts = !(Gtfs_rt.liste_alertes) in
+		let alerts = Mutex.protect Gtfs_rt.mutex (fun () -> !Gtfs_rt.liste_alertes) in
 		if alerts = [] then
 			Widget.set_text view.label_perturbations_info "Aucune perturbation active"
 		else begin
