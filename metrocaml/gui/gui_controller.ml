@@ -393,9 +393,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	@param dest Point d'arrivée
 	*)
 	let launch_search source dest =
-		let depart = !(view.is_departure_mode) in
 		let time_in_secondes = (!(view.current_hour) * 3600) + (!(view.current_minute) * 60) in
-		ignore depart;
 		let excluded_modes =
 			!current_etat.categories
 			|> List.filter (fun (mode_name, is_enabled) ->
