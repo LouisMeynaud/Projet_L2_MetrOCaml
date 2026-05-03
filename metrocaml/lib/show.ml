@@ -52,7 +52,8 @@ let format_station ~time ~station =
 let format_wait ~wait_min = Printf.sprintf "Attente : %d min" wait_min
 
 let format_ride ~stops ~minutes =
-  Printf.sprintf "%d arrêts ~ %d min" stops minutes
+  let txt = if stops <= 1 then "arrêt" else "arrêts" in
+  Printf.sprintf "%d %s ~ %d min" stops txt minutes
 
 let format_hms seconds =
   Printf.sprintf "%dh %dmin %ds" (seconds / 3600)

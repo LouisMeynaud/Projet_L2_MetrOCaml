@@ -274,7 +274,9 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
 
   let to_string w =
     if is_inf w then "∞"
-    else Printf.sprintf "%d arrêts (%s)" w.hops (time_to_string w.time)
+    else
+      let txt = if w.hops <= 1 then "arrêt" else "arrêts" in
+      Printf.sprintf "%d %s (%s)" w.hops txt (time_to_string w.time)
 
   let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
@@ -329,8 +331,8 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
   let to_string w =
     if is_inf w then "∞"
     else
-      Printf.sprintf "%d correspondances (%s)" w.transfers
-        (time_to_string w.time)
+      let txt = if w.transfers <= 1 then "correspondance" else "correspondances" in
+      Printf.sprintf "%d %s (%s)" w.transfers txt (time_to_string w.time)
 
   let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
