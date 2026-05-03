@@ -20,24 +20,22 @@ type ('edge, 'node) entry = Entry : ('edge, 'node, 'w) criterion_t * 'w -> ('edg
 let combine (type e n) (criteria : (e, n) criterion list) :
     (module WEIGHT with type edge = e and type node = n) =
   match criteria with
-  | [] -> invalid_arg "Combinator.combine: criteria list must not be empty"
+  | [] -> invalid_arg "Combinator.combine: aucun critère fourni"
   | _ ->
-      let slots = Array.of_list criteria in
+    let actifs = List.filter (fun (Criterion c) -> c.coefficient > 0.0) criteria in  
+    let slots = Array.of_list actifs in
       let n = Array.length slots in
 
-      (* Calcule la somme des coefficients pour normaliser l'importance
-      NB. Les coefficients négatifs sont traités comme des 0. *)
-      let total_coeff =
+      (* Normalisation des coefficients *)      let total_coeff =
         Array.fold_left
           (fun acc slot ->
-            match slot with Criterion c -> acc +. Float.max 0.0 c.coefficient)
+            match slot with Criterion c -> acc +. c.coefficient)
           0.0 slots
       in
       let norm_coeffs =
         Array.map
           (fun slot ->
-            match slot with
-            | Criterion c -> Float.max 0.0 c.coefficient /. total_coeff)
+            match slot with | Criterion c -> c.coefficient /. total_coeff)
           slots
       in
 
