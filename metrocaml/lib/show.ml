@@ -204,10 +204,7 @@ module Make (P : Routing.PATH with type Node.t = station and type Edge.t = conne
               let wait_minutes = line_minutes_from_seconds wait_seconds in
               let transition_line =
                 if wait_seconds <= 0 then []
-                else if segment_is_walk next_segment then
-                  [ wait_indent ^ italic use_color "Marche" ]
-                else
-                  [ wait_indent ^ italic use_color (format_wait ~wait_min:wait_minutes) ]
+                else [ wait_indent ^ italic use_color (format_wait ~wait_min:wait_minutes) ]
               in
               let rendered_block =
                 String.concat "\n" (rendered :: transition_line)
