@@ -174,12 +174,8 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
     else if is_inf w2 then -1.0
     else
       let diff = w1.time - w2.time in
-      if diff <> 0 then
-        float_of_int diff /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
-      else
-        let walk_diff = w1.walk_time - w2.walk_time in
-        float_of_int walk_diff
-        /. float_of_int (Int.max 1 (Int.max w1.walk_time w2.walk_time))
+      if diff <> 0 then float_of_int diff /. 3600.0
+      else float_of_int (w1.walk_time - w2.walk_time) /. 3600.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
@@ -223,10 +219,7 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection and type node
     else if is_inf w2 then -1.0
     else
       let diff_transfers = w1.distance -. w2.distance in
-      if diff_transfers = 0.0 then 0.0
-      else
-        diff_transfers 
-        /.  (Float.max 1.0 (Float.max w1.distance w2.distance))
+      diff_transfers /. 50000.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
@@ -272,11 +265,7 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
-      let diff_transfers = w1.hops - w2.hops in
-      if diff_transfers = 0 then 0.0
-      else
-        float_of_int diff_transfers 
-        /. float_of_int (Int.max 1 (Int.max w1.hops w2.hops))
+      float_of_int (w1.hops - w2.hops) /. 40.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
@@ -330,11 +319,7 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
-         let diff_transfers = w1.transfers - w2.transfers in
-         if diff_transfers = 0 then 0.0
-         else
-           float_of_int diff_transfers 
-           /. float_of_int (Int.max 1 (Int.max w1.transfers w2.transfers))
+      float_of_int (w1.transfers - w2.transfers) /. 5.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0

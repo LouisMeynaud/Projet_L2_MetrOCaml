@@ -25,7 +25,7 @@ module type WEIGHT = sig
       pas de train), sinon, renvoie le nouveau poids *)
 
   val compare : t -> t -> float
-  (** Comparaison normalisée renvoyant une valeur comprise entre [-1, 1] *)
+  (** Comparaison de poids. Renvoie une valeur flottante comprise entre [-1, 1] désignant l'amplitude de la différence. *)
 
   val ( < ) : t -> t -> bool
   val ( > ) : t -> t -> bool
