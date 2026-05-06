@@ -78,8 +78,8 @@ module Make (P : Routing.PATH with type Node.t = station and type Edge.t = conne
       kind;
       start_station = first.from;
       end_station   = last.to_node;
-      depart_time   = Weight.get_time first.weight - first.edge.duration;
-      arrival_time  = Weight.get_time last.weight;
+      depart_time   = Weight.get_weight first.weight - first.edge.duration;
+      arrival_time  = Weight.get_weight last.weight;
       hops          = List.length steps;
       distance;
     }

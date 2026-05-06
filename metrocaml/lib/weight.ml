@@ -180,7 +180,7 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-  let get_time w = w.time
+  let get_weight w = w.time
   let to_string w = time_to_string w.time
   let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
@@ -224,7 +224,7 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection and type node
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-  let get_time w = w.time
+  let get_weight w = w.time
 
   let to_string w =
     if is_inf w then "∞"
@@ -270,7 +270,7 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-  let get_time w = w.time
+  let get_weight w = w.time
 
   let to_string w =
     if is_inf w then "∞"
@@ -326,7 +326,7 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-  let get_time w = w.time
+  let get_weight w = w.time
 
   let to_string w =
     if is_inf w then "∞"
