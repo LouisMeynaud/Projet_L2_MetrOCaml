@@ -185,7 +185,7 @@ let force_traverse traverse_fn w e =
 (** Test d'initialisation des données *)
 let test_timew_init_states () =
   let start_w = TimeW.start_at 1000 in
-  Alcotest.(check int) "start_at initialise le temps" 1000 (TimeW.get_time start_w);
+  Alcotest.(check int) "start_at initialise le temps" 1000 (TimeW.get_weight start_w);
   Alcotest.(check bool) "start_at n'est pas l'infini" false (TimeW.is_inf start_w);
   
   let inf_w = TimeW.infinity in
@@ -209,7 +209,7 @@ let test_timew_traverse_transport () =
   let conn = make_conn Metro 120 [("id1", 50)] "M1" in
   let start_w = TimeW.start_at 0 in
   let next_w = force_traverse TimeW.traverse start_w conn in
-  Alcotest.(check int) "Temps mis à jour (50 attente + 120 trajet)" 170 (TimeW.get_time next_w)
+  Alcotest.(check int) "Temps mis à jour (50 attente + 120 trajet)" 170 (TimeW.get_weight next_w)
 
 (** Test accumulations de Walk + incrémentation du temps de trajet en cas de Walk ou de Transfert *)
 let test_timew_traverse_walk () =
@@ -221,7 +221,7 @@ let test_timew_traverse_walk () =
   let w_walk2 = force_traverse TimeW.traverse w_walk1 conn_walk2 in
   let w_total = force_traverse TimeW.traverse w_walk2 conn_trans in
   
-  Alcotest.(check int) "Temps total après 2 marches" 200 (TimeW.get_time w_total)
+  Alcotest.(check int) "Temps total après 2 marches" 200 (TimeW.get_weight w_total)
 
 (** Tests des comparaisons *)
 
@@ -600,7 +600,7 @@ module BFS_Tests = struct
   
     let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int) "Temps normal (attrape le 1er train) = 300s" 
-      300 (Metrocaml.Weight.HopWeight.get_time path_normal.total_weight);
+      300 (Metrocaml.Weight.HopWeight.get_weight path_normal.total_weight);
   
     let alerte : Metrocaml.Gtfs_rt.alerte_dijkstra =
       { severite = Metrocaml.Gtfs_rt.PERTURBEE; stations_hash = Hashtbl.create 0; periodes = [] }
@@ -611,7 +611,7 @@ module BFS_Tests = struct
     Hashtbl.clear !Metrocaml.Gtfs_rt.index_alertes_dijkstra; 
   
     Alcotest.(check int) "Temps perturbé (rate le train, prend le 2ème) = 1200s" 
-      1200 (Metrocaml.Weight.HopWeight.get_time path_perturbed.total_weight)
+      1200 (Metrocaml.Weight.HopWeight.get_weight path_perturbed.total_weight)
 
   (** Blocage *)
   let test_bfs_alternative_route_when_blocked () =
@@ -666,7 +666,7 @@ module Dijkstra_Tests = struct
     let ( < ) a b = a.cost < b.cost
     let ( > ) a b = a.cost > b.cost
     let ( = ) a b = a.cost = b.cost
-    let get_time w = w.cost
+    let get_weight w = w.cost
     let to_string w = string_of_int w.cost
     let step_data_to_string _ = ""
     let get_state_key w = w.line_name
@@ -693,7 +693,7 @@ module Dijkstra_Tests = struct
     | None -> Alcotest.fail "Chemin linéaire A-B-C introuvable"
     | Some path ->
         Alcotest.(check int) "Chemin linéaire : 2 étapes" 2 (List.length path.steps);
-        Alcotest.(check int) "Coût cumulé correct (60+60)" 120 (MockWeight.get_time path.total_weight)
+        Alcotest.(check int) "Coût cumulé correct (60+60)" 120 (MockWeight.get_weight path.total_weight)
 
   (** Noeud manquant *)
   let test_dij_missing_node () =
@@ -708,7 +708,7 @@ module Dijkstra_Tests = struct
     TestGraph.add_node g st_A;
     match Dijkstra.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Même noeud doit renvoyer un chemin"
-    | Some path -> Alcotest.(check int) "Chemin sur place = coût 0" 0 (MockWeight.get_time path.total_weight)
+    | Some path -> Alcotest.(check int) "Chemin sur place = coût 0" 0 (MockWeight.get_weight path.total_weight)
 
   (** Noeud inaccessible *)
   let test_dij_unreachable_node () =
@@ -730,7 +730,7 @@ module Dijkstra_Tests = struct
     match Dijkstra.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Chemin introuvable"
     | Some path -> 
-        Alcotest.(check int) "Dijkstra préfère le détour moins coûteux (20 vs 100)" 20 (MockWeight.get_time path.total_weight)
+        Alcotest.(check int) "Dijkstra préfère le détour moins coûteux (20 vs 100)" 20 (MockWeight.get_weight path.total_weight)
 
   
   (** Test le cas où le meilleur chemin final n'est pas le meilleur à une étape intermédiaire *)
@@ -745,11 +745,11 @@ module Dijkstra_Tests = struct
 
     let path_transfer_ok = Option.get (Dijkstra.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int) "Avec transferts autorisés, prend la ligne rapide puis change (Coût 15)" 
-      15 (MockWeight.get_time path_transfer_ok.total_weight);
+      15 (MockWeight.get_weight path_transfer_ok.total_weight);
 
     let path_transfer_forbidden = Option.get (Dijkstra.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun station -> station.Metrocaml.Network.id <> "B")) in
     Alcotest.(check int) "Avec transferts interdits, Dijkstra anticipe et prend la ligne lente dès le départ (Coût 60)" 
-      60 (MockWeight.get_time path_transfer_forbidden.total_weight)
+      60 (MockWeight.get_weight path_transfer_forbidden.total_weight)
   
   (** Test des restrictions potentielles *)
   (** Perturbation *)
@@ -764,7 +764,7 @@ module Dijkstra_Tests = struct
     | None -> Alcotest.fail "Chemin introuvable"
     | Some path ->
         Alcotest.(check int) "Dijkstra change d'itinéraire car la perturbation a rendu le chemin direct plus rentable (50)" 
-          50 (MockWeight.get_time path.total_weight)
+          50 (MockWeight.get_weight path.total_weight)
 
   (** Blocage *)
   let test_dij_rerouting_after_blockage () =
@@ -778,7 +778,7 @@ module Dijkstra_Tests = struct
     | None -> Alcotest.fail "Dijkstra devrait trouver le chemin de secours L2"
     | Some path ->
         Alcotest.(check int) "Dijkstra a ignoré le blocage et s'est rabattu sur L2 (Coût 100)" 
-          100 (MockWeight.get_time path.total_weight)
+          100 (MockWeight.get_weight path.total_weight)
 end
 
 (* ========================================================== *)
@@ -820,7 +820,7 @@ module Astar_Tests = struct
     | None -> Alcotest.fail "Source = destination doit renvoyer un chemin"
     | Some path ->
         Alcotest.(check int) "Chemin sur place = coût 0" 0
-          (MockWeight.get_time path.total_weight)
+          (MockWeight.get_weight path.total_weight)
 
   (** Optimalité : A* choisit le détour moins coûteux *)
   let test_astar_optimal_path () =
@@ -832,7 +832,7 @@ module Astar_Tests = struct
     | None -> Alcotest.fail "Chemin introuvable"
     | Some path ->
         Alcotest.(check int) "A* préfère le détour (20 vs 100)" 20
-          (MockWeight.get_time path.total_weight)
+          (MockWeight.get_weight path.total_weight)
 
   (** State-Space Routing : même test que Dijkstra, A* doit anticiper les correspondances interdites et choisir la bonne ligne dès le départ *)
   let test_astar_state_space_routing () =
@@ -845,12 +845,12 @@ module Astar_Tests = struct
     let path_ok = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int)
       "Transferts autorisés : L2→L1 en B (coût 15)" 15
-      (MockWeight.get_time path_ok.total_weight);
+      (MockWeight.get_weight path_ok.total_weight);
 
     let path_no = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun s -> s.Metrocaml.Network.id <> "B")) in
     Alcotest.(check int)
       "Transferts interdits en B : anticipe et prend L1 dès A (coût 60)" 60
-      (MockWeight.get_time path_no.total_weight)
+      (MockWeight.get_weight path_no.total_weight)
 
   (** Résilience : recalcul après blocage *)
   let test_astar_rerouting_after_blockage () =
@@ -862,7 +862,7 @@ module Astar_Tests = struct
     | None -> Alcotest.fail "A* devrait trouver le chemin de secours via L2"
     | Some path ->
         Alcotest.(check int) "A* ignore le blocage et prend L2 (coût 100)" 100
-          (MockWeight.get_time path.total_weight)
+          (MockWeight.get_weight path.total_weight)
 end
 
 (* ========================================================== *)

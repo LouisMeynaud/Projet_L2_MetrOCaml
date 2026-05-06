@@ -20,7 +20,7 @@ module ForceWeight : Routing.WEIGHT with type edge = connection and type node = 
   let ( > ) a b = Float.compare a b > 0
   let ( = ) a b = Float.compare a b = 0
 
-  let get_time _w = 0
+  let get_weight _w = 0
 
   let to_string w =
     if Float.is_infinite w then "∞"

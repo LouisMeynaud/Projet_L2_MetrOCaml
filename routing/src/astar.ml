@@ -87,7 +87,7 @@ module Make
         let best_weight = ref W.infinity in
 
         let initial_state = (source, W.get_state_key initial_weight) in
-        let g_scalar g = float_of_int (W.get_time g) in
+        let g_scalar g = float_of_int (W.get_weight g) in
 
         (* La différence avec Dijkstra : on ajoute l'heuristique au f_cost *)
         let initial_f = g_scalar initial_weight +. H.estimate source destination in
