@@ -35,7 +35,7 @@ _opam/
 _coverage/
 
 # Data
-data/[a-s]*
+data/[a-q]*
 
 # Env
 .env
