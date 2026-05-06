@@ -168,9 +168,9 @@ let build_bench_routeurs graph =
   ] in
   preset_routeurs @ unit_routeurs
 
-let rec run_bench_console graphe =
+let rec run_bench_console graph =
   Printf.printf "\nBenchmark activé \n%!";
-  let routeurs = build_bench_routeurs graphe in
+  let routeurs = build_bench_routeurs graph in
   Printf.printf "\nStation source : %!";
   let source_query = String.trim (read_line ()) in
   Printf.printf "Station destination : %!";
@@ -178,9 +178,9 @@ let rec run_bench_console graphe =
   let tm = Unix.localtime (Unix.time ()) in
   let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
   Routing.Bench.run
-    ~title:"Benchmark"
+    ~title:"Benchmark MetroCaml"
     ~resolve:(fun g src dst -> Endpoint.build_routing_context g src dst)
-    graphe source_query dest_query start_time routeurs Cli.Console.raw_select;
+    graph source_query dest_query start_time routeurs Cli.Console.raw_select;
   let continue = Cli.Console.raw_select "\nVoulez-vous effectuer un nouveau benchmark ? " [ "Oui"; "Non" ] in
-  if continue = "Oui" then run_bench_console graphe
+  if continue = "Oui" then run_bench_console graph
   else Printf.printf "Fermeture du mode benchmark.\n%!"
