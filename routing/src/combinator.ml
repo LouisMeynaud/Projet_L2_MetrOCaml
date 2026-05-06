@@ -120,9 +120,9 @@ let combine (type e n) (criteria : (e, n) criterion list) :
         let ( > ) a b = Float.compare (compare a b) 0.0 > 0
         let ( = ) a b = Float.equal (compare a b) 0.0
 
-        let get_time (t : t) : int =
+        let get_weight (t : t) : int =
           match t.(0) with
-          | Entry (c, v) -> with_w c v (fun (module W) v -> W.get_time v)
+          | Entry (c, v) -> with_w c v (fun (module W) v -> W.get_weight v)
 
         let entry_to_string : type w. (edge, node, w) criterion_t -> w -> string =
          fun c value ->
