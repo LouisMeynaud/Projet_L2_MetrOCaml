@@ -151,7 +151,7 @@ let recupere_alertes () =
     | Some k -> k
     | None -> failwith "La clé API IDFM_API_KEY introuvable. Veuillez la définir dans le fichier .env"
   in
-  let filename = "data/rt/alertes.json" in
+  let filename = "metrocaml/data/rt/alertes.json" in
   let uri =
     Uri.of_string
       "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2"
@@ -196,7 +196,7 @@ let actualiser_fichier_alertes () = Lwt_main.run (recupere_alertes ())
     programme ne plantera pas si une alerte spécifique est mal formattée par le
     serveur IDFM. *)
 let charger_alertes_en_memoire date_cible =
-  let filename = "data/rt/alertes.json" in
+  let filename = "metrocaml/data/rt/alertes.json" in
   let date_midnight = yyyymmdd_to_midnight date_cible in
   if Sys.file_exists filename then
     begin try

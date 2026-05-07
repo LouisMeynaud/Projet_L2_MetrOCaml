@@ -20,6 +20,7 @@ let normalize_name s =
     | _ -> ()
   ) s;
   Buffer.contents buffer
+  
 (** [time_to_seconds time_str] convertit une heure GTFS au format "HH:MM:SS" 
     en un nombre total de secondes écoulées depuis minuit.
     NB: Le standard GTFS autorise des heures > 24h.
