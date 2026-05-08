@@ -57,8 +57,8 @@ let pick_random_pair nodes_filtered : ('a * 'a) option =
 (** Afficher les résultats du benchmark aléatoire *)
 let print_random_bench_results stats =
   Printf.printf "\n\n=== RÉSULTATS DU BENCHMARK ALÉATOIRE ===\n\n%!";
-  Printf.printf "%-15s | %-15s | %-15s | %-15s | %-20s | %-15s | %-20s\n%!"
-    "Catégorie" "Benchmarks" "Dijkstra%" "Dijkstra ms" "A* ms" "Dijkstra w" "A* w";
+  Printf.printf "%-14s | %-10s | %-10s | %-10s | %-12s | %-12s | %-12s | %-12s\n%!"
+    "Catégorie" "Bench" "Dijkstra TW" "Dijkstra WW" "Dijkstra ms" "A* ms" "Dijkstra w" "A* w";
   separator ();
   let categories = ["< 15"; "[15, 25]"; "[25, 40)"; "[40, 50)"; ">= 50"] in
   let total_elapsed_wins, total_time_transfer_wins, total_count =
@@ -70,16 +70,17 @@ let print_random_bench_results stats =
         let average_a = calcul_avg atotal in
         let average_d_w = calcul_avg dtotal_w in
         let average_a_w = calcul_avg atotal_w in
-        Printf.printf "%-15s | %15d | %14.1f%% | %14.1f%% | %14.4f | %14.4f | %14.4f | %14.4f\n%!" cat count
+        Printf.printf "%-14s | %10d | %9.1f%% | %9.1f%% | %12.4f | %12.4f | %12.4f | %12.4f\n%!" cat count
           (calcul_avg (float_of_int elapsed_wins) *. 100.0)
           (calcul_avg (float_of_int time_transfer_wins) *. 100.0)
           average_d average_a average_d_w average_a_w;
-        (tw + elapsed_wins, te + time_transfer_wins, tc + count)) (0, 0, 0) categories
+        (te + elapsed_wins, tw + time_transfer_wins, tc + count)) (0, 0, 0) categories
   in
   separator ();
   let global_percentage_elapsed = if total_count = 0 then 0.0 else (float_of_int total_elapsed_wins /. float_of_int total_count) *. 100.0 in
+  Printf.printf "\n Total_time_elasped_wins : %d , Total_time_transfers_wins : %d , total_count : %d\n%!" total_elapsed_wins total_time_transfer_wins total_count;
   let global_percentage_time_transfer = if total_count = 0 then 0.0 else (float_of_int total_time_transfer_wins /. float_of_int total_count) *. 100.0 in
-  Printf.printf "\nStatistique Globale: Dijkstra meilleur dans %.2f%% en terme de temps et dans %.2f%% des cas\n\n%!" global_percentage_elapsed global_percentage_time_transfer
+  Printf.printf "\nStatistique Globale: Dijkstra meilleur dans %.2f%% en terme de temps/chrono et dans %.2f%% des cas en terme de poids (Time / Transfers) \n\n%!" global_percentage_elapsed global_percentage_time_transfer
 
 
 
@@ -95,10 +96,10 @@ let run ~title ~resolve graph source_query dest_query start_time routeurs raw_se
 
       let afficheurs =
         List.filter_map
-          (fun (nom, search_fn) ->
+          (fun (nom, compute) ->
             let t0 = Unix.gettimeofday () in
-            let result_str, print_detail =
-              search_fn graph_for_search source destination start_time
+            let result_str, (print_detail) =
+              compute graph_for_search source destination start_time
             in
             let t1 = Unix.gettimeofday () in
             Printf.printf "%-30s  %-12s  %-20s\n%!" nom
@@ -149,7 +150,7 @@ end
 (** Foncteur pour créer un exécuteur de benchmark aléatoire générique *)
 module MakeRandomBench (RBench : Random_Bench) = struct
 
-  let nb_bench_alea = 10
+  let nb_bench_alea = 250
   let attempts_limit = nb_bench_alea * 10
 
   (** Vérifier le nombre de nœuds dans le graphe *)
@@ -176,9 +177,9 @@ module MakeRandomBench (RBench : Random_Bench) = struct
 
     Printf.printf "Nombre de nœuds disponibles: %d\n%!" num_nodes;
     let max_size = choose_max_size num_nodes in
-    Printf.printf "\nDémarrage de %d benchmarks aléatoires n%!" nb_bench_alea;
+    Printf.printf "\nDémarrage de %d benchmarks aléatoires \n%!" nb_bench_alea;
 
-
+    (* Initialisation*)
     Random.self_init ();
     let start_time = 
       let tm = Unix.localtime (Unix.time ()) 
@@ -187,6 +188,7 @@ module MakeRandomBench (RBench : Random_Bench) = struct
       let stats = init_category_stats () in
       let filtered_nodes = filter_nodes nodes max_size in
     
+    (* Collection des donnés de bench dans la hash table*)  
     let rec collect remaining attempts_limit attempts =
       if (remaining = 0 || attempts_limit <= 0) then
         stats
@@ -196,7 +198,7 @@ module MakeRandomBench (RBench : Random_Bench) = struct
           Printf.printf "Progression: %d tentatives pour %d benchmarks valides \n%!" 
             attempts (nb_bench_alea - remaining);
         
-        (* Create a comparator for nodes *)
+        (* Lancer le benchmark d'une paire de routeurs *)
         let try_benchmark () =
           match pick_random_pair filtered_nodes with
           | None -> None
@@ -204,7 +206,8 @@ module MakeRandomBench (RBench : Random_Bench) = struct
               | None -> None
               | Some (graph_for_search, src_found, dst_found) -> RBench.benchmark_pair routeur_pairs graph_for_search src_found dst_found start_time)
         in
-        
+
+        (* Ajouter le bench si valide dans la hash table *)
         (match try_benchmark () with
         | None -> collect remaining (attempts_limit - 1) attempts
         | Some (category, elapsed_wins, dijkstra_wins, dijkstra_avg, astar_avg, d_avg_w, a_avg_w) ->

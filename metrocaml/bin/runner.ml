@@ -130,7 +130,7 @@ let search_callback source_query dest_query algo poids coeffs excluded_modes
 
 (** Benchmarking *)
 
-(** Bench unique*)
+(** Paramétrage des types *)
 
 type stat = {
   total_time : int;
@@ -142,12 +142,7 @@ type stat = {
 type routeur =
   Network.TransportGraph.t -> Network.station -> Network.station -> int -> (stat option) * (unit -> unit)
 
-type routeur_pair = {
-  preset_name : string;
-  dijkstra : string * routeur;
-  astar : string * routeur;
-}
-
+(** Création d'un routeur avec son nom associé *)
 let make_routeur nom (module Algo : ALGO) = 
   let compute_route graph source destination start_time =
     match Algo.find_path ~start_time ~graph ~source ~destination ~transfer_allowed:(fun _ -> true) with
@@ -160,7 +155,7 @@ let make_routeur nom (module Algo : ALGO) =
   in
   (nom, compute_route)
 
-
+(** Renvoie le bon type pour le benchmark générique unique *)
 let print_bench_unique (nom, compute) = 
 
   let compute_route graph_for_search source destination start_time= 
@@ -179,6 +174,7 @@ let print_bench_unique (nom, compute) =
   (nom, compute_route)
   
 
+  (** Création des routeurs pour le benchmark unique *)
 let build_bench_routeurs graph =
   let base_heuristic = make_heuristic graph in
   let preset_routeurs = List.concat_map (fun (preset : Presets.preset) ->
@@ -203,9 +199,10 @@ let build_bench_routeurs graph =
   preset_routeurs @ unit_routeurs
 
   
-(** Bench aléatoire*)
 
+  (** Bench aléatoire*)
 
+(** Fonctions pour les moyennes *)
 let avg_elapsed l = 
   if List.length l = 0 then 0.0
   else List.fold_left (+.) 0.0 l /. float_of_int (List.length l)
@@ -219,13 +216,31 @@ let avg_weight l =
    (0.0, 0.0) l in
   (time_avg /. float_of_int (List.length l), transfers_avg /. float_of_int (List.length l))
 
-let run_routeur (_, compute) graph source destination start_time =
+(** Fonctions pour exécuter les routeurs et calculer leurs bench/stats *)
+let run_routeur (name, compute) graph source destination start_time =
   let t0 = Unix.gettimeofday () in
-  let stats, _ = compute graph source destination start_time in
-  let elapsed = Unix.gettimeofday () -. t0 in
-  (stats, elapsed)
+  let exception Timeout in
+  let timeout_seconds = 30.0 in
+  let old_handler = Sys.signal Sys.sigalrm (Sys.Signal_handle (fun _ -> raise Timeout)) in
+  try
+    let _ = Unix.setitimer Unix.ITIMER_REAL {it_interval = 0.0; it_value = timeout_seconds} in 
+    let stats, _ = compute graph source destination start_time in
+    let _ = Unix.setitimer Unix.ITIMER_REAL {it_interval = 0.0; it_value = 0.0} in
+    let elapsed = Unix.gettimeofday () -. t0 in
+    let _ = Sys.signal Sys.sigalrm old_handler in
+    (stats, elapsed)
+  with Timeout ->
+    let _ =  Unix.setitimer Unix.ITIMER_REAL {it_interval = 0.0; it_value = 0.0} in 
+    let elapsed = Unix.gettimeofday () -. t0 in
+    let _ = Sys.signal Sys.sigalrm old_handler in
+    Printf.printf "Timeout dépassé pour %s (%.1f sec) - Aucun chemin trouvé\n%!" name elapsed;
+    (None, elapsed)
+  | e ->
+    let _ = Unix.setitimer Unix.ITIMER_REAL {it_interval = 0.0; it_value = 0.0} in
+    let _ = Sys.signal Sys.sigalrm old_handler in
+    raise e
 
-
+(** Validation d'une paire de routeurs en cherchant le chemin d'un nœud à un autre avec un algorithme donné *)
 let validate_pair (module Algo : ALGO) graph source destination start_time =
   match
     Algo.find_path ~start_time ~graph ~source ~destination ~transfer_allowed:(fun _ -> true)
@@ -233,22 +248,6 @@ let validate_pair (module Algo : ALGO) graph source destination start_time =
   | None -> None
   | Some path -> Some (List.length path.Algo.P.steps)
 
-
-let make_routeur_pairs graph = 
-  let heuristic = make_heuristic graph in
-  List.map
-    (fun (preset : Presets.preset) ->
-      let module W = (val Presets.to_weight preset) in
-      {
-        preset_name = preset.name;
-        dijkstra =
-          make_routeur (Printf.sprintf "Dijkstra Preset : %s" preset.name)
-            (make_dijkstra (module W));
-        astar =
-          make_routeur (Printf.sprintf "A* Preset : %s" preset.name)
-            (make_astar (module W) (fun a b -> heuristic a b *. preset.Presets.astar_coef));
-      })
-    Presets.all
 
 (** Module pour utiliser le foncteur MakeRandomBench *)
 module MetroCamlRandomBench : (Bench.Random_Bench 
@@ -262,6 +261,7 @@ module MetroCamlRandomBench : (Bench.Random_Bench
     astar : string * routeur;
   }
 
+(** Création de paires de routeurs A* et Dijkstra pour les bench aléatoires *)
   let make_routeur_pairs graph =
     let heuristic = make_heuristic graph in
     List.map
@@ -278,13 +278,16 @@ module MetroCamlRandomBench : (Bench.Random_Bench
         })
       Presets.all
 
+  (** Récupération des nœuds d'un graphe *)
   let get_nodes graph = Network.TransportGraph.nodes graph
 
+  (**  Trouver des points de départ et d'arrivée pour le benchmark valide*)
   let build_context graph src dst =
     match Endpoint.build_routing_context graph src.Network.id dst.Network.id with
     | None -> None
     | Some (g, s, d) -> Some (g, s, d)
 
+  (** Lancer les benchmarks pour une paire de routeurs et calculer les statistiques *)
   let benchmark_pair routeur_pairs graph source destination start_time =
     match validate_pair (module BFS_HopWeight) graph source destination start_time with
     | None -> None
@@ -293,11 +296,11 @@ module MetroCamlRandomBench : (Bench.Random_Bench
         let dijkstra_tot_elapsed, astar_tot_elapsed, d_stats, a_stats =
           List.fold_left
             (fun (d_acc, a_acc, d_stats_acc, a_stats_acc) pair ->
-              Printf.printf "Benchmarking %s...\n%!" pair.preset_name;
+              (* Printf.printf "Benchmarking %s\n%!" pair.preset_name; *)
               let d_stats, d_duration = run_routeur pair.dijkstra graph source destination start_time in
-              Printf.printf "Dijkstra: %d steps, elapsed time: %.4f seconds\n%!" (match d_stats with Some s -> s.nb_steps | None -> -1) d_duration;
+              (* Printf.printf "Dijkstra: %d steps, elapsed time: %.4f seconds\n%!" (match d_stats with Some s -> s.nb_steps | None -> -1) d_duration; *)
               let a_stats, a_duration = run_routeur pair.astar graph source destination start_time in
-              Printf.printf "A*: %d steps, elapsed time: %.4f seconds\n%!" (match a_stats with Some s -> s.nb_steps | None -> -1) a_duration;
+              (* Printf.printf "A*: %d steps, elapsed time: %.4f seconds\n%!" (match a_stats with Some s -> s.nb_steps | None -> -1) a_duration; *)
               (d_duration :: d_acc, a_duration :: a_acc, d_stats :: d_stats_acc, a_stats :: a_stats_acc))
             ([], [], [], []) routeur_pairs
         in
@@ -315,21 +318,9 @@ end
 module MetroCamlBench = Bench.MakeRandomBench(MetroCamlRandomBench)
 
 let run_random_bench_console graph =
-  Printf.printf "\n=== Benchmark Mode Aléatoire ===\n%!";
   MetroCamlBench.run_random_bench_console graph
 
-
-
-
-let rec run_bench_console graph =
-  Printf.printf "\n=== Mode Benchmark ===\n%!";
-  let mode = Cli.Console.raw_select "Quel mode de benchmark voulez-vous ?" [ "Unique"; "Aleatoire"] in
-  
-  if mode = "Unique" then
-    run_bench_unique graph
-  else
-    run_random_bench_console graph
-and run_bench_unique graph =
+let run_bench_unique graph =
   Printf.printf "\nBenchmark activé \n%!";
   let routeurs = build_bench_routeurs graph in
   Printf.printf "\nStation source : %!";
@@ -341,7 +332,18 @@ and run_bench_unique graph =
   Routing.Bench.run
     ~title:"Benchmark MetroCaml"
     ~resolve:(fun g src dst -> Endpoint.build_routing_context g src dst)
-    graph source_query dest_query start_time routeurs Cli.Console.raw_select;
+    graph source_query dest_query start_time routeurs Cli.Console.raw_select
+
+let rec run_bench_console graph =
+  Printf.printf "\n=== Mode Benchmark ===\n%!";
+  let mode = Cli.Console.raw_select "Quel mode de benchmark voulez-vous ?" [ "Unique"; "Aleatoire"] in
+  let _  = 
+  if mode = "Unique" then
+    run_bench_unique graph
+  else
+    run_random_bench_console graph 
+  in
   let continue = Cli.Console.raw_select "\nVoulez-vous effectuer un nouveau benchmark ? " [ "Oui"; "Non" ] in
   if continue = "Oui" then run_bench_console graph
   else Printf.printf "Fermeture du mode benchmark.\n%!"
+  
