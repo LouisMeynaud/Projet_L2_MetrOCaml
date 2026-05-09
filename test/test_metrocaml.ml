@@ -415,8 +415,8 @@ let test_hopw_formatters () =
   let w_0 = HW.start_at 0 in
   let w_1 = force_traverse HW.traverse w_0 (make_conn Walk 120 [] "W") in
   
-  Alcotest.(check string) "Affichage 0 arrêts" "0 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string w_0);
-  Alcotest.(check string) "Affichage 1 arrêt" "1 arrêts (Aujourd'hui à 00h02m00s)" (HW.to_string w_1);
+  Alcotest.(check string) "Affichage 0 arrêts" "0 arrêt (Aujourd'hui à 00h00m00s)" (HW.to_string w_0);
+  Alcotest.(check string) "Affichage 1 arrêt" "1 arrêt (Aujourd'hui à 00h02m00s)" (HW.to_string w_1);
   Alcotest.(check string) "Affichage infini" "∞" (HW.to_string HW.infinity)
 
 
@@ -433,7 +433,7 @@ let cw_t =
 let test_cw_init_states () =
   let start_w = CW.start_at 0 in
   Alcotest.(check bool) "start_at n'est pas infini" false (CW.is_inf start_w);
-  Alcotest.(check string) "Commence à 0" "0 correspondances (Aujourd'hui à 00h00m00s)" (CW.to_string start_w);
+  Alcotest.(check string) "Commence à 0" "0 correspondance (Aujourd'hui à 00h00m00s)" (CW.to_string start_w);
   Alcotest.(check bool) "infinity est reconnu" true (CW.is_inf CW.infinity)
 
 (** Tests pour traverse *)
@@ -455,7 +455,7 @@ let test_cw_traverse_same_line () =
   let w_2 = force_traverse CW.traverse w_1 conn_m1_b in
   
   Alcotest.(check string) "Rester sur M1 = 0 correspondance" 
-    "0 correspondances (Aujourd'hui à 00h04m20s)" (CW.to_string w_2)
+    "0 correspondance (Aujourd'hui à 00h04m20s)" (CW.to_string w_2)
 
 (** Test avec une correspondance *)
 let test_cw_traverse_real_transfer () =
@@ -468,7 +468,7 @@ let test_cw_traverse_real_transfer () =
   let w_total = force_traverse CW.traverse w_walk conn_m2 in
   
   Alcotest.(check string) "Changement de M1 à M2 compte exactement 1 correspondance" 
-    "1 correspondances (Aujourd'hui à 00h17m40s)" (CW.to_string w_total)
+    "1 correspondance (Aujourd'hui à 00h17m40s)" (CW.to_string w_total)
 
 (** Tests des comparaisons *)
 
