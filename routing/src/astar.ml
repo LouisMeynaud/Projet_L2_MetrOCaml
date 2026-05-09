@@ -54,10 +54,13 @@ module Make
     let push ~f_cost ~g_cost node state h =
       merge (Node { f_cost; g_cost; node; state; children = [] }) h
 
-    let rec merge_pairs = function
-      | [] -> Empty
-      | [ h ] -> h
-      | h1 :: h2 :: rest -> merge (merge h1 h2) (merge_pairs rest)
+    let merge_pairs lst =
+      let rec pair acc = function
+        | [] -> acc
+        | [ h ] -> h :: acc
+        | h1 :: h2 :: rest -> pair (merge h1 h2 :: acc) rest
+      in
+      List.fold_left merge Empty (pair [] lst)
 
     let pop = function
       | Empty -> None
@@ -80,8 +83,9 @@ module Make
       if G.Node.equal source destination then
         Some { P.steps = []; total_weight = initial_weight }
       else
-        let dist = Hashtbl.create 10000 in
-        let prev = Hashtbl.create 10000 in
+        let n = List.length (G.nodes graph) in
+        let dist = Hashtbl.create (n * 2) in
+        let prev = Hashtbl.create (n * 2) in
 
         let best_path = ref None in
         let best_weight = ref W.infinity in
@@ -107,9 +111,9 @@ module Make
                 let rec build_steps acc state =
                   match Hashtbl.find_opt prev state with
                   | None -> acc
-                  | Some (pred_state, pred_node, current_node, edge, w, step_data) ->
+                  | Some (pred_state, edge, w, step_data) ->
                       let step =
-                        { P.from = pred_node; to_node = current_node; edge; weight = w; data = step_data; }
+                        { P.from = fst pred_state; to_node = fst state; edge; weight = w; data = step_data; }
                       in
                       build_steps (step :: acc) pred_state
                 in
@@ -124,7 +128,7 @@ module Make
                     | Some (new_g, step_data) ->
                         let next_state_key = W.get_state_key new_g in
                         let _, current_state_key = u_state in
-                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in
+                        let is_line_change = current_state_key <> next_state_key in
                         let is_transfer = is_line_change && not (G.Node.equal u source) in
 
                         if (not is_transfer) || transfer_allowed u then (
@@ -135,7 +139,7 @@ module Make
                             (* Application de l'heuristique sur le nouveau noeud *)
                             let new_f = g_scalar new_g +. H.estimate v destination in
                             Hashtbl.replace dist v_state new_g;
-                            Hashtbl.replace prev v_state (u_state, u, v, edge, new_g, step_data);
+                            Hashtbl.replace prev v_state (u_state, edge, new_g, step_data);
                             ta := TA.push ~f_cost:new_f ~g_cost:new_g v v_state !ta
                           end))
                   (G.neighbors graph u);
