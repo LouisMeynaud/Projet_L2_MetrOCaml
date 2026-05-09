@@ -58,7 +58,7 @@ Au lancement du programme, l'utilisateur peut choisir entre deux modes :
 | **En ligne** | Île-de-France, Toulouse, Montpellier, Marseille, SNCF, Corsica |
 
 ### Algorithmes et critères de recherche:
-Notre librairie propose plusieurs algorithmes de routage, tels que **Astar**, **Dijkstra (amélioré)**, **BFS**.
+Notre librairie propose plusieurs algorithmes de routage, tels que **Astar (amélioré)**, **Dijkstra (amélioré)**, **BFS**.
 
 Le projet implémente différents critères de recherche (poids) :
 * **Temps :** Privilégie une arrivée **le plus tôt possible** (donc pas nécessairement le trajet le moins long en temps).
