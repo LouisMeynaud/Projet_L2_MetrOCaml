@@ -55,7 +55,7 @@ let rt_alertes town loading_mode date_cible graph =
         ( "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2")
     | _ -> ("") 
   in
-  if (rt_url_alertes <> "" && loading_mode == "En ligne" ) then begin
+  if (rt_url_alertes <> "" && loading_mode = "En ligne" ) then begin
     Printf.printf "\n[Système] Démarrage du moteur Temps Réel en arrière-plan...\n%!";
     Gtfs_rt.start_auto_refresh date_cible graph;
   end; ()
@@ -80,6 +80,7 @@ let rt_alertes town loading_mode date_cible graph =
 
 
 let () =
+  Dotenv.export () |> ignore;
   Printf.printf "\x1b[1;33m%s\x1b[0m" "
                    __                                  __
    ____ ___  ___  / /__________  _________ _____ ___  / /

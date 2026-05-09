@@ -185,7 +185,7 @@ let force_traverse traverse_fn w e =
 (** Test d'initialisation des données *)
 let test_timew_init_states () =
   let start_w = TimeW.start_at 1000 in
-  Alcotest.(check int) "start_at initialise le temps" 1000 (TimeW.get_time start_w);
+  Alcotest.(check int) "start_at initialise le temps" 1000 (TimeW.get_weight start_w);
   Alcotest.(check bool) "start_at n'est pas l'infini" false (TimeW.is_inf start_w);
   
   let inf_w = TimeW.infinity in
@@ -209,7 +209,7 @@ let test_timew_traverse_transport () =
   let conn = make_conn Metro 120 [("id1", 50)] "M1" in
   let start_w = TimeW.start_at 0 in
   let next_w = force_traverse TimeW.traverse start_w conn in
-  Alcotest.(check int) "Temps mis à jour (50 attente + 120 trajet)" 170 (TimeW.get_time next_w)
+  Alcotest.(check int) "Temps mis à jour (50 attente + 120 trajet)" 170 (TimeW.get_weight next_w)
 
 (** Test accumulations de Walk + incrémentation du temps de trajet en cas de Walk ou de Transfert *)
 let test_timew_traverse_walk () =
@@ -221,7 +221,7 @@ let test_timew_traverse_walk () =
   let w_walk2 = force_traverse TimeW.traverse w_walk1 conn_walk2 in
   let w_total = force_traverse TimeW.traverse w_walk2 conn_trans in
   
-  Alcotest.(check int) "Temps total après 2 marches" 200 (TimeW.get_time w_total)
+  Alcotest.(check int) "Temps total après 2 marches" 200 (TimeW.get_weight w_total)
 
 (** Tests des comparaisons *)
 
@@ -415,8 +415,8 @@ let test_hopw_formatters () =
   let w_0 = HW.start_at 0 in
   let w_1 = force_traverse HW.traverse w_0 (make_conn Walk 120 [] "W") in
   
-  Alcotest.(check string) "Affichage 0 arrêts" "0 arrêts (Aujourd'hui à 00h00m00s)" (HW.to_string w_0);
-  Alcotest.(check string) "Affichage 1 arrêt" "1 arrêts (Aujourd'hui à 00h02m00s)" (HW.to_string w_1);
+  Alcotest.(check string) "Affichage 0 arrêts" "0 arrêt (Aujourd'hui à 00h00m00s)" (HW.to_string w_0);
+  Alcotest.(check string) "Affichage 1 arrêt" "1 arrêt (Aujourd'hui à 00h02m00s)" (HW.to_string w_1);
   Alcotest.(check string) "Affichage infini" "∞" (HW.to_string HW.infinity)
 
 
@@ -433,7 +433,7 @@ let cw_t =
 let test_cw_init_states () =
   let start_w = CW.start_at 0 in
   Alcotest.(check bool) "start_at n'est pas infini" false (CW.is_inf start_w);
-  Alcotest.(check string) "Commence à 0" "0 correspondances (Aujourd'hui à 00h00m00s)" (CW.to_string start_w);
+  Alcotest.(check string) "Commence à 0" "0 correspondance (Aujourd'hui à 00h00m00s)" (CW.to_string start_w);
   Alcotest.(check bool) "infinity est reconnu" true (CW.is_inf CW.infinity)
 
 (** Tests pour traverse *)
@@ -455,7 +455,7 @@ let test_cw_traverse_same_line () =
   let w_2 = force_traverse CW.traverse w_1 conn_m1_b in
   
   Alcotest.(check string) "Rester sur M1 = 0 correspondance" 
-    "0 correspondances (Aujourd'hui à 00h04m20s)" (CW.to_string w_2)
+    "0 correspondance (Aujourd'hui à 00h04m20s)" (CW.to_string w_2)
 
 (** Test avec une correspondance *)
 let test_cw_traverse_real_transfer () =
@@ -468,7 +468,7 @@ let test_cw_traverse_real_transfer () =
   let w_total = force_traverse CW.traverse w_walk conn_m2 in
   
   Alcotest.(check string) "Changement de M1 à M2 compte exactement 1 correspondance" 
-    "1 correspondances (Aujourd'hui à 00h17m40s)" (CW.to_string w_total)
+    "1 correspondance (Aujourd'hui à 00h17m40s)" (CW.to_string w_total)
 
 (** Tests des comparaisons *)
 
@@ -532,14 +532,14 @@ module BFS_Tests = struct
   let test_bfs_missing_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g st_A;
-    let res = BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B in
+    let res = BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true) in
     Alcotest.(check bool) "Destination absente du graphe renvoie None" true (res = None)
 
   (** Noeud de dépard = noeud ciblé *)
   let test_bfs_same_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g st_A;
-    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A with
+    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Même noeud devrait renvoyer un chemin vide"
     | Some path ->
         Alcotest.(check int) "Chemin sur place = 0 étape" 0 (List.length path.steps)
@@ -551,7 +551,7 @@ module BFS_Tests = struct
     TestGraph.add_edge g st_A st_B (make_conn Walk 60 [] "W");
     TestGraph.add_edge g st_B st_C (make_conn Walk 60 [] "W");
     
-    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C with
+    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Chemin A->C introuvable"
     | Some path ->
         Alcotest.(check int) "Chemin A->B->C fait 2 étapes" 2 (List.length path.steps)
@@ -562,7 +562,7 @@ module BFS_Tests = struct
     TestGraph.add_edge g st_A st_B (make_conn Walk 60 [] "W");
     TestGraph.add_node g st_C;
     
-    let res = BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C in
+    let res = BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) in
     Alcotest.(check bool) "Noeud déconnecté renvoie None" true (res = None)
 
   (** Test qu'on a bien le chemin avec le moins de sauts, qu'importe le temps *)
@@ -573,7 +573,7 @@ module BFS_Tests = struct
     
     TestGraph.add_edge g st_A st_C (make_conn Walk 3600 [] "W");
     
-    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C with
+    match BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Chemin A->C introuvable"
     | Some path ->
         Alcotest.(check int) "BFS choisit toujours le chemin avec le MOINS d'arêtes (1 au lieu de 2)" 
@@ -588,7 +588,7 @@ module BFS_Tests = struct
     TestGraph.add_edge g st_C st_B (make_conn Metro 60 [("id3", 200)] "L2");
     
     Metrocaml.Weight.set_excluded_modes ["Bus"];
-    let path_blocked = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_blocked = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Metrocaml.Weight.set_excluded_modes [];
     
     Alcotest.(check int) "BFS utilise le détour pour éviter le bus (2 étapes)" 2 (List.length path_blocked.steps)
@@ -598,20 +598,20 @@ module BFS_Tests = struct
     let g = TestGraph.create () in
     TestGraph.add_edge g st_A st_B (make_conn Metro 200 [("t1", 100); ("t2", 1000)] "L1");
   
-    let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int) "Temps normal (attrape le 1er train) = 300s" 
-      300 (Metrocaml.Weight.HopWeight.get_time path_normal.total_weight);
+      300 (Metrocaml.Weight.HopWeight.get_weight path_normal.total_weight);
   
     let alerte : Metrocaml.Gtfs_rt.alerte_dijkstra =
       { severite = Metrocaml.Gtfs_rt.PERTURBEE; stations_hash = Hashtbl.create 0; periodes = [] }
     in
     Hashtbl.replace !Metrocaml.Gtfs_rt.index_alertes_dijkstra "L1" [ alerte ];
   
-    let path_perturbed = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_perturbed = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Hashtbl.clear !Metrocaml.Gtfs_rt.index_alertes_dijkstra; 
   
     Alcotest.(check int) "Temps perturbé (rate le train, prend le 2ème) = 1200s" 
-      1200 (Metrocaml.Weight.HopWeight.get_time path_perturbed.total_weight)
+      1200 (Metrocaml.Weight.HopWeight.get_weight path_perturbed.total_weight)
 
   (** Blocage *)
   let test_bfs_alternative_route_when_blocked () =
@@ -621,7 +621,7 @@ module BFS_Tests = struct
     TestGraph.add_edge g st_C st_B (make_conn Metro 60 [("id3", 200)] "L2");
     
     (** Chemin normal *)
-    let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_normal = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int) "Normalement, BFS prend le direct (1 étape)" 1 (List.length path_normal.steps);
     
     (** Avec blocage *)
@@ -630,7 +630,7 @@ module BFS_Tests = struct
     in
     Hashtbl.replace !Metrocaml.Gtfs_rt.index_alertes_dijkstra "L1" [ alerte ];
     
-    let path_blocked = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B) in
+    let path_blocked = Option.get (BFS.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true)) in
     Hashtbl.clear !Metrocaml.Gtfs_rt.index_alertes_dijkstra;
     
     Alcotest.(check int) "Avec blocage, BFS contourne par le détour (2 étapes)" 2 (List.length path_blocked.steps)
@@ -666,7 +666,7 @@ module Dijkstra_Tests = struct
     let ( < ) a b = a.cost < b.cost
     let ( > ) a b = a.cost > b.cost
     let ( = ) a b = a.cost = b.cost
-    let get_time w = w.cost
+    let get_weight w = w.cost
     let to_string w = string_of_int w.cost
     let step_data_to_string _ = ""
     let get_state_key w = w.line_name
@@ -693,7 +693,7 @@ module Dijkstra_Tests = struct
     | None -> Alcotest.fail "Chemin linéaire A-B-C introuvable"
     | Some path ->
         Alcotest.(check int) "Chemin linéaire : 2 étapes" 2 (List.length path.steps);
-        Alcotest.(check int) "Coût cumulé correct (60+60)" 120 (MockWeight.get_time path.total_weight)
+        Alcotest.(check int) "Coût cumulé correct (60+60)" 120 (MockWeight.get_weight path.total_weight)
 
   (** Noeud manquant *)
   let test_dij_missing_node () =
@@ -708,7 +708,7 @@ module Dijkstra_Tests = struct
     TestGraph.add_node g st_A;
     match Dijkstra.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Même noeud doit renvoyer un chemin"
-    | Some path -> Alcotest.(check int) "Chemin sur place = coût 0" 0 (MockWeight.get_time path.total_weight)
+    | Some path -> Alcotest.(check int) "Chemin sur place = coût 0" 0 (MockWeight.get_weight path.total_weight)
 
   (** Noeud inaccessible *)
   let test_dij_unreachable_node () =
@@ -730,7 +730,7 @@ module Dijkstra_Tests = struct
     match Dijkstra.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Chemin introuvable"
     | Some path -> 
-        Alcotest.(check int) "Dijkstra préfère le détour moins coûteux (20 vs 100)" 20 (MockWeight.get_time path.total_weight)
+        Alcotest.(check int) "Dijkstra préfère le détour moins coûteux (20 vs 100)" 20 (MockWeight.get_weight path.total_weight)
 
   
   (** Test le cas où le meilleur chemin final n'est pas le meilleur à une étape intermédiaire *)
@@ -745,11 +745,11 @@ module Dijkstra_Tests = struct
 
     let path_transfer_ok = Option.get (Dijkstra.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int) "Avec transferts autorisés, prend la ligne rapide puis change (Coût 15)" 
-      15 (MockWeight.get_time path_transfer_ok.total_weight);
+      15 (MockWeight.get_weight path_transfer_ok.total_weight);
 
     let path_transfer_forbidden = Option.get (Dijkstra.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun station -> station.Metrocaml.Network.id <> "B")) in
     Alcotest.(check int) "Avec transferts interdits, Dijkstra anticipe et prend la ligne lente dès le départ (Coût 60)" 
-      60 (MockWeight.get_time path_transfer_forbidden.total_weight)
+      60 (MockWeight.get_weight path_transfer_forbidden.total_weight)
   
   (** Test des restrictions potentielles *)
   (** Perturbation *)
@@ -764,7 +764,7 @@ module Dijkstra_Tests = struct
     | None -> Alcotest.fail "Chemin introuvable"
     | Some path ->
         Alcotest.(check int) "Dijkstra change d'itinéraire car la perturbation a rendu le chemin direct plus rentable (50)" 
-          50 (MockWeight.get_time path.total_weight)
+          50 (MockWeight.get_weight path.total_weight)
 
   (** Blocage *)
   let test_dij_rerouting_after_blockage () =
@@ -778,7 +778,7 @@ module Dijkstra_Tests = struct
     | None -> Alcotest.fail "Dijkstra devrait trouver le chemin de secours L2"
     | Some path ->
         Alcotest.(check int) "Dijkstra a ignoré le blocage et s'est rabattu sur L2 (Coût 100)" 
-          100 (MockWeight.get_time path.total_weight)
+          100 (MockWeight.get_weight path.total_weight)
 end
 
 (* ========================================================== *)
@@ -790,8 +790,13 @@ module Astar_Tests = struct
   module TestEdge = Dijkstra_Tests.TestEdge
   module TestGraph = Routing.Graph.Make (TestNode) (TestEdge)
   module MockWeight = Dijkstra_Tests.MockWeight
-
-  module Astar = Routing.Astar.Make (TestGraph) (MockWeight)
+    (* Heuristique nulle : A* se comporte comme Dijkstra.
+     Garantit l'admissibilité et isole le comportement de l'algorithme. *)
+  module MockHeuristic = struct
+    type node = TestNode.t
+    let estimate _ _ = 0.0
+  end
+  module Astar = Routing.Astar.Make (TestGraph) (MockWeight) (MockHeuristic)
 
   let st_A = { dummy_station with id = "A"; name = "A" }
   let st_B = { dummy_station with id = "B"; name = "B" }
@@ -800,25 +805,22 @@ module Astar_Tests = struct
   let mock_conn dur line_name =
     { (Dijkstra_Tests.mock_conn dur line_name) with duration = dur }
 
-  (* Heuristique nulle : A* se comporte comme Dijkstra.
-     Garantit l'admissibilité et isole le comportement de l'algorithme. *)
-  let h_zero _ _ = 0.0
 
   (** Garde-fous : destination absente et source = destination *)
   let test_astar_missing_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g st_A;
-    let res = Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero in
+    let res = Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_B ~transfer_allowed:(fun _ -> true) in
     Alcotest.(check bool) "Destination absente renvoie None" true (res = None)
 
   let test_astar_same_node () =
     let g = TestGraph.create () in
     TestGraph.add_node g st_A;
-    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_A ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Source = destination doit renvoyer un chemin"
     | Some path ->
         Alcotest.(check int) "Chemin sur place = coût 0" 0
-          (MockWeight.get_time path.total_weight)
+          (MockWeight.get_weight path.total_weight)
 
   (** Optimalité : A* choisit le détour moins coûteux *)
   let test_astar_optimal_path () =
@@ -826,11 +828,11 @@ module Astar_Tests = struct
     TestGraph.add_edge g st_A st_B (mock_conn 10  "L1");
     TestGraph.add_edge g st_B st_C (mock_conn 10  "L1");
     TestGraph.add_edge g st_A st_C (mock_conn 100 "L2");
-    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "Chemin introuvable"
     | Some path ->
         Alcotest.(check int) "A* préfère le détour (20 vs 100)" 20
-          (MockWeight.get_time path.total_weight)
+          (MockWeight.get_weight path.total_weight)
 
   (** State-Space Routing : même test que Dijkstra, A* doit anticiper les correspondances interdites et choisir la bonne ligne dès le départ *)
   let test_astar_state_space_routing () =
@@ -840,15 +842,15 @@ module Astar_Tests = struct
     TestGraph.add_edge g st_A st_B (mock_conn 5  "L2");
     TestGraph.add_edge g st_B st_C (mock_conn 90 "L2");
 
-    let path_ok = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero) in
+    let path_ok = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true)) in
     Alcotest.(check int)
       "Transferts autorisés : L2→L1 en B (coût 15)" 15
-      (MockWeight.get_time path_ok.total_weight);
+      (MockWeight.get_weight path_ok.total_weight);
 
-    let path_no = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun s -> s.Metrocaml.Network.id <> "B") ~heuristic:h_zero) in
+    let path_no = Option.get (Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun s -> s.Metrocaml.Network.id <> "B")) in
     Alcotest.(check int)
       "Transferts interdits en B : anticipe et prend L1 dès A (coût 60)" 60
-      (MockWeight.get_time path_no.total_weight)
+      (MockWeight.get_weight path_no.total_weight)
 
   (** Résilience : recalcul après blocage *)
   let test_astar_rerouting_after_blockage () =
@@ -856,11 +858,11 @@ module Astar_Tests = struct
     TestGraph.add_edge g st_A st_B (mock_conn 10   "L2");
     TestGraph.add_edge g st_B st_C (mock_conn 90   "L2");
     TestGraph.add_edge g st_A st_C (mock_conn (-1) "L1");
-    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) ~heuristic:h_zero with
+    match Astar.find_path ~start_time:0 ~graph:g ~source:st_A ~destination:st_C ~transfer_allowed:(fun _ -> true) with
     | None -> Alcotest.fail "A* devrait trouver le chemin de secours via L2"
     | Some path ->
         Alcotest.(check int) "A* ignore le blocage et prend L2 (coût 100)" 100
-          (MockWeight.get_time path.total_weight)
+          (MockWeight.get_weight path.total_weight)
 end
 
 (* ========================================================== *)

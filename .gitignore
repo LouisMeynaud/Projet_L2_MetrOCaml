@@ -34,5 +34,8 @@ _opam/
 # Coverage reports
 _coverage/
 
-#Data
-data/[a-s]*
+# Data
+data/[a-q]*
+
+# Env
+.env

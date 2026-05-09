@@ -80,7 +80,8 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
       let cleaned_line_id = Gtfs_rt.nettoyer_id current_line_id in
       let cleaned_station_id = Gtfs_rt.nettoyer_id target_station_id in
 
-      begin match Hashtbl.find_opt !Gtfs_rt.index_alertes_dijkstra cleaned_line_id with
+      let index = Mutex.protect Gtfs_rt.mutex (fun () -> !Gtfs_rt.index_alertes_dijkstra) in
+      begin match Hashtbl.find_opt index cleaned_line_id with
         | None -> () 
         | Some alertes_ligne ->
           List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
@@ -173,17 +174,13 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
     else if is_inf w2 then -1.0
     else
       let diff = w1.time - w2.time in
-      if diff <> 0 then
-        float_of_int diff /. float_of_int (Int.max 1 (Int.max w1.time w2.time))
-      else
-        let walk_diff = w1.walk_time - w2.walk_time in
-        float_of_int walk_diff
-        /. float_of_int (Int.max 1 (Int.max w1.walk_time w2.walk_time))
+      if diff <> 0 then float_of_int diff /. 3600.0
+      else float_of_int (w1.walk_time - w2.walk_time) /. 3600.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-  let get_time w = w.time
+  let get_weight w = w.time
   let to_string w = time_to_string w.time
   let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
@@ -222,15 +219,12 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection and type node
     else if is_inf w2 then -1.0
     else
       let diff_transfers = w1.distance -. w2.distance in
-      if diff_transfers = 0.0 then 0.0
-      else
-        diff_transfers 
-        /.  (Float.max 1.0 (Float.max w1.distance w2.distance))
+      diff_transfers /. 50000.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-  let get_time w = w.time
+  let get_weight w = w.time
 
   let to_string w =
     if is_inf w then "∞"
@@ -271,20 +265,18 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
-      let diff_transfers = w1.hops - w2.hops in
-      if diff_transfers = 0 then 0.0
-      else
-        float_of_int diff_transfers 
-        /. float_of_int (Int.max 1 (Int.max w1.hops w2.hops))
+      float_of_int (w1.hops - w2.hops) /. 40.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-  let get_time w = w.time
+  let get_weight w = w.time
 
   let to_string w =
     if is_inf w then "∞"
-    else Printf.sprintf "%d arrêts (%s)" w.hops (time_to_string w.time)
+    else
+      let txt = if w.hops <= 1 then "arrêt" else "arrêts" in
+      Printf.sprintf "%d %s (%s)" w.hops txt (time_to_string w.time)
 
   let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
@@ -329,22 +321,18 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
     else
-         let diff_transfers = w1.transfers - w2.transfers in
-         if diff_transfers = 0 then 0.0
-         else
-           float_of_int diff_transfers 
-           /. float_of_int (Int.max 1 (Int.max w1.transfers w2.transfers))
+      float_of_int (w1.transfers - w2.transfers) /. 5.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
   let ( = ) a b = compare a b = 0.0
-  let get_time w = w.time
+  let get_weight w = w.time
 
   let to_string w =
     if is_inf w then "∞"
     else
-      Printf.sprintf "%d correspondances (%s)" w.transfers
-        (time_to_string w.time)
+      let txt = if w.transfers <= 1 then "correspondance" else "correspondances" in
+      Printf.sprintf "%d %s (%s)" w.transfers txt (time_to_string w.time)
 
   let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name

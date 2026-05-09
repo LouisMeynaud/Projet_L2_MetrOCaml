@@ -6,9 +6,19 @@ open Yojson.Basic.Util
 (* ================================================== *)
 (* 0. TYPES ET ÉTAT GLOBAL                            *)
 (* ================================================== *)
+
+(** Représente une plage horaire d'application d'une alerte, 
+    définie par un décalage en secondes depuis minuit du jour ciblé. *)
 type periode = { debut : int; fin : int }
+
+(** Niveau de gravité d'une perturbation sur le réseau. 
+    [BLOQUANTE] empêche totalement le passage par le tronçon.
+    [PERTURBEE] ajoute une pénalité de temps dans le calcul de Dijkstra. *)
 type severite = BLOQUANTE | PERTURBEE
 
+(** Structure représentant une perturbation (alerte) brute en cours sur le réseau.
+    Contient les informations textuelles pour l'affichage dans l'interface,
+    ainsi que la liste des éléments physiques (lignes, stations, tronçons) touchés. *)
 type alerte = {
   id : string;
   cause : string;
@@ -21,23 +31,20 @@ type alerte = {
   temps : periode list;
 }
 
+(** Structure optimisée d'une alerte, spécifiquement taillée pour le moteur de routage Dijkstra.
+    Utilise une table de hachage [stations_hash] pour une vérification d'impact en O(1). *)
 type alerte_dijkstra= {
   severite : severite;
   stations_hash : (string, bool) Hashtbl.t; 
   periodes : periode list;
 }
 
-(** Structure représentant une perturbation (alerte) en cours sur le réseau.
-    Contient les informations textuelles pour l'affichage dans l'interface,
-    ainsi que la liste des lignes touchées. *)
-
 (** Référence globale stockant la liste des alertes actives. Agit comme la
     "Source de Vérité" dynamique en mémoire (RAM). Elle est lue par l'interface
     graphique et mise à jour en tâche de fond par le thread. *)
 let liste_alertes : alerte list ref = ref []
 let index_alertes_dijkstra : (string, alerte_dijkstra list) Hashtbl.t ref = ref (Hashtbl.create 0)
-
-let apiKey = "GBsIolemaspJPcsW7HbwQTp4RaiaBTQk"
+let mutex = Mutex.create ()
 
 (* ================================================== *)
 (* 1. UTILITAIRES                                     *)
@@ -101,17 +108,21 @@ let yyyymmdd_to_midnight s =
             int_of_float (fst (Unix.mktime tm)))
       with _ -> 0
 
+(** [string_to_severite str] convertit la chaîne renvoyée par l'API en type [severite]. *)
 let string_to_severite = function
   | "BLOQUANTE" -> BLOQUANTE
   | _ -> PERTURBEE
 
+(** [string_of_severite s] convertit le type [severite] en chaîne de caractères affichable. *)
 let string_of_severite = function
   | BLOQUANTE -> "BLOQUANTE"
   | PERTURBEE -> "PERTURBEE"
 
+(** [nettoyer_html s] purge une chaîne de caractères de ses balises HTML et décode 
+    les entités HTML courantes (ex: &nbsp;, &amp;).
+    Indispensable car l'API IDFM intègre parfois du formatage web dans ses messages. *)
 let nettoyer_html s =
   let sans_balises = Str.global_replace (Str.regexp "<[^>]*>") "" s in
-  
   sans_balises
   |> Str.global_replace (Str.regexp "&nbsp;") " " (*regexp car global_replace prend que des type regexp*)
   |> Str.global_replace (Str.regexp "&amp;") "&"
@@ -120,10 +131,11 @@ let nettoyer_html s =
   |> Str.global_replace (Str.regexp "&lt;") "<"
   |> Str.global_replace (Str.regexp "&gt;") ">"
 
+(** [format_alerte alerte] formate un objet [alerte] en une chaîne de caractères multilignes 
+    et propre, prête à être injectée dans l'interface utilisateur ou le terminal. *)
 let format_alerte alerte =
   let message = String.trim (nettoyer_html alerte.message) in
   let msg = if message = "" then "Message non renseigné" else message in
-  
   let lignes = match alerte.lignes_impactees with
     | [] -> ["Inconnue"]
     | l -> l
@@ -132,7 +144,6 @@ let format_alerte alerte =
     Printf.sprintf "------\nLigne impactée: %s\nGravité: %s\nMessage: %s\n------"
       ligne (string_of_severite alerte.niveau_severite) msg
   in
-  
   lignes
   |> List.map format_ligne
   |> String.concat "\n"
@@ -148,7 +159,11 @@ let format_alerte alerte =
       Une promesse Lwt de type [unit] qui se résout une fois l'écriture
       terminée. *)
 let recupere_alertes () =
-  let filename = "data/rt/alertes.json" in
+  let apiKey = match Sys.getenv_opt "IDFM_API_KEY" with
+    | Some k -> k
+    | None -> failwith "La clé API IDFM_API_KEY introuvable. Veuillez la définir dans le fichier .env"
+  in
+  let filename = "metrocaml/data/rt/alertes.json" in
   let uri =
     Uri.of_string
       "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2"
@@ -193,7 +208,7 @@ let actualiser_fichier_alertes () = Lwt_main.run (recupere_alertes ())
     programme ne plantera pas si une alerte spécifique est mal formattée par le
     serveur IDFM. *)
 let charger_alertes_en_memoire date_cible =
-  let filename = "data/rt/alertes.json" in
+  let filename = "metrocaml/data/rt/alertes.json" in
   let date_midnight = yyyymmdd_to_midnight date_cible in
   if Sys.file_exists filename then
     begin try
@@ -320,7 +335,7 @@ let charger_alertes_en_memoire date_cible =
             with _ -> acc)
           [] disruptions
       in
-      liste_alertes := nouvelles_alertes
+      Mutex.protect mutex (fun () -> liste_alertes := nouvelles_alertes)
     with _ ->
       Printf.printf "[Erreur] Impossible de parser le fichier %s.\n%!" filename
     end
@@ -445,7 +460,8 @@ let start_auto_refresh date graph =
   let rec loop () =
     actualiser_fichier_alertes ();
     charger_alertes_en_memoire date;
-    index_alertes_dijkstra := compiler_alertes_pour_dijkstra graph;
+    let nouv_index = compiler_alertes_pour_dijkstra graph in
+    Mutex.protect mutex (fun () -> index_alertes_dijkstra := nouv_index);
     (**DEBUG
     exporter_index_debug();**)
     Unix.sleep 60;

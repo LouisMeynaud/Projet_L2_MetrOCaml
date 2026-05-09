@@ -19,7 +19,9 @@ open Gui_view
     @param on_search La fonction exécutant l'algorithme choisie.
 *)
 let run noeuds aretes algos poids_list schedule_items on_search =
-  ignore (Tsdl.Sdl.init Tsdl.Sdl.Init.video); (* Initialisation de SDL pour la vidéo *)
+  (match Tsdl.Sdl.init Tsdl.Sdl.Init.video with
+  | Error (`Msg e) -> Printf.eprintf "Erreur d'initialisation SDL : %s\n%!" e
+  | Ok () -> ());
 
   (**
     @param screen_w La largeur de l'écran

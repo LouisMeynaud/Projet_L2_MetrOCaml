@@ -4,7 +4,7 @@ open Network
 let lorenzo = { name = "Lorenzo"; age = 19 }
 let leo = { name = "Leo"; age = 20 }
 let matthys = { name = "Matthys"; age = 19 }
-let louis = { name = "louis"; age = 19 }
+let louis = { name = "Louis"; age = 19 }
 let baptiste = { name = "Baptiste"; age = 19 }
 let thomas = { name = "Thomas"; age = 20 }
 

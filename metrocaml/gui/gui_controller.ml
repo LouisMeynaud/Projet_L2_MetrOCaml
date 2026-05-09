@@ -69,7 +69,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 
 	let update_perturbations_view () =
 		clear_perturbation_rows ();
-		let alerts = !(Gtfs_rt.liste_alertes) in
+		let alerts = Mutex.protect Gtfs_rt.mutex (fun () -> !Gtfs_rt.liste_alertes) in
 		if alerts = [] then
 			Widget.set_text view.label_perturbations_info "Aucune perturbation active"
 		else begin
@@ -393,9 +393,7 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 	@param dest Point d'arrivée
 	*)
 	let launch_search source dest =
-		let depart = !(view.is_departure_mode) in
 		let time_in_secondes = (!(view.current_hour) * 3600) + (!(view.current_minute) * 60) in
-		ignore depart;
 		let excluded_modes =
 			!current_etat.categories
 			|> List.filter (fun (mode_name, is_enabled) ->
@@ -553,8 +551,6 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
 		match source_query_opt, dest_query_opt with
 		| Some source, Some dest -> let results = launch_search source dest in
 			found_paths := results;
-			let last_edges = List.fold_left (fun acc (_, _, edges_opt) -> match edges_opt with Some e -> Some e | None -> acc) None (List.rev results) in
-			current_etat := { !current_etat with highlighted_edges = match last_edges with Some e -> e | None -> [] };
 			let summary = "Chemins disponibles:\n" ^ String.concat "\n" (List.map (fun (nom, _, _) -> nom) results) in
 			Widget.set_text view.result_display summary;
 			switch_tab ~show_itineraire:false ~show_recherche:false ~show_horaires:false ~show_perturbations:false ~show_results:true

@@ -14,7 +14,10 @@ open Weight_intf
       valides.
     - Tas d'appariement : Il utilise un Tas d'Appariement garantissant des
       performances quasi-instantanées, même sur des graphes massifs. *)
-module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t) = struct
+module Make
+  (G : GRAPH)
+  (W : WEIGHT with type edge = G.Edge.t and type node = G.Node.t)
+= struct
   module P = Path.Make (G) (W)
 
   type path = P.t
@@ -31,7 +34,6 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
     type t =
       | Empty
       | Node of {
-          f_cost : float;
           g_cost : W.t;
           node : G.Node.t;
           state : state_tuple;
@@ -41,21 +43,21 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
     let empty = Empty
 
     (* L'opération centrale du tas. Pour insérer un élément, on ne parcourt
-       rien. On prend les deux racines, on les compare, et l'arbre perdant
-       devient un simple enfant de l'arbre gagnant. *)
+       rien. On prend les deux racines, on les compare via W.compare, et l'arbre
+       perdant devient un simple enfant de l'arbre gagnant. *)
     let merge h1 h2 =
       match (h1, h2) with
       | Empty, h | h, Empty -> h
       | Node n1, Node n2 ->
-          if n1.f_cost <= n2.f_cost then
+          if W.compare n1.g_cost n2.g_cost <= 0.0 then
             Node { n1 with children = h2 :: n1.children }
           else Node { n2 with children = h1 :: n2.children }
 
-    let push ~f_cost ~g_cost node state h =
-      merge (Node { f_cost; g_cost; node; state; children = [] }) h
+    let push ~g_cost node state h =
+      merge (Node { g_cost; node; state; children = [] }) h
 
     (* Quand on retire la racine, tous ses enfants deviennent orphelins.
-       Pour garder un arbre compact, on les fait s'affronter deux par deux. 
+       Pour garder un arbre compact, on les fait s'affronter deux par deux.
        Le motif récursif fusionne de gauche à droite, puis de droite à gauche. *)
     let rec merge_pairs = function
       | [] -> Empty
@@ -65,7 +67,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
     let pop = function
       | Empty -> None
       | Node n ->
-          Some (n.f_cost, n.g_cost, n.node, n.state, merge_pairs n.children)
+          Some (n.g_cost, n.node, n.state, merge_pairs n.children)
   end
 
   (** Trouve le chemin optimal de la source à la destination.
@@ -92,16 +94,14 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
         let best_weight = ref W.infinity in
 
         let initial_state = (source, W.get_state_key initial_weight) in
-        let g_scalar g = float_of_int (W.get_time g) in
-        let initial_f = g_scalar initial_weight in
-        
-        let ta = ref (TA.push ~f_cost:initial_f ~g_cost:initial_weight source initial_state TA.empty) in
+
+        let ta = ref (TA.push ~g_cost:initial_weight source initial_state TA.empty) in
         Hashtbl.add dist initial_state initial_weight;
 
         let rec process () =
           match TA.pop !ta with
           | None -> !best_path (* Le tas est vide, la destination est inatteignable *)
-          | Some (_f_cost, g_cost, u, u_state, rest_ta) ->
+          | Some (g_cost, u, u_state, rest_ta) ->
               ta := rest_ta;
               let recorded_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist u_state) in
               if W.(g_cost > recorded_g) then process ()
@@ -130,9 +130,9 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                     | Some (new_g, step_data) ->
                         let next_state_key = W.get_state_key new_g in
                         let _, current_state_key = u_state in
-                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in (*détecte si on a changé de ligne ou pas*)
-                        let is_transfer = is_line_change && not (G.Node.equal u source) in (*on considère que le changement de ligne à la station de départ n'est pas une correspondance*)
-                        
+                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in
+                        let is_transfer = is_line_change && not (G.Node.equal u source) in
+
                         if (not is_transfer) || transfer_allowed u then (
                           let v_state = (v, next_state_key) in
                           let old_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist v_state) in
@@ -143,13 +143,12 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                              2. lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
                              3. propulse ce nouvel état prometteur dans le tas 'ta'. *)
                           if W.(new_g < old_g) && not W.(new_g > !best_weight) then begin
-                            let new_f = g_scalar new_g in
                             Hashtbl.replace dist v_state new_g;
                             Hashtbl.replace prev v_state (u_state, u, v, edge, new_g, step_data);
-                            ta := TA.push ~f_cost:new_f ~g_cost:new_g v v_state !ta
+                            ta := TA.push ~g_cost:new_g v v_state !ta
                           end))
                   (G.neighbors graph u);
-                  
+
                 (* Boucle récursive : on passe au noeud suivant dans le tas *)
                 process ()
               end
