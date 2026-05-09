@@ -1,4 +1,3 @@
-(* gui_draw.ml *)
 open Bogue
 open Gui_types
 

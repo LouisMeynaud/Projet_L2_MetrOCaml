@@ -1,5 +1,3 @@
-(* gui_types.ml *)
-
 (* ------------------ Types partages GUI ------------------- *)
 
 type noeud = { id : string;nom : string;x : float;y :float; pmr : bool }
