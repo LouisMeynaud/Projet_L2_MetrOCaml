@@ -12,6 +12,7 @@ module Make (N : NODE) (E : EDGE) :
   type t = { adj : (node, (node * edge) list) Hashtbl.t }
 
   let create () = { adj = Hashtbl.create 1000 }
+  let size g = Hashtbl.length g.adj
   let nodes g = Hashtbl.to_seq_keys g.adj |> List.of_seq
   let has_node g node = Hashtbl.mem g.adj node
   let add_node g node = if not (has_node g node) then Hashtbl.add g.adj node []

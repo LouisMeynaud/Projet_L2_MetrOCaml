@@ -50,6 +50,9 @@ module type GRAPH = sig
   (** [add_edge g src dst data] adds a directed edge from [src] to [dst] with
       associated edge data. *)
 
+  val size : t -> int
+  (** [size g] returns the number of nodes in [g] in O(1). *)
+
   val neighbors : t -> node -> (node * edge) list
   (** [neighbors g n] returns all nodes reachable from [n] along with the edge
       data for each edge. *)
