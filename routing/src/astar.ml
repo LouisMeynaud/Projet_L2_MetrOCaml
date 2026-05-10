@@ -83,12 +83,9 @@ module Make
       if G.Node.equal source destination then
         Some { P.steps = []; total_weight = initial_weight }
       else
-        let n = List.length (G.nodes graph) in
+        let n = G.size graph in
         let dist = Hashtbl.create (n * 2) in
         let prev = Hashtbl.create (n * 2) in
-
-        let best_path = ref None in
-        let best_weight = ref W.infinity in
 
         let initial_state = (source, W.get_state_key initial_weight) in
         let g_scalar g = float_of_int (W.get_weight g) in
@@ -101,13 +98,14 @@ module Make
 
         let rec process () =
           match TA.pop !ta with
-          | None -> !best_path
+          | None -> None
           | Some (_f_cost, g_cost, u, u_state, rest_ta) ->
               ta := rest_ta;
               let recorded_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist u_state) in
               if W.(g_cost > recorded_g) then process ()
-              else if W.(g_cost > !best_weight) then process ()
               else if G.Node.equal u destination then begin
+                (* h(dest) = 0 pour toute heuristique admissible, donc f = g au dépilage.
+                   Premier dépilage de la destination = coût global optimal. *)
                 let rec build_steps acc state =
                   match Hashtbl.find_opt prev state with
                   | None -> acc
@@ -117,9 +115,7 @@ module Make
                       in
                       build_steps (step :: acc) pred_state
                 in
-                best_path := Some { P.steps = build_steps [] u_state; total_weight = Hashtbl.find dist u_state; };
-                best_weight := g_cost;
-                process ()
+                Some { P.steps = build_steps [] u_state; total_weight = Hashtbl.find dist u_state; }
               end else begin
                 List.iter
                   (fun (v, edge) ->
@@ -135,7 +131,7 @@ module Make
                           let v_state = (v, next_state_key) in
                           let old_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist v_state) in
 
-                          if W.(new_g < old_g) && not W.(new_g > !best_weight) then begin
+                          if W.(new_g < old_g) then begin
                             (* Application de l'heuristique sur le nouveau noeud *)
                             let new_f = g_scalar new_g +. H.estimate v destination in
                             Hashtbl.replace dist v_state new_g;

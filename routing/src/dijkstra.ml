@@ -90,12 +90,9 @@ module Make
       else
         (* 'dist' stocke le meilleur poids connu pour un état donné.
            'prev' stocke l'historique pour reconstruire le chemin à la fin. *)
-        let n = List.length (G.nodes graph) in
+        let n = G.size graph in
         let dist = Hashtbl.create (n * 2) in
         let prev = Hashtbl.create (n * 2) in
-
-        let best_path = ref None in
-        let best_weight = ref W.infinity in
 
         let initial_state = (source, W.get_state_key initial_weight) in
 
@@ -104,14 +101,14 @@ module Make
 
         let rec process () =
           match TA.pop !ta with
-          | None -> !best_path (* Le tas est vide, la destination est inatteignable *)
+          | None -> None (* Le tas est vide, la destination est inatteignable *)
           | Some (g_cost, u, u_state, rest_ta) ->
               ta := rest_ta;
               let recorded_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist u_state) in
               if W.(g_cost > recorded_g) then process ()
-              else if W.(g_cost > !best_weight) then process ()
               else if G.Node.equal u destination then begin
-                (* On remonte l'historique dans 'prev' pour créer la liste des étapes *)
+                (* Premier dépilage de la destination = coût global optimal (invariant du tas).
+                   On remonte l'historique dans 'prev' pour créer la liste des étapes. *)
                 let rec build_steps acc state =
                   match Hashtbl.find_opt prev state with
                   | None -> acc
@@ -121,9 +118,7 @@ module Make
                       in
                       build_steps (step :: acc) pred_state
                 in
-                best_path := Some { P.steps = build_steps [] u_state; total_weight = Hashtbl.find dist u_state; };
-                best_weight := g_cost;
-                process ()
+                Some { P.steps = build_steps [] u_state; total_weight = Hashtbl.find dist u_state; }
               end else begin
                 (* Exploration de toutes les arêtes adjacentes *)
                 List.iter
@@ -146,7 +141,7 @@ module Make
                              1. met à jour le record officiel dans 'dist'.
                              2. lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
                              3. propulse ce nouvel état prometteur dans le tas 'ta'. *)
-                          if W.(new_g < old_g) && not W.(new_g > !best_weight) then begin
+                          if W.(new_g < old_g) then begin
                             Hashtbl.replace dist v_state new_g;
                             Hashtbl.replace prev v_state (u_state, edge, new_g, step_data);
                             ta := TA.push ~g_cost:new_g v v_state !ta
