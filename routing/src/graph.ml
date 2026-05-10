@@ -3,12 +3,11 @@ open Graph_intf
 module Make (N : NODE) (E : EDGE) :
   GRAPH with module Node = N and module Edge = E = struct
   module Node = N
-
   type node = N.t
 
   module Edge = E
-
   type edge = E.t
+
   type t = { adj : (node, (node * edge) list) Hashtbl.t }
 
   let create () = { adj = Hashtbl.create 1000 }
