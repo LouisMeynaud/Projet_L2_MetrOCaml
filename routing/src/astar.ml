@@ -118,9 +118,9 @@ module Make
                 let rec build_steps acc state =
                   match StateTable.find_opt prev state with
                   | None -> acc
-                  | Some (pred_state, edge, w, step_data) ->
+                  | Some (pred_state, edge, w) ->
                       let step =
-                        { P.from = fst pred_state; to_node = fst state; edge; weight = w; data = step_data; }
+                        { P.from = fst pred_state; to_node = fst state; edge; weight = w }
                       in
                       build_steps (step :: acc) pred_state
                 in
@@ -130,7 +130,7 @@ module Make
                   (fun (v, edge) ->
                     match W.traverse g_cost u edge with
                     | None -> ()
-                    | Some (new_g, step_data) ->
+                    | Some new_g ->
                         let next_state_key = W.get_state_key new_g in
                         let _, current_state_key = u_state in
                         let is_line_change = current_state_key <> next_state_key in
@@ -141,10 +141,9 @@ module Make
                           let old_g = Option.value ~default:W.infinity (StateTable.find_opt dist v_state) in
 
                           if W.(new_g < old_g) then begin
-                            (* Application de l'heuristique sur le nouveau noeud *)
                             let new_f = g_scalar new_g +. H.estimate v destination in
                             StateTable.replace dist v_state new_g;
-                            StateTable.replace prev v_state (u_state, edge, new_g, step_data);
+                            StateTable.replace prev v_state (u_state, edge, new_g);
                             ta := TA.push ~f_cost:new_f ~g_cost:new_g v v_state !ta
                           end))
                   (G.neighbors graph u);

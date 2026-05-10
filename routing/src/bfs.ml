@@ -37,17 +37,16 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                 (fun (v, edge) ->
                   match W.traverse u_weight u edge with
                   | None -> ()
-                  | Some (new_weight, step_data) ->
+                  | Some new_weight ->
                       let next_state_key = W.get_state_key new_weight in
                       let _, current_state_key = u_state in
                       let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in
                       let is_transfer = is_line_change && not (G.Node.equal u source) in
                       if (not is_transfer) || transfer_allowed u then begin
                         let v_state = (v, next_state_key) in
-                        (* On vérifie si l'état (Noeud + Ligne) a déjà été visité *)
                         if not (Hashtbl.mem visited v_state) then begin
                           Hashtbl.add visited v_state ();
-                          Hashtbl.add prev v_state (u_state, u, v, edge, new_weight, step_data);
+                          Hashtbl.add prev v_state (u_state, u, v, edge, new_weight);
                           Queue.add (v, v_state, new_weight) queue
                         end
                       end)
@@ -58,9 +57,9 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
           let rec build_steps acc state =
             match Hashtbl.find_opt prev state with
             | None -> acc
-            | Some (pred_state, pred_node, current_node, edge, weight, step_data) ->
+            | Some (pred_state, pred_node, current_node, edge, weight) ->
                 let step =
-                  { P.from = pred_node; to_node = current_node; edge; weight; data = step_data }
+                  { P.from = pred_node; to_node = current_node; edge; weight }
                 in
                 build_steps (step :: acc) pred_state
           in

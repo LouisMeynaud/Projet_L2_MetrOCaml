@@ -12,14 +12,11 @@ module type PATH = sig
   module Weight : WEIGHT
   type weight = Weight.t
 
-  type step_data = Weight.step_data
-
   type step = {
     from : node;
     to_node : node;
     edge : edge;
     weight : weight;
-    data : step_data;
   }
   (** Une étape du chemin : trajet entre deux noeuds *)
 
