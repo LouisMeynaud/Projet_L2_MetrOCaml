@@ -65,16 +65,30 @@ let bench_routeur_unique nom (module Algo : ALGO) =
 (** Benchmark unique *)
 let run_bench_unique graph routeurs =
   Printf.printf "\nBenchmark activé \n%!";
-  Printf.printf "\nStation source : %!";
+  Random.self_init ();
+  Printf.printf "\nStation source : (laissez vide pour choisir aléatoirement) %!";
   let source_query = String.trim (read_line ()) in
-  Printf.printf "Station destination : %!";
+  Printf.printf "Station destination : (laissez vide pour choisir aléatoirement) %!";
   let dest_query = String.trim (read_line ()) in
-  let tm = Unix.localtime (Unix.time ()) in
+  let src, dst = match source_query, dest_query with
+  | "", "" -> (match Bench.pick_random_pair (Network.TransportGraph.nodes graph) with
+    | Some (src, dst) -> (src.name, dst.name)
+    | None -> Printf.printf "Aucune paire de stations aléatoires valides pour le benchmark \n%!"; ("", ""))
+  | "", dst -> let src =  Bench.pick_random_station (Network.TransportGraph.nodes graph) 
+    in (match src with 
+    |Some src ->  (src.name, dst)
+    |None -> Printf.printf "Aucune station source aléatoire valide pour le benchmark \n%!"; ("", dst))
+  | src, "" -> let dst = Bench.pick_random_station (Network.TransportGraph.nodes graph)
+    in (match dst with 
+    |Some dst ->  (src, dst.name)
+    |None -> Printf.printf "Aucune station destination aléatoire valide pour le benchmark \n%!"; (src, ""))
+  | src, dst -> (src, dst)
+  in let tm = Unix.localtime (Unix.time ()) in
   let start_time = tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
   Routing.Bench.run
     ~title:"Benchmark MetroCaml"
     ~resolve:(fun g src dst -> Endpoint.build_routing_context g src dst)
-    graph source_query dest_query start_time routeurs Cli.Console.raw_select
+    graph src dst start_time routeurs Cli.Console.raw_select
 
 
 (** Bench aléatoire*)
@@ -156,8 +170,14 @@ module MetroCamlRandomBench = struct
             (fun (d_acc, a_acc, d_stats_acc, a_stats_acc) pair ->
               (* Printf.printf "Benchmarking %s\n%!" pair.preset_name; *)
               let d_stats, d_duration = run_routeur pair.dijkstra graph source destination start_time in
+              if d_stats == None then 
+                (d_acc, a_acc, d_stats_acc, a_stats_acc)
+              else 
               (* Printf.printf "Dijkstra: %d steps, elapsed time: %.4f seconds\n%!" (match d_stats with Some s -> s.nb_steps | None -> -1) d_duration; *)
               let a_stats, a_duration = run_routeur pair.astar graph source destination start_time in
+              if(a_stats == None) then
+                (d_acc, a_acc, d_stats_acc, a_stats_acc)
+              else
               (* Printf.printf "A*: %d steps, elapsed time: %.4f seconds\n%!" (match a_stats with Some s -> s.nb_steps | None -> -1) a_duration; *)
               (d_duration :: d_acc, a_duration :: a_acc, d_stats :: d_stats_acc, a_stats :: a_stats_acc))
             ([], [], [], []) routeur_pairs

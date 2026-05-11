@@ -44,12 +44,7 @@ let pick_random_station nodes =
   if nodes = [] then None
   else
     Some (List.nth nodes (Random.int (List.length nodes)))
-let pick_random_pair_with nodes_filtered comparator =
-  match (pick_random_station nodes_filtered, pick_random_station nodes_filtered) with
-  | Some src, Some dst when comparator src dst -> Some (src, dst)
-  | _ -> None
-
-let pick_random_pair nodes_filtered : ('a * 'a) option =
+let pick_random_pair nodes_filtered =
   match (pick_random_station nodes_filtered, pick_random_station nodes_filtered) with
   | Some src, Some dst when src <> dst -> Some (src, dst)
   | _ -> None
@@ -150,7 +145,7 @@ end
 (** Foncteur pour créer un exécuteur de benchmark aléatoire générique *)
 module MakeRandomBench (RBench : Random_Bench) = struct
 
-  let nb_bench_alea = 1000
+  let nb_bench_alea = 100
   let attempts_limit = nb_bench_alea * 10
 
   (** Vérifier le nombre de nœuds dans le graphe *)
