@@ -40,19 +40,13 @@ let time_to_string time =
     | 2 -> Printf.sprintf "Après-demain à %02dh%02dm%02ds" hours minutes seconds
     | _ -> Printf.sprintf "J+%d à %02dh%02dm%02ds" days hours minutes seconds
 
-type metro_step_data = { wait_time : int }
-
-let format_metro_step_data s =
-  if s.wait_time > 0 then Printf.sprintf " [attente %d min]" (s.wait_time / 60)
-  else ""
-
-(** Évaluation Physique de l'Arête, renvoie l'heure d'arrivée à la station suivante, avec le temps
-d'attente et la ligne empreintée du prochain train, ou None s'il n'y en a pas *)
+(** Évaluation Physique de l'Arête, renvoie l'heure d'arrivée à la station suivante
+    et la ligne empruntée du prochain train, ou None s'il n'y en a pas *)
 let eval_edge current_time current_line_name (target_station : station) (edge : connection) =
   if current_time = max_int then None
-  (** si c'est un walk ou un transfert, il n'y a pas d'horraire, on part directement *)
+  (** si c'est un walk ou un transfert, il n'y a pas d'horaire, on part directement *)
   else if edge.mode = Walk || edge.mode = Transfert then
-    Some (current_time + edge.duration, 0, current_line_name)
+    Some (current_time + edge.duration, current_line_name)
   else
     (** on vérifie si on fait une correspondance ou non *)
     let is_transfer =
@@ -61,7 +55,7 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
       | _ -> false
     in
 
-    (** ajout d'une marge de -3 minutes à l'arrivée en gare pour être sûr de pouvoir rester dans 
+    (** ajout d'une marge de -3 minutes à l'arrivée en gare pour être sûr de pouvoir rester dans
     le même train (éviter des bugs liés à des arrondis dans le gtfs) *)
     let margin =
       match current_line_name with
@@ -82,57 +76,55 @@ let eval_edge current_time current_line_name (target_station : station) (edge : 
 
       let index = Mutex.protect Gtfs_rt.mutex (fun () -> !Gtfs_rt.index_alertes_dijkstra) in
       begin match Hashtbl.find_opt index cleaned_line_id with
-        | None -> () 
+        | None -> ()
         | Some alertes_ligne ->
-          List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
-            let concerne_station =
-              Hashtbl.length alerte.stations_hash = 0 || 
-              Hashtbl.mem alerte.stations_hash cleaned_station_id
-            in
-            
-            if concerne_station then begin
-              let est_en_cours =
-                match alerte.periodes with
-                | [] -> true 
-                | ps -> List.exists (fun (p : Gtfs_rt.periode) -> current_time >= p.debut && current_time <= p.fin) ps
+            List.iter (fun (alerte : Gtfs_rt.alerte_dijkstra) ->
+              let concerne_station =
+                Hashtbl.length alerte.stations_hash = 0 ||
+                Hashtbl.mem alerte.stations_hash cleaned_station_id
               in
+              if concerne_station then begin
+                let est_en_cours =
+                  match alerte.periodes with
+                  | [] -> true
+                  | ps -> List.exists (fun (p : Gtfs_rt.periode) -> current_time >= p.debut && current_time <= p.fin) ps
+                in
 
               if est_en_cours then begin
-                match alerte.severite with
-                | Gtfs_rt.BLOQUANTE -> is_blocked := true
-                | Gtfs_rt.PERTURBEE -> is_perturbed := true
+                  match alerte.severite with
+                  | Gtfs_rt.BLOQUANTE -> is_blocked := true
+                  | Gtfs_rt.PERTURBEE -> is_perturbed := true
               end
         end
       ) alertes_ligne
-    end;
+      end;
 
-    (** Si la ligne est bloquée, on coupe la recherche *)
-    if !is_blocked then None
-    else 
-      let perturbation_time =
-        if !is_perturbed && (is_transfer || current_line_name = None) 
-        then current_time + perturbations_penalty
-        else current_time
-      in
-      let ready_time =
-        if is_transfer then perturbation_time + transfer_penalty
-        else perturbation_time - margin
-      in
+      (** Si la ligne est bloquée, on coupe la recherche *)
+      if !is_blocked then None
+      else
+        let perturbation_time =
+          if !is_perturbed && (is_transfer || current_line_name = None)
+          then current_time + perturbations_penalty
+          else current_time
+        in
+        let ready_time =
+          if is_transfer then perturbation_time + transfer_penalty
+          else perturbation_time - margin
+        in
 
       (** recherche du prochain départ dans la liste des horaires *)
-      let next_dep = 
+        let next_dep =
         List.fold_left (fun meilleur_temps (_, t) ->
           if t >= ready_time && t < meilleur_temps then t 
           else meilleur_temps
         ) max_int edge.schedules
-      in
+        in
 
-      if next_dep = max_int then None
-      else begin
-        let actual_dep = max perturbation_time next_dep in
-        let wait = max 0 (actual_dep - current_time) in
-        Some (actual_dep + edge.duration, wait, Some edge.line.name)
-      end
+        if next_dep = max_int then None
+        else begin
+          let actual_dep = max perturbation_time next_dep in
+          Some (actual_dep + edge.duration, Some edge.line.name)
+        end
     end
 
 (* ========================================================== *)
@@ -144,7 +136,6 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
   type t = { time : int; walk_time : int; line_name : string option }
   type edge = connection
   type node = station
-  type step_data = metro_step_data
   type state_key = string option
 
   let start_at time = { time; walk_time = 0; line_name = None }
@@ -156,17 +147,11 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
     else
       match eval_edge w.time w.line_name v e with
       | None -> None
-      | Some (next_time, wait_time, next_line) ->
+      | Some (next_time, next_line) ->
           let extra_walk_time =
             if e.mode = Walk || e.mode = Transfert then e.duration else 0
           in
-          Some
-            ( {
-                time = next_time;
-                walk_time = w.walk_time + extra_walk_time;
-                line_name = next_line;
-              },
-              { wait_time } )
+          Some { time = next_time; walk_time = w.walk_time + extra_walk_time; line_name = next_line }
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
@@ -182,7 +167,6 @@ module TimeWeight : Routing.WEIGHT with type edge = connection and type node = s
   let ( = ) a b = compare a b = 0.0
   let get_weight w = w.time
   let to_string w = time_to_string w.time
-  let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
 end
 
@@ -191,7 +175,6 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection and type node
   type t = { time : int; distance : float; line_name : string option }
   type edge = connection
   type node = station
-  type step_data = metro_step_data
   type state_key = string option
 
   let start_at time = { time; distance = 0.0; line_name = None }
@@ -203,23 +186,14 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection and type node
     else
       match eval_edge w.time w.line_name v e with
       | None -> None
-      | Some (next_time, wait_time, next_line) ->
-          let new_w =
-            {
-              time = next_time;
-              distance = w.distance +. e.distance;
-              line_name = next_line;
-            }
-          in
-          Some (new_w, { wait_time })
+      | Some (next_time, next_line) ->
+          Some { time = next_time; distance = w.distance +. e.distance; line_name = next_line }
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
-    else
-      let diff_transfers = w1.distance -. w2.distance in
-      diff_transfers /. 50000.0
+    else (w1.distance -. w2.distance) /. 50000.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
@@ -229,11 +203,9 @@ module DistanceWeight : Routing.WEIGHT with type edge = connection and type node
   let to_string w =
     if is_inf w then "∞"
     else if w.distance >= 1000.0 then
-      Printf.sprintf "%.1f km (%s)" (w.distance /. 1000.0)
-        (time_to_string w.time)
+      Printf.sprintf "%.1f km (%s)" (w.distance /. 1000.0) (time_to_string w.time)
     else Printf.sprintf "%.0f m (%s)" w.distance (time_to_string w.time)
 
-  let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
 end
 
@@ -242,7 +214,6 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
   type t = { time : int; hops : int; line_name : string option }
   type edge = connection
   type node = station
-  type step_data = metro_step_data
   type state_key = string option
 
   let start_at time = { time; hops = 0; line_name = None }
@@ -254,18 +225,14 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
     else
       match eval_edge w.time w.line_name v e with
       | None -> None
-      | Some (next_time, wait_time, next_line) ->
-          let new_w =
-            { time = next_time; hops = w.hops + 1; line_name = next_line }
-          in
-          Some (new_w, { wait_time })
+      | Some (next_time, next_line) ->
+          Some { time = next_time; hops = w.hops + 1; line_name = next_line }
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
-    else
-      float_of_int (w1.hops - w2.hops) /. 40.0
+    else float_of_int (w1.hops - w2.hops) /. 40.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
@@ -278,7 +245,6 @@ module HopWeight : Routing.WEIGHT with type edge = connection and type node = st
       let txt = if w.hops <= 1 then "arrêt" else "arrêts" in
       Printf.sprintf "%d %s (%s)" w.hops txt (time_to_string w.time)
 
-  let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
 end
 
@@ -287,7 +253,6 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
   type t = { time : int; transfers : int; line_name : string option }
   type edge = connection
   type node = station
-  type step_data = metro_step_data
   type state_key = string option
 
   let start_at time = { time; transfers = 0; line_name = None }
@@ -299,29 +264,19 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
     else
       match eval_edge w.time w.line_name v e with
       | None -> None
-      | Some (next_time, wait_time, next_line) ->
+      | Some (next_time, next_line) ->
           let is_transfer =
             match w.line_name with
-            | Some l
-              when e.mode <> Walk && e.mode <> Transfert && l <> e.line.name ->
-                1
+            | Some l when e.mode <> Walk && e.mode <> Transfert && l <> e.line.name -> 1
             | _ -> 0
           in
-          let new_w =
-            {
-              time = next_time;
-              transfers = w.transfers + is_transfer;
-              line_name = next_line;
-            }
-          in
-          Some (new_w, { wait_time })
+          Some { time = next_time; transfers = w.transfers + is_transfer; line_name = next_line }
 
   let compare w1 w2 =
     if is_inf w1 && is_inf w2 then 0.0
     else if is_inf w1 then 1.0
     else if is_inf w2 then -1.0
-    else
-      float_of_int (w1.transfers - w2.transfers) /. 5.0
+    else float_of_int (w1.transfers - w2.transfers) /. 5.0
 
   let ( < ) a b = compare a b < 0.0
   let ( > ) a b = compare a b > 0.0
@@ -334,6 +289,5 @@ module CorrespondenceWeight : Routing.WEIGHT with type edge = connection and typ
       let txt = if w.transfers <= 1 then "correspondance" else "correspondances" in
       Printf.sprintf "%d %s (%s)" w.transfers txt (time_to_string w.time)
 
-  let step_data_to_string = format_metro_step_data
   let get_state_key w = w.line_name
 end

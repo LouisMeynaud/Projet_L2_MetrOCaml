@@ -16,8 +16,8 @@ module EvalEdge_Tests = struct
       | None -> Fmt.string ppf "None"
       | Some s -> Fmt.pf ppf "Some %s" s
     in
-    let pp_tuple ppf (time, wait, line) =
-      Fmt.pf ppf "(%d, %d, %a)" time wait pp_opt_str line
+    let pp_tuple ppf (time, line) =
+      Fmt.pf ppf "(%d, %a)" time pp_opt_str line
     in
     Alcotest.(option (testable pp_tuple ( = )))
 
@@ -40,7 +40,7 @@ module EvalEdge_Tests = struct
     let res = eval_edge 1000 None dummy_station conn in
     Alcotest.(check eval_res_t)
       "Marche: ajoute juste la durée, pas d'attente, garde la ligne"
-      (Some (1120, 0, None)) res
+      (Some (1120, None)) res
 
   (** Test si on ne change pas de ligne, avec vérification que la marge fonctionne bien *)
   let test_eval_edge_same_line () =
@@ -57,7 +57,7 @@ module EvalEdge_Tests = struct
     let res = eval_edge 1150 (Some "A") dummy_station conn in
     Alcotest.(check eval_res_t)
       "Même ligne: profite de la marge pour attraper le train"
-      (Some (1450, 0, Some "A")) res
+      (Some (1450, Some "A")) res
 
   (** Test de l'ajout de pénalité en cas de correspondance *)
   let test_eval_edge_transfer () =
@@ -74,7 +74,7 @@ module EvalEdge_Tests = struct
     let res = eval_edge 1000 (Some "A") dummy_station conn in
     Alcotest.(check eval_res_t)
       "Transfert: applique la pénalité et trouve le bon train"
-      (Some (1700, 500, Some "B")) res
+      (Some (1700, Some "B")) res
 
   (** Test s'il n'y a plus de train disponible *)
   let test_eval_edge_missed_train () =
@@ -120,7 +120,7 @@ module EvalEdge_Tests = struct
     
     Alcotest.(check eval_res_t)
       "Perturbation: ajoute 10min à la montée et fait rater le premier train"
-      (Some (2000, 800, Some "C")) res
+      (Some (2000, Some "C")) res
 
   (** Test si la ligne est bloquée *)
   let test_eval_edge_blocked () =
@@ -179,7 +179,7 @@ let make_conn mode duration schedules line_name =
 
 let force_traverse traverse_fn w e =
   match traverse_fn w dummy_station e with
-  | Some (new_w, _) -> new_w
+  | Some new_w -> new_w
   | None -> Alcotest.fail "Traverse a renvoyé None (chemin bloqué inattendu)"
 
 (** Test d'initialisation des données *)
@@ -256,25 +256,8 @@ let test_timew_perfect_tie () =
   let w2 = force_traverse TimeW.traverse (TimeW.start_at 0) (make_conn Walk 100 [] "W") in
   Alcotest.(check bool) "Égalité parfaite renvoie =" true (TimeW.(w1 = w2))
 
-(** Tests temps d'attente *)
+(** Test du formatage du poids *)
 let test_timew_formatters () =
-  
-  let conn_walk = make_conn Walk 120 [] "Marche" in
-  let _, step_0 = 
-    match TimeW.traverse (TimeW.start_at 0) dummy_station conn_walk with
-    | Some res -> res
-    | None -> Alcotest.fail "Traversée Walk a échoué"
-  in
-  
-  let conn_metro = make_conn Metro 100 [("id", 120)] "M1" in
-  let _, step_120 = 
-    match TimeW.traverse (TimeW.start_at 0) dummy_station conn_metro with
-    | Some res -> res
-    | None -> Alcotest.fail "Traversée Metro a échoué"
-  in
-  
-  Alcotest.(check string) "Attente de 0min n'affiche rien" "" (TimeW.step_data_to_string step_0);
-  Alcotest.(check string) "Attente formatée en minutes" " [attente 2 min]" (TimeW.step_data_to_string step_120);
   Alcotest.(check string) "Formatage de la date à 0s" "Aujourd'hui à 00h00m00s" (TimeW.to_string (TimeW.start_at 0))
 
 
@@ -650,7 +633,6 @@ module Dijkstra_Tests = struct
     type t = { cost : int; line_name : string option }
     type edge = Metrocaml.Network.connection
     type node = Metrocaml.Network.station
-    type step_data = int
     type state_key = string option
 
     let start_at time = { cost = time; line_name = None }
@@ -659,8 +641,8 @@ module Dijkstra_Tests = struct
 
     let traverse w _v (e : edge) =
       (* On utilise duration = -1 pour simuler une arête bloquée *)
-      if e.duration < 0 then None 
-      else Some ({ cost = w.cost + e.duration; line_name = Some e.line.name }, e.duration)
+      if e.duration < 0 then None
+      else Some { cost = w.cost + e.duration; line_name = Some e.line.name }
 
     let compare w1 w2 = float_of_int (compare w1.cost w2.cost)
     let ( < ) a b = a.cost < b.cost
@@ -668,7 +650,6 @@ module Dijkstra_Tests = struct
     let ( = ) a b = a.cost = b.cost
     let get_weight w = w.cost
     let to_string w = string_of_int w.cost
-    let step_data_to_string _ = ""
     let get_state_key w = w.line_name
   end
 
