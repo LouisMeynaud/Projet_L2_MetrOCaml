@@ -22,6 +22,7 @@ setup:
   stage: setup
   <<: *opam_cache
   script:
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - sudo -E apt-get update -qq
     - sudo -E apt-get install -y -qq libgmp-dev pkg-config
     - opam switch create --yes --no-install . 5.3.0 2>/dev/null || true
