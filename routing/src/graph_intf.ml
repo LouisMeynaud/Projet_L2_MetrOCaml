@@ -1,56 +1,53 @@
-(** Generic graph interface for routing algorithms. This module defines the
-    abstract interface for graphs, nodes, and edge data. It is completely
-    domain-agnostic and can be used for any graph-based routing. *)
+(** Interface générique pour les graphes. Ce module définit l'interface abstraite pour les graphes, noeuds et arêtes.
+  Il est complètement indépendant du contexte d'utilisation et peut être utilisé pour tout routage basé sur des graphes. *)
 
-(** Node data abstraction. Node data is opaque to the graph structure. *)
+(** Abstraction des noeuds. Les données de noeud sont opaques à la structure du graphe. *)
 module type NODE = sig
   type t
-  (** The node type. *)
 
   val equal : t -> t -> bool
-  (** Equality comparison for nodes. *)
+  (** Égalité entre deux noeuds. *)
 
   val hash : t -> int
-  (** Hash function for use in hash tables. *)
+  (** Fonction de hachage pour les tables de hachage. *)
 end
 
-(** Edge data abstraction. Edge data is opaque to the graph structure. *)
+
+(** Abstraction des arêtes. Les données d'arête sont opaques à la structure du graphe. *)
 module type EDGE = sig
   type t
-  (** The edge type. *)
 end
 
-(** Graph abstraction. Represents a directed graph with typed nodes and edges.
-    Parameterised by node type and edge type. *)
+
+(** Abstraction du graphe. Représente un graphe dirigé avec des noeuds et des arêtes typés.
+    Paramétré par le type de noeud et le type d'arête. *)
 module type GRAPH = sig
   module Node : NODE
-
   type node = Node.t
 
   module Edge : EDGE
-
   type edge = Edge.t
 
   type t
-  (** The graph type. *)
 
   val create : unit -> t
-  (** Create an empty graph. *)
+  (** Crée un graphe vide. *)
 
   val nodes : t -> node list
-  (** [nodes g] returns all nodes in the graph. *)
+  (** [nodes g] renvoie tous les noeuds du graphe. *)
 
   val has_node : t -> node -> bool
-  (** [has_node g n] checks if node [n] exists in the graph. *)
+  (** [has_node g n] vérifie si le noeud [n] existe dans le graphe. *)
 
   val add_node : t -> node -> unit
-  (** [add_node g n] adds a node [n] to the graph. *)
+  (** [add_node g n] ajoute un noeud [n] au graphe. *)
 
   val add_edge : t -> node -> node -> edge -> unit
-  (** [add_edge g src dst data] adds a directed edge from [src] to [dst] with
-      associated edge data. *)
+  (** [add_edge g src dst data] ajoute une arête dirigée de [src] à [dst]. *)
+
+   val size : t -> int
+  (** [size g] renvoie le nombre de noeuds dans le graphe en temps constant. *)
 
   val neighbors : t -> node -> (node * edge) list
-  (** [neighbors g n] returns all nodes reachable from [n] along with the edge
-      data for each edge. *)
+  (** [neighbors g n] renvoie tous les noeuds accessibles à partir de [n] ainsi que l'arête associée. *)
 end
