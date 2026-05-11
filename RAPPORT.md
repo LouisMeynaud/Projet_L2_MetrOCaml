@@ -131,4 +131,74 @@ Nous voulions initialement publier automatiquement le rapport de couverture et l
 
 
 # STATISTIQUES - BENCHMARKS
-[[INSÉRER MATTHYS ICI]]
+
+# Ile-de-France
+
+## Benchmark unique
+
+### MetroCaml — de *Moulin de Grais* à *Pépinière*
+
+Algorithme / Preset         | Temps         | Résultat                                                            
+--------------------------- | ------------- | ------------------------------------------------------------------- 
+Dijkstra — Preset *Rapide*  | 26 786.370 ms | OK — 41 étapes · 2 h 15 min · Arrivée à 00:13 · 3 correspondances   
+A* — Preset *Rapide*        | 22 443.797 ms | OK — 41 étapes · 2 h 15 min · Arrivée à 00:13 · 3 correspondances   
+Dijkstra — Preset *Confort* | 31 222.990 ms | OK — 41 étapes · 2 h 15 min · Arrivée à 00:13 · 3 correspondances   
+A* — Preset *Confort*       | 25 363.036 ms | OK — 41 étapes · 2 h 15 min · Arrivée à 00:13 · 3 correspondances   
+Dijkstra — Temps            | 16 652.714 ms | OK — 41 étapes · 2 h 15 min · Arrivée à 00:13 · 3 correspondances   
+Dijkstra — Distance         | 62 792.586 ms | OK — 64 étapes · 45 h 13 min · Arrivée à 19:11 · 32 correspondances 
+Dijkstra — Arrêts           | 3 452.742 ms  | OK — 12 étapes · 31 h 21 min · Arrivée à 05:19 · 7 correspondances  
+Dijkstra — Correspondances  | 38 376.573 ms | OK — 345 étapes · 35 h 44 min · Arrivée à 09:42 · 2 correspondances 
+A* — Temps                  | 16 277.596 ms | OK — 41 étapes · 2 h 15 min · Arrivée à 00:13 · 3 correspondances   
+A* — Distance               | 53 288.690 ms | OK — 71 étapes · 3 h 13 min · Arrivée à 01:11 · 9 correspondances   
+A* — Arrêts                 | 23 883.126 ms | OK — 37 étapes · 2 h 49 min · Arrivée à 00:47 · 9 correspondances   
+A* — Correspondances        | 15 763.271 ms | OK — 79 étapes · 2 h 41 min · Arrivée à 00:39 · 4 correspondances   
+Arrêts (BFS)                | 2 936.131 ms  | OK — 12 étapes · 34 h 17 min · Arrivée à 08:15 · 7 correspondances  
+
+
+## Benchmark aléatoire
+
+Catégorie      | Bench | Dijkstra TW | Dijkstra WW | Dijkstra (ms) | A* (ms) | Dijkstra w |   A* w |
+-------------- | ----: | ----------: | ----------: | ------------: | ------: | ---------: | -----: |
+< 8000         |     2 |      50.0 % |     150.0 % |        0.6511 |  0.6809 |     0.5000 | 1.2500 |
+[8000, 15000]  |     5 |      20.0 % |     140.0 % |        3.3885 |  2.3598 |     1.7000 | 1.9000 |
+[15000, 25000] |    10 |      30.0 % |     170.0 % |        8.0189 |  8.2559 |     2.3000 | 2.4000 |
+[25000, 35000] |    10 |      40.0 % |     130.0 % |       19.0318 | 16.8218 |     2.4500 | 2.9000 |
+≥ 35000        |    23 |      26.1 % |     152.2 % |       41.2837 | 37.1742 |     2.9783 | 3.1522 |
+
+### Résumé global
+
+* **Total des benchmarks :** 50
+* **Dijkstra gagnant sur le temps d'éxécution :** 15 cas
+* **Dijkstra gagnant sur le poids (temps / correspondances) :** 75 cas
+
+> **Statistique globale :**
+> Dijkstra est meilleur dans **30.00 %** des cas en temps d’exécution,
+> et dans **150.00 %** des cas en termes de poids (*Time / Transfers*).
+
+---
+
+# Toulouse
+
+## Résultats du benchmark aléatoire
+
+Catégorie      | Bench | Dijkstra TW | Dijkstra WW | Dijkstra (ms) | A* (ms) | Dijkstra w |   A* w |
+-------------- | ----: | ----------: | ----------: | ------------: | ------: | ---------: | -----: |
+< 3000         |   111 |      38.7 % |     176.6 % |        0.0406 |  0.0343 |     0.1892 | 0.3333 |
+[3000, 8000]   |   463 |      37.1 % |     171.1 % |        0.1231 |  0.1082 |     1.0961 | 1.3164 |
+[8000, 13000]  |   581 |      36.5 % |     172.8 % |        0.2338 |  0.2054 |     1.7797 | 1.9707 |
+[13000, 20000] |   592 |      41.4 % |     177.5 % |        0.2919 |  0.2696 |     2.3454 | 2.4865 |
+≥ 20000        |   253 |      40.7 % |     182.6 % |        0.3539 |  0.3237 |     3.1364 | 3.2411 |
+
+### Résumé global
+
+* **Total des benchmarks :** 2000
+* **Dijkstra gagnant sur le temps d'éxécution :** 775 cas
+* **Dijkstra gagnant sur le poids (temps / correspondances) :** 3505 cas
+
+> **Statistique globale :**
+> Dijkstra est meilleur dans **38.75 %** des cas en temps d’exécution,
+> et dans **175.25 %** des cas en termes de poids (*Time / Transfers*).
+---
+
+## Conclusion Générale
+Dijkstra a souvent des meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (175.25% et 150.00% où Dijkstra a des meilleurs résultats ou égaux). Néanmoins A* est quant à lui plus rapide en temps d'éxécution que Dijkstra  (30.00% et 38.75% où Dijkstra est plus rapide que A*) surtout sur les longues distances où A* est meilleur à 80% en temps d'éxécution par rapport à Dijkstra. Même si A* trouve des résultats moins optimals, ils restent assez similaires à ceux de Dijkstra. 
