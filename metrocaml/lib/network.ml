@@ -12,7 +12,7 @@ type transport_mode =
   | Tram
   | Walk
   | Transfert
-  | Custom of string  (** Transport mode enumerated type. *)
+  | Custom of string
 
 let string_of_mode = function
   | Metro -> "Metro"

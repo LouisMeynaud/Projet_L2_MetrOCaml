@@ -1,6 +1,6 @@
-(** Routing library - Public API. This module re-exports all public interfaces
-    and functors for use by applications. Import this module to access the
-    routing library. *)
+(** Bibliothèque de routage : API publique. Ce module réexporte toutes les interfaces publiques
+    et foncteurs pour être utilisés par les applications. Importez seulement ce module pour accéder à la
+    bibliothèque de routage. *)
 
 module type NODE = Graph_intf.NODE
 module type EDGE = Graph_intf.EDGE
