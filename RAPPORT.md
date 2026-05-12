@@ -57,12 +57,8 @@ Ici, la bibliothèque routing est utilisée dans deux contextes totalement diff�
 MétroCaml est un moteur de recherche d'itinéraires pour les transports. Il propose une interface complète pour trouver des trajets entre deux points d'un réseau en fonction de différents critères de recherche.
 
 ### 3.1 Modèle de Données
-- Parseur GTFS (General Transit Feed Specification)
-  - Format standardisé (CSV)
-  - Intégration depuis sources publiques (IDF, Toulouse, Montpellier, etc.)
-  - Adaptateur pour la structure graphe générique
 Pour charger des données réelles, MétroCaml s'appuie sur le standard **GTFS (General Transit Feed Specification)**. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant de Tisséo (Toulouse) à Île-de-France Mobilités. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers **CSV** et les modélise directement en mémoire sous la forme d'un objet **TransportGraph**.
-Pour offrir des itinéraires fiables et ancrés dans la réalité, le graphe statique est complété par un moteur d'ingestion de données en temps réel. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités pour récupérer les flux d'informations trafic au format **JSON (GTFS-RT)**. L'intégration de ces perturbations dynamiques dans un algorithme de routage hautement performant a nécessité une architecture logicielle rigoureuse. Notamment, cette intégration s'effectue via un **thread parallèle** afin de ne pas bloquer les modules de calcul d'itinéraires.
+Le graphe statique est complété par un modele en temps réel. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités pour récupérer les flux d'informations trafic au format **JSON (GTFS-RT)**. Cette intégration s'effectue via un **thread parallèle** afin de ne pas bloquer les modules de calcul d'itinéraires.
 
 ### 3.2 Interface Utilisateur
 Deux interfaces sont disponibles au lancement de MétroCaml :
