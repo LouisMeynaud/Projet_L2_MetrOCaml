@@ -1,13 +1,19 @@
 Métrocaml
 
-LORIOT Baptiste <baptiste.loriot@etu.u-paris.fr>
+LORIOT Baptiste <baptiste.loriot@etu.u-paris.fr> 
+    Architecture de Routing, Endpoint, Affichage du chemin
 
-DENQUIN Léo <leo.denquin-mathelot@etu.u-paris.fr>
+DENQUIN Léo <leo.denquin-mathelot@etu.u-paris.fr> 
+    Interface graphique, Tiktocaml 
 
-MEYNAUD Louis <louis.meynaud@etu.u-paris.fr>
+MEYNAUD Louis <louis.meynaud@etu.u-paris.fr> 
+    Weight, Djikstra, BFS
 
-MONA Matthys <matthys.mona@etu.u-paris.fr>
+MONA Matthys <matthys.mona@etu.u-paris.fr> 
+    Benchmarks, Presets, Path
 
-MOSCARDI Lorenzo <lorenzo.moscardi@etu.u-paris.fr>
+MOSCARDI Lorenzo <lorenzo.moscardi@etu.u-paris.fr> 
+    A*, CLI, Network
 
-BRUNO Thomas <thomas.bruno@etu.u-paris.fr>
+BRUNO Thomas <thomas.bruno@etu.u-paris.fr> 
+    GTFS, GTFS-RT
