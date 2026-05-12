@@ -153,23 +153,30 @@ Arrêts (BFS)                | 2 936.131 ms  | OK — 12 étapes · 34 h 17 min 
 
 ## Benchmark aléatoire
 
-Catégorie      | Bench | Dijkstra TW | Dijkstra WW | Dijkstra (ms) | A* (ms) | Dijkstra w |   A* w |
--------------- | ----: | ----------: | ----------: | ------------: | ------: | ---------: | -----: |
-< 8000         |     2 |      50.0 % |     150.0 % |        0.6511 |  0.6809 |     0.5000 | 1.2500 |
-[8000, 15000]  |     5 |      20.0 % |     140.0 % |        3.3885 |  2.3598 |     1.7000 | 1.9000 |
-[15000, 25000] |    10 |      30.0 % |     170.0 % |        8.0189 |  8.2559 |     2.3000 | 2.4000 |
-[25000, 35000] |    10 |      40.0 % |     130.0 % |       19.0318 | 16.8218 |     2.4500 | 2.9000 |
-≥ 35000        |    23 |      26.1 % |     152.2 % |       41.2837 | 37.1742 |     2.9783 | 3.1522 |
+> * **Catégorie :** Distance haversine entre le point de départ et le point d'arrivé
+> * **Dijkstra TW :** Temps d'éxécution de Dijkstra supérieur à A* 
+> * **Dijkstra WW :** Poids de Dijkstra inférieur à celui trouvé par A*
+> * **Dijkstra/A\* (ms) :** Moyenne du temps d'éxécution de l'algorithme
+> * **Dijkstra/A\* w :** Moyenne du poids trouvé par l'algorithme 
+
+
+Catégorie      | Bench | Dijkstra TW | Dijkstra WW| Dijkstra (ms) | A* (ms) | Dijkstra w |   A* w |
+-------------- | ----: | ----------: | ---------: | ------------: | ------: | ---------: | -----: |
+< 8000         |     2 |      50.0 % |     75.0 % |        0.6511 |  0.6809 |     0.5000 | 1.2500 |
+[8000, 15000]  |     5 |      20.0 % |     70.0 % |        3.3885 |  2.3598 |     1.7000 | 1.9000 |
+[15000, 25000] |    10 |      30.0 % |     85.0 % |        8.0189 |  8.2559 |     2.3000 | 2.4000 |
+[25000, 35000] |    10 |      40.0 % |     65.0 % |       19.0318 | 16.8218 |     2.4500 | 2.9000 |
+≥ 35000        |    23 |      26.1 % |     76.1 % |       41.2837 | 37.1742 |     2.9783 | 3.1522 |
 
 ### Résumé global
 
 * **Total des benchmarks :** 50
-* **Dijkstra gagnant sur le temps d'éxécution :** 15 cas
-* **Dijkstra gagnant sur le poids (temps / correspondances) :** 75 cas
+* **A\* gagnant sur le temps d'éxécution :** 35 cas
+* **Dijkstra gagnant sur le poids (temps / correspondances) :** 37 cas
 
 > **Statistique globale :**
-> Dijkstra est meilleur dans **30.00 %** des cas en temps d’exécution,
-> et dans **150.00 %** des cas en termes de poids (*Time / Transfers*).
+> A* est meilleur dans **70.00 %** des cas que Djikstra en temps d’exécution,
+> et dans **75.00 %** des cas Djikstra a de meilleurs résultats en termes de poids (*Time / Transfers*).
 
 ---
 
@@ -177,24 +184,25 @@ Catégorie      | Bench | Dijkstra TW | Dijkstra WW | Dijkstra (ms) | A* (ms) | 
 
 ## Résultats du benchmark aléatoire
 
-Catégorie      | Bench | Dijkstra TW | Dijkstra WW | Dijkstra (ms) | A* (ms) | Dijkstra w |   A* w |
--------------- | ----: | ----------: | ----------: | ------------: | ------: | ---------: | -----: |
-< 3000         |   111 |      38.7 % |     176.6 % |        0.0406 |  0.0343 |     0.1892 | 0.3333 |
-[3000, 8000]   |   463 |      37.1 % |     171.1 % |        0.1231 |  0.1082 |     1.0961 | 1.3164 |
-[8000, 13000]  |   581 |      36.5 % |     172.8 % |        0.2338 |  0.2054 |     1.7797 | 1.9707 |
-[13000, 20000] |   592 |      41.4 % |     177.5 % |        0.2919 |  0.2696 |     2.3454 | 2.4865 |
-≥ 20000        |   253 |      40.7 % |     182.6 % |        0.3539 |  0.3237 |     3.1364 | 3.2411 |
+Catégorie      | Bench | Dijkstra TW | Dijkstra WW| Dijkstra (ms) | A* (ms) | Dijkstra w |   A* w |
+-------------- | ----: | ----------: | ---------: | ------------: | ------: | ---------: | -----: |
+< 3000         |   111 |      38.7 % |     88.3 % |        0.0406 |  0.0343 |     0.1892 | 0.3333 |
+[3000, 8000]   |   463 |      37.1 % |     85.5 % |        0.1231 |  0.1082 |     1.0961 | 1.3164 |
+[8000, 13000]  |   581 |      36.5 % |     86.4 % |        0.2338 |  0.2054 |     1.7797 | 1.9707 |
+[13000, 20000] |   592 |      41.4 % |     88.7 % |        0.2919 |  0.2696 |     2.3454 | 2.4865 |
+≥ 20000        |   253 |      40.7 % |     91.3 % |        0.3539 |  0.3237 |     3.1364 | 3.2411 |
 
 ### Résumé global
 
 * **Total des benchmarks :** 2000
-* **Dijkstra gagnant sur le temps d'éxécution :** 775 cas
+* **A\* gagnant sur le temps d'éxécution :** 1225 cas
 * **Dijkstra gagnant sur le poids (temps / correspondances) :** 3505 cas
 
 > **Statistique globale :**
-> Dijkstra est meilleur dans **38.75 %** des cas en temps d’exécution,
-> et dans **175.25 %** des cas en termes de poids (*Time / Transfers*).
+> A* est meilleur dans **62.25 %** des cas que Djikstra en temps d’exécution,
+> et dans **87.62%** des cas Djikstra a de meilleurs résultats en termes de poids (*Time / Transfers*).
 ---
 
 ## Conclusion Générale
-Dijkstra a souvent des meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (175.25% et 150.00% où Dijkstra a des meilleurs résultats ou égaux). Néanmoins A* est quant à lui plus rapide en temps d'éxécution que Dijkstra  (30.00% et 38.75% où Dijkstra est plus rapide que A*) surtout sur les longues distances où A* est meilleur à 80% en temps d'éxécution par rapport à Dijkstra. Même si A* trouve des résultats moins optimals, ils restent assez similaires à ceux de Dijkstra. 
+Dijkstra a souvent des meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (75.00% et 87.62% où Dijkstra a des meilleurs résultats ou égaux). Néanmoins A* est quant à lui plus rapide en temps d'éxécution que Dijkstra  (70.00% et 62.25% où A* est plus rapide que Djikstra) surtout sur les longues distances où A* est meilleur à 80% en temps d'éxécution par rapport à Dijkstra. 
+A* est plus rapide que Djikstra dans la majorité des cas mais souvent Djikstra a un meilleur itinéraire selon les critères sélectionnés. 
