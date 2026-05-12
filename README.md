@@ -28,18 +28,16 @@ opam install . --deps-only
 ```bash
 dune build
 ```
-
-5. Pour metrocaml, copier le texte suivant dans .env.example à la place de `CLE_API_IDFM_ICI` :
-```bash
-GBsIolemaspJPcsW7HbwQTp4RaiaBTQk
-```
-
-6. Lancer le programme
+5. Lancer le programme
 ```bash
 dune exec metrocaml #pour metrocaml
 dune exec tiktocaml #pour tiktocaml
 ```
 Le binaire exécutable se trouve dans le répertoire `_build` sous le nom `metrocaml`.
+
+> **NB.** : Pour utiliser le mode en temps-réel sur IDFM, il vous faudra configurer la clé API :
+> 1. Créer un fichier `.env` à la racine du projet (copier le fichier `.env.example`).
+> 2. Remplacer `CLE_API_IDFM_ICI` par notre clé API : `GBsIolemaspJPcsW7HbwQTp4RaiaBTQk`. 
 
 
 ## MetroCaml : Un moteur de recherche d'itinéraires pour les transports en commun
