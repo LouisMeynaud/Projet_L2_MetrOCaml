@@ -12,14 +12,11 @@ struct
   type node = Node.t
   type edge = Edge.t
   type weight = Weight.t
-  type step_data = Weight.step_data
-
   type step = {
     from : node;
     to_node : node;
     edge : edge;
     weight : weight;
-    data : step_data;
   }
 
   type t = { steps : step list; total_weight : weight }

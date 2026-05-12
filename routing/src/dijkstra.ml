@@ -23,6 +23,15 @@ module Make
   type path = P.t
   type graph = G.t
 
+  (** Table de hachage pour les états (nœud × clé_état).
+      Utilise G.Node.hash au lieu du hash polymorphique sur l'objet entier. *)
+  module StateHash = struct
+    type t = G.Node.t * W.state_key
+    let equal (n1, k1) (n2, k2) = G.Node.equal n1 n2 && k1 = k2
+    let hash (n, k) = Hashtbl.hash (G.Node.hash n, k)
+  end
+  module StateTable = Hashtbl.Make (StateHash)
+
   (** Le Tas d'Appariement *)
   module TA = struct
     (* Il permet de résoudre un soucis récurent : le meilleur moyen d'arriver à une station intermédiaire
@@ -59,10 +68,13 @@ module Make
     (* Quand on retire la racine, tous ses enfants deviennent orphelins.
        Pour garder un arbre compact, on les fait s'affronter deux par deux.
        Le motif récursif fusionne de gauche à droite, puis de droite à gauche. *)
-    let rec merge_pairs = function
-      | [] -> Empty
-      | [ h ] -> h
-      | h1 :: h2 :: rest -> merge (merge h1 h2) (merge_pairs rest)
+    let merge_pairs lst =
+      let rec pair acc = function
+        | [] -> acc
+        | [ h ] -> h :: acc
+        | h1 :: h2 :: rest -> pair (merge h1 h2 :: acc) rest
+      in
+      List.fold_left merge Empty (pair [] lst)
 
     let pop = function
       | Empty -> None
@@ -87,39 +99,35 @@ module Make
       else
         (* 'dist' stocke le meilleur poids connu pour un état donné.
            'prev' stocke l'historique pour reconstruire le chemin à la fin. *)
-        let dist = Hashtbl.create 10000 in
-        let prev = Hashtbl.create 10000 in
-
-        let best_path = ref None in
-        let best_weight = ref W.infinity in
+        let n = G.size graph in
+        let dist = StateTable.create (n * 2) in
+        let prev = StateTable.create (n * 2) in
 
         let initial_state = (source, W.get_state_key initial_weight) in
 
         let ta = ref (TA.push ~g_cost:initial_weight source initial_state TA.empty) in
-        Hashtbl.add dist initial_state initial_weight;
+        StateTable.add dist initial_state initial_weight;
 
         let rec process () =
           match TA.pop !ta with
-          | None -> !best_path (* Le tas est vide, la destination est inatteignable *)
+          | None -> None (* Le tas est vide, la destination est inatteignable *)
           | Some (g_cost, u, u_state, rest_ta) ->
               ta := rest_ta;
-              let recorded_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist u_state) in
+              let recorded_g = Option.value ~default:W.infinity (StateTable.find_opt dist u_state) in
               if W.(g_cost > recorded_g) then process ()
-              else if W.(g_cost > !best_weight) then process ()
               else if G.Node.equal u destination then begin
-                (* On remonte l'historique dans 'prev' pour créer la liste des étapes *)
+                (* Premier dépilage de la destination = coût global optimal (invariant du tas).
+                   On remonte l'historique dans 'prev' pour créer la liste des étapes. *)
                 let rec build_steps acc state =
-                  match Hashtbl.find_opt prev state with
+                  match StateTable.find_opt prev state with
                   | None -> acc
-                  | Some (pred_state, pred_node, current_node, edge, w, step_data) ->
+                  | Some (pred_state, edge, w) ->
                       let step =
-                        { P.from = pred_node; to_node = current_node; edge; weight = w; data = step_data; }
+                        { P.from = fst pred_state; to_node = fst state; edge; weight = w }
                       in
                       build_steps (step :: acc) pred_state
                 in
-                best_path := Some { P.steps = build_steps [] u_state; total_weight = Hashtbl.find dist u_state; };
-                best_weight := g_cost;
-                process ()
+                Some { P.steps = build_steps [] u_state; total_weight = StateTable.find dist u_state; }
               end else begin
                 (* Exploration de toutes les arêtes adjacentes *)
                 List.iter
@@ -127,24 +135,24 @@ module Make
                     (* Le module métier (Weight) décide si on a le droit de passer *)
                     match W.traverse g_cost u edge with
                     | None -> ()
-                    | Some (new_g, step_data) ->
+                    | Some new_g ->
                         let next_state_key = W.get_state_key new_g in
                         let _, current_state_key = u_state in
-                        let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in
+                        let is_line_change = current_state_key <> next_state_key in
                         let is_transfer = is_line_change && not (G.Node.equal u source) in
 
                         if (not is_transfer) || transfer_allowed u then (
                           let v_state = (v, next_state_key) in
-                          let old_g = Option.value ~default:W.infinity (Hashtbl.find_opt dist v_state) in
+                          let old_g = Option.value ~default:W.infinity (StateTable.find_opt dist v_state) in
 
                           (* Si le passage par cette arête nous offre un meilleur score que notre
                              précédent record pour cet état, on :
                              1. met à jour le record officiel dans 'dist'.
                              2. lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
                              3. propulse ce nouvel état prometteur dans le tas 'ta'. *)
-                          if W.(new_g < old_g) && not W.(new_g > !best_weight) then begin
-                            Hashtbl.replace dist v_state new_g;
-                            Hashtbl.replace prev v_state (u_state, u, v, edge, new_g, step_data);
+                          if W.(new_g < old_g) then begin
+                            StateTable.replace dist v_state new_g;
+                            StateTable.replace prev v_state (u_state, edge, new_g);
                             ta := TA.push ~g_cost:new_g v v_state !ta
                           end))
                   (G.neighbors graph u);
