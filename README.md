@@ -6,6 +6,7 @@
 Notre projet s'articule autour de trois composantes principales :
 
 * **Une bibliothèque de graphes générique :** Conçue pour implémenter des structures de graphes et des algorithmes de parcours de manière hautement efficace. Elle a été pensée pour être la plus modulaire et abstraite possible ce qui permet de la réutiliser facilement dans des contextes totalement différents de notre application (par exemple : analyse de réseaux sociaux, modélisation de réseaux de neurones, etc.).
+
 * **L'application MetroCaml :** Une implémentation concrète de cette bibliothèque qui propose une interface complète de recherche d'itinéraires basée sur les réseaux de transports en commun.
 
 * **L'application TiktoCaml :** Un mini-projet annexe utilisant la même bibliothèque de graphes pour démontrer son potentiel et sa généricité. TiktoCaml est un moteur d'analyse de graphes fondé sur la modélisation de liens d'amitié au sein d'un réseau social.
@@ -34,6 +35,10 @@ dune exec tiktocaml #pour tiktocaml
 ```
 Le binaire exécutable se trouve dans le répertoire `_build` sous le nom `metrocaml`.
 
+> **NB.** : Pour utiliser le mode en temps-réel sur IDFM, il vous faudra configurer la clé API :
+> 1. Créer un fichier `.env` à la racine du projet (copier le fichier `.env.example`).
+> 2. Remplacer `CLE_API_IDFM_ICI` par notre clé API : `GBsIolemaspJPcsW7HbwQTp4RaiaBTQk`. 
+
 
 ## MetroCaml : Un moteur de recherche d'itinéraires pour les transports en commun
 ### Modes de fonctionnement : En ligne / Local
@@ -51,7 +56,7 @@ Au lancement du programme, l'utilisateur peut choisir entre deux modes :
 | **En ligne** | Île-de-France, Toulouse, Montpellier, Marseille, SNCF, Corsica |
 
 ### Algorithmes et critères de recherche:
-Notre librairie propose plusieurs algorithmes de routage, tels que **Dijkstra (amélioré)**, **BFS**, AUTRE ?.
+Notre librairie propose plusieurs algorithmes de routage, tels que **Astar (amélioré)**, **Dijkstra (amélioré)**, **BFS**.
 
 Le projet implémente différents critères de recherche (poids) :
 * **Temps :** Privilégie une arrivée **le plus tôt possible** (donc pas nécessairement le trajet le moins long en temps).
@@ -85,7 +90,6 @@ Plusieurs facteurs peuvent expliquer une différence de résultat :
 * Les perturbations en temps réel ne sont pas prises en compte (hors IDF en ligne).
 * La vitesse de marche est une moyenne et peut différer de la votre ou de celle choisie par les autres moteurs de calculs d'itinéraires. Métrocaml ne connait pas le plan des rues et estime les distances.
 * D'après nos tests, les itinéraires d'autres moteurs de recherche ne sont pas systématiquement les "meilleurs".
-* [??]
 
 ## Comment contribuer ?
 Pour contribuer au projet, merci de consulter le fichier [CONTRIBUTING.md](/CONTRIBUTING.md).
