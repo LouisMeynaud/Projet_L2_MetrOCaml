@@ -80,7 +80,7 @@ let print_random_bench_results stats =
 
 
 (** Exécuter le benchmark unique *)
-let run ~title ~resolve graph source_query dest_query start_time routeurs raw_select =
+let run ~title ~resolve graph source_query dest_query ~init routeurs raw_select =
   Printf.printf "\n%s de %s à %s\n%!" title source_query dest_query;
   match resolve graph source_query dest_query with
   | None -> Printf.printf "Entrées introuvables, benchmark annulé.\n%!"
@@ -94,7 +94,7 @@ let run ~title ~resolve graph source_query dest_query start_time routeurs raw_se
           (fun (nom, compute) ->
             let t0 = Unix.gettimeofday () in
             let result_str, (print_detail) =
-              compute graph_for_search source destination start_time
+              compute graph_for_search source destination init
             in
             let t1 = Unix.gettimeofday () in
             Printf.printf "%-30s  %-12s  %-20s\n%!" nom
@@ -126,19 +126,23 @@ module type Random_Bench = sig
   type graph
   type node
   type routeur_pair
-  
+  type weight
+
   (* Créer des paires (A* et Dijkstra) de routeurs *)
   val make_routeur_pairs : graph -> routeur_pair list
-  
+
   (** Récupérer les nœuds d'un graphe *)
   val get_nodes : graph -> node list
-  
+
   (** Trouver des points de départ et d'arrivée pour le routage avec le graphe *)
   val build_context : graph -> node -> node -> (graph * node * node) option
-  
+
+  (** Construire le poids initial pour ce scénario de benchmark *)
+  val make_start_weight : unit -> weight
+
   (** Lancer les benchmarks pour une paire de routeurs *)
-  val benchmark_pair : 
-    routeur_pair list -> graph -> node -> node -> int -> 
+  val benchmark_pair :
+    routeur_pair list -> graph -> node -> node -> weight ->
     (string * int * int * float * float * float * float) option
 end
 
@@ -149,11 +153,11 @@ module MakeRandomBench (RBench : Random_Bench) = struct
   let attempts_limit = nb_bench_alea * 10
 
   (** Vérifier le nombre de nœuds dans le graphe *)
-  let verif_nb_nodes graph = 
+  let verif_nb_nodes graph =
     let nodes = RBench.get_nodes graph in
     let num_nodes = List.length nodes in
-    if num_nodes < 2 then (Printf.printf "Pas assez de nœuds pour faire de benchmarks aléatoires.\n%!";
-      exit 1);
+    if num_nodes < 2 then
+      failwith "Pas assez de noeuds pour faire de benchmarks aléatoires.";
     (nodes, num_nodes)
 
   (** Choisir la taille maximale pour chercher parmi les noeuds *)
@@ -176,30 +180,28 @@ module MakeRandomBench (RBench : Random_Bench) = struct
 
     (* Initialisation*)
     Random.self_init ();
-    let start_time = 
-      let tm = Unix.localtime (Unix.time ()) 
-        in tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60 in
-      let routeur_pairs = RBench.make_routeur_pairs graph in 
-      let stats = init_category_stats () in
-      let filtered_nodes = filter_nodes nodes max_size in
-    
-    (* Collection des donnés de bench dans la hash table*)  
+    let init = RBench.make_start_weight () in
+    let routeur_pairs = RBench.make_routeur_pairs graph in
+    let stats = init_category_stats () in
+    let filtered_nodes = filter_nodes nodes max_size in
+
+    (* Collection des donnés de bench dans la hash table*)
     let rec collect remaining attempts_limit attempts =
       if (remaining = 0 || attempts_limit <= 0) then
         stats
       else
         let attempts = attempts + 1 in
         if attempts mod (nb_bench_alea / 10) = 0 then
-          Printf.printf "Progression: %d tentatives pour %d benchmarks valides \n%!" 
+          Printf.printf "Progression: %d tentatives pour %d benchmarks valides \n%!"
             attempts (nb_bench_alea - remaining);
-        
+
         (* Lancer le benchmark d'une paire de routeurs *)
         let try_benchmark () =
           match pick_random_pair filtered_nodes with
           | None -> None
           | Some (src, dst) -> (match RBench.build_context graph src dst with
               | None -> None
-              | Some (graph_for_search, src_found, dst_found) -> RBench.benchmark_pair routeur_pairs graph_for_search src_found dst_found start_time)
+              | Some (graph_for_search, src_found, dst_found) -> RBench.benchmark_pair routeur_pairs graph_for_search src_found dst_found init)
         in
 
         (* Ajouter le bench si valide dans la hash table *)

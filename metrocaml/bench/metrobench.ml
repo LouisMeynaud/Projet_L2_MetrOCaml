@@ -25,9 +25,9 @@ type routeur =
 
 
 (** Création d'un routeur avec son nom associé *)
-let make_routeur nom (module Algo : ALGO) = 
+let make_routeur nom (module Algo : ALGO) =
   let compute_route graph source destination start_time =
-    match Algo.find_path ~start_time ~graph ~source ~destination ~transfer_allowed:(fun _ -> true) with
+    match Algo.find_path ~init:(Algo.P.Weight.start_at start_time) ~graph ~source ~destination ~can_change_state:(fun _ -> true) with
     | None -> (None, fun () -> ())
     | Some p -> let module ShowPath = Show.Make (Algo.P) in
         let stats_show = ShowPath.compute_summary ~start_time p in
@@ -88,7 +88,7 @@ let run_bench_unique graph routeurs =
   Routing.Bench.run
     ~title:"Benchmark MetroCaml"
     ~resolve:(fun g src dst -> Endpoint.build_routing_context g src dst)
-    graph src dst start_time routeurs Cli.Console.raw_select
+    graph src dst ~init:start_time routeurs Cli.Console.raw_select
 
 
 (** Bench aléatoire*)
@@ -134,7 +134,7 @@ let run_routeur (name, compute) graph source destination start_time =
 (** Validation d'une paire de routeurs en cherchant le chemin d'un nœud à un autre avec un algorithme donné *)
 let validate_pair (module Algo : ALGO) graph source destination start_time =
   match
-    Algo.find_path ~start_time ~graph ~source ~destination ~transfer_allowed:(fun _ -> true)
+    Algo.find_path ~init:(Algo.P.Weight.start_at start_time) ~graph ~source ~destination ~can_change_state:(fun _ -> true)
   with
   | None -> None
   | Some path -> Some (List.length path.Algo.P.steps)
@@ -149,9 +149,14 @@ module MetroCamlRandomBench = struct
     dijkstra : string * routeur;
     astar : string * routeur;
   }
+  type weight = int
 
   (** Récupération des nœuds d'un graphe *)
   let get_nodes graph = Network.TransportGraph.nodes graph
+
+  let make_start_weight () =
+    let tm = Unix.localtime (Unix.time ()) in
+    tm.Unix.tm_hour * 3600 + tm.Unix.tm_min * 60
 
   (**  Trouver des points de départ et d'arrivée pour le benchmark valide*)
   let build_context graph src dst =

@@ -1,12 +1,13 @@
+(** Interface générale pour les algorithmes de recherche de chemin *)
 module type ALGO = sig
-  module P : Path_intf.PATH
+  module P : Path.PATH
   type graph
 
   val find_path :
-    start_time:int ->
+    init:P.Weight.t ->
     graph:graph ->
     source:P.Node.t ->
     destination:P.Node.t ->
-    transfer_allowed:(P.Node.t -> bool) ->
+    can_change_state:(P.Node.t -> bool) ->
     P.t option
 end

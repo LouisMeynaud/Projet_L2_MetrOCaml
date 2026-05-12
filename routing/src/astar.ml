@@ -1,6 +1,5 @@
-open Graph_intf
+open Graph
 open Weight_intf
-
 open Heuristic_intf
 
 (** A* Optimisé
@@ -78,17 +77,17 @@ module Make
   end
 
   (** Trouve le chemin optimal de la source à la destination.
-      @param start_time L'heure de départ (sert de poids initial).
+      @param init Le poids initial (créé par le module WEIGHT de l'appelant).
       @param graph Le graphe pré-construit du réseau.
       @param source Le noeud de départ.
       @param destination Le noeud d'arrivée.
-      @param transfer_allowed Fonction de vérification des correspondances. *)
-  let find_path ~start_time ~(graph : G.t) ~(source : G.Node.t)
-      ~(destination : G.Node.t) ~(transfer_allowed : G.Node.t -> bool) =
+      @param can_change_state Prédicat autorisant un changement d'état au nœud courant. *)
+  let find_path ~init ~(graph : G.t) ~(source : G.Node.t)
+      ~(destination : G.Node.t) ~(can_change_state : G.Node.t -> bool) =
     if not (G.has_node graph source) then None
     else if not (G.has_node graph destination) then None
     else
-      let initial_weight = W.start_at start_time in
+      let initial_weight = init in
       if G.Node.equal source destination then
         Some { P.steps = []; total_weight = initial_weight }
       else
@@ -134,9 +133,9 @@ module Make
                         let next_state_key = W.get_state_key new_g in
                         let _, current_state_key = u_state in
                         let is_line_change = current_state_key <> next_state_key in
-                        let is_transfer = is_line_change && not (G.Node.equal u source) in
+                        let is_state_change = is_line_change && not (G.Node.equal u source) in
 
-                        if (not is_transfer) || transfer_allowed u then (
+                        if (not is_state_change) || can_change_state u then (
                           let v_state = (v, next_state_key) in
                           let old_g = Option.value ~default:W.infinity (StateTable.find_opt dist v_state) in
 
