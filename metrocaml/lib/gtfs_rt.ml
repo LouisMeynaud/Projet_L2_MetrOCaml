@@ -122,14 +122,37 @@ let string_of_severite = function
     les entités HTML courantes (ex: &nbsp;, &amp;).
     Indispensable car l'API IDFM intègre parfois du formatage web dans ses messages. *)
 let nettoyer_html s =
-  let sans_balises = Str.global_replace (Str.regexp "<[^>]*>") "" s in
-  sans_balises
-  |> Str.global_replace (Str.regexp "&nbsp;") " " (*regexp car global_replace prend que des type regexp*)
-  |> Str.global_replace (Str.regexp "&amp;") "&"
-  |> Str.global_replace (Str.regexp "&#39;") "'"
-  |> Str.global_replace (Str.regexp "&quot;") "\""
-  |> Str.global_replace (Str.regexp "&lt;") "<"
-  |> Str.global_replace (Str.regexp "&gt;") ">"
+  let strip_tags src =
+    let buf = Buffer.create (String.length src) in
+    let in_tag = ref false in
+    String.iter (fun c ->
+      if c = '<' then in_tag := true
+      else if c = '>' then in_tag := false
+      else if not !in_tag then Buffer.add_char buf c
+    ) src;
+    Buffer.contents buf
+  in
+  let replace_entity needle replacement src =
+    let nlen = String.length needle and slen = String.length src in
+    let buf = Buffer.create slen in
+    let i = ref 0 in
+    while !i <= slen - nlen do
+      if String.sub src !i nlen = needle then begin
+        Buffer.add_string buf replacement; i := !i + nlen
+      end else begin
+        Buffer.add_char buf src.[!i]; i := !i + 1
+      end
+    done;
+    if !i < slen then Buffer.add_string buf (String.sub src !i (slen - !i));
+    Buffer.contents buf
+  in
+  strip_tags s
+      |> replace_entity "&nbsp;" " "
+      |> replace_entity "&amp;" "&"
+      |> replace_entity "&#39;" "'"
+      |> replace_entity "&quot;" "\""
+      |> replace_entity "&lt;" "<"
+      |> replace_entity "&gt;" ">"
 
 (** [format_alerte alerte] formate un objet [alerte] en une chaîne de caractères multilignes 
     et propre, prête à être injectée dans l'interface utilisateur ou le terminal. *)
@@ -335,6 +358,9 @@ let charger_alertes_en_memoire date_cible =
             with _ -> acc)
           [] disruptions
       in
+      (* Sécurité des Threads (Thread-safety) : On verrouille le Mutex avant d'écraser 
+         l'état global. Cela empêche l'algorithme Dijkstra ou l'interface graphique de lire 
+         les alertes pile au moment où l'on est en train de les modifier en arrière-plan. *)
       Mutex.protect mutex (fun () -> liste_alertes := nouvelles_alertes)
     with _ ->
       Printf.printf "[Erreur] Impossible de parser le fichier %s.\n%!" filename
@@ -343,7 +369,9 @@ let charger_alertes_en_memoire date_cible =
     Printf.printf "[Avertissement] Le fichier %s n'existe pas encore.\n%!"
       filename
 
-
+    (* Inférence Spatiale : L'API IDFM ne renvoie souvent que les extrémités d'un tronçon coupé. 
+           On lance un BFS sur notre propre graphe statique pour "deviner" 
+           et récupérer toutes les stations intermédiaires silencieusement affectées. *)
       let trouver_gares_intermediaires graph line_id from_id to_id =
         let start_node_opt = ref None in
         List.iter (fun node -> if nettoyer_id node.Network.id = from_id then start_node_opt := Some node) (Network.TransportGraph.nodes graph);
@@ -377,6 +405,9 @@ let charger_alertes_en_memoire date_cible =
     let compiler_alertes_pour_dijkstra graph =
       let index_lignes = Hashtbl.create 1000 in
       List.iter (fun alerte ->
+        (* Optimisation critique pour Dijkstra : On convertit les listes de stations 
+           en Tables de Hachage. Lors de l'exploration du graphe, Dijkstra pourra vérifier 
+           l'état d'une station en temps constant O(1)*)
         let gares_hash = Hashtbl.create 100 in
         List.iter (fun s -> Hashtbl.replace gares_hash s true) alerte.stations_impactees;
         
@@ -467,5 +498,6 @@ let start_auto_refresh date graph =
     Unix.sleep 60;
     loop ()
   in
+  (* Création d'un thread fantôme *)
   ignore (Thread.create loop ())
 
