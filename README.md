@@ -14,7 +14,7 @@ Notre projet s'articule autour de trois composantes principales :
 ### Compiler le Programme soi-même depuis le code source :
 1. Cloner le dépôt git :
 ```bash
-git clone [https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml.git](https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml.git)
+git clone https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml.git
 ```
 2. Se placer dans le répertoire du projet :
 ```bash
@@ -23,6 +23,7 @@ cd metrocaml
 3. Installer les dépendances :
 ```bash
 opam install . --deps-only
+opam install bogue graphics tsdl-ttf
 ```
 4. Compiler avec Dune :
 ```bash
