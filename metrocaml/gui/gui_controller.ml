@@ -648,7 +648,8 @@ let setup ~noeuds ~schedule_items ~on_search ~current_etat ~view ~layout_carte =
   let conn_cats = List.map (fun (nom, w) ->
     Widget.connect w w (fun _ _ _ ->
       let new_cats = List.map (fun (c, v) -> if c = nom then (c, not v) else (c, v)) !current_etat.categories in
-      current_etat := { !current_etat with categories = new_cats };
+      let updated_etat = { !current_etat with categories = new_cats } in
+      current_etat := Gui_draw.rebuild_render updated_etat;
       update_ui_buttons ();
       rafraichir_ecran !current_etat
     ) Trigger.buttons_down
