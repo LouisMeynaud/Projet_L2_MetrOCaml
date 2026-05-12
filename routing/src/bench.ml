@@ -9,18 +9,18 @@ let format_duration secs =
 
 
 (** Catégories pour les stats des benchmarks*)  
-let category_of_steps num_steps =
-  if num_steps < 15 then "< 15"
-  else if num_steps < 25 then "[15, 25]"
-  else if num_steps < 40 then "[25, 40)"
-  else if num_steps < 50 then "[40, 50)"
-  else ">= 50"
+let category_of_distance distance =
+  if distance < 3000 then "< 3000"
+  else if distance < 8000 then "[3000, 8000]"
+  else if distance < 13000 then "[8000, 13000]"
+  else if distance < 20000 then "[13000, 20000]"
+  else ">= 20000"
 
 (** Initialisation des statistiques par catégorie avec la création de la hash  table*)
 let init_category_stats () =
   let table = Hashtbl.create 5 in
   List.iter (fun name -> Hashtbl.add table name (0, 0, 0, 0.0, 0.0, 0.0, 0.0)) 
-  [ "< 15"; "[15, 25]"; "[25, 40)"; "[40, 50)"; ">= 50" ];
+  [ "< 3000"; "[3000, 8000]"; "[8000, 13000]"; "[13000, 20000]"; ">= 20000" ];
   table
 
 
@@ -44,12 +44,7 @@ let pick_random_station nodes =
   if nodes = [] then None
   else
     Some (List.nth nodes (Random.int (List.length nodes)))
-let pick_random_pair_with nodes_filtered comparator =
-  match (pick_random_station nodes_filtered, pick_random_station nodes_filtered) with
-  | Some src, Some dst when comparator src dst -> Some (src, dst)
-  | _ -> None
-
-let pick_random_pair nodes_filtered : ('a * 'a) option =
+let pick_random_pair nodes_filtered =
   match (pick_random_station nodes_filtered, pick_random_station nodes_filtered) with
   | Some src, Some dst when src <> dst -> Some (src, dst)
   | _ -> None
@@ -60,7 +55,7 @@ let print_random_bench_results stats =
   Printf.printf "%-14s | %-10s | %-10s | %-10s | %-12s | %-12s | %-12s | %-12s\n%!"
     "Catégorie" "Bench" "Dijkstra TW" "Dijkstra WW" "Dijkstra ms" "A* ms" "Dijkstra w" "A* w";
   separator ();
-  let categories = ["< 15"; "[15, 25]"; "[25, 40)"; "[40, 50)"; ">= 50"] in
+  let categories = ["< 3000"; "[3000, 8000]"; "[8000, 13000]"; "[13000, 20000]"; ">= 20000"] in
   let total_elapsed_wins, total_time_transfer_wins, total_count =
     List.fold_left
       (fun (te, tw ,tc) cat ->
@@ -150,7 +145,7 @@ end
 (** Foncteur pour créer un exécuteur de benchmark aléatoire générique *)
 module MakeRandomBench (RBench : Random_Bench) = struct
 
-  let nb_bench_alea = 250
+  let nb_bench_alea = 100
   let attempts_limit = nb_bench_alea * 10
 
   (** Vérifier le nombre de nœuds dans le graphe *)

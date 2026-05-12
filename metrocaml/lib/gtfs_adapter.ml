@@ -123,7 +123,8 @@ let next_day_str yyyymmdd =
       
     @param directory Le chemin du dossier contenant les fichiers .txt du GTFS.
     @param target_date La date ciblée au format "YYYYMMDD".
-    @return Un [Network.TransportGraph.t].*)
+    @return Un [Network.TransportGraph.t].
+    @raise Failure si une colonne obligatoire au standard GTFS manque dans l'un des fichiers CSV. *)
 let load_network_gtfs directory target_date =
   Logger.black "Chargement GTFS (Fusion des Areas) depuis %s...\n%!" directory;
   flush stdout;
@@ -164,6 +165,7 @@ let load_network_gtfs directory target_date =
           let start_d = String.trim (List.nth row i_start) in
           let end_d = String.trim (List.nth row i_end) in
           let mut_offsets = ref [] in
+          (* Décalage en secondes pour injecter les trajets du lendemain et du surlendemain directement dans la ligne temporelle du jour cible (gestion des trajets de nuit) *)
           if
             date_0 >= start_d && date_0 <= end_d
             && String.trim (List.nth row i_d0) = "1"
@@ -329,6 +331,7 @@ let load_network_gtfs directory target_date =
                 if p = "" then raw_id else p
             | None -> raw_id
           in
+          (* Dictionnaire de redirection : associe l'ID d'un quai spécifique (raw_id) à l'ID de sa gare globale (parent_id) pour simplifier le graphe final. *)
           Hashtbl.replace stop_to_area raw_id parent_id;
           let station_name = List.nth row i_sname in
           let is_pmr =
@@ -433,6 +436,7 @@ let load_network_gtfs directory target_date =
                 try Hashtbl.find valid_services sid
                 with Not_found -> [ 0 ]
               in
+              (* Si l'arête physique existe déjà entre ces deux stations pour cette ligne, on ne duplique pas l'objet : on ajoute simplement les nouveaux horaires de passage à la liste mutable des passages de l'arête. *)
               (match Hashtbl.find_opt edges_acc key with
               | Some (_, _, _, _, _, schedules_ref, dist_ref, _) ->
                   List.iter
