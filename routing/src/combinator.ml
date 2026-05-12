@@ -49,7 +49,6 @@ let combine (type e n) (criteria : (e, n) criterion list) :
         type t = (e, n) entry array
         type edge = e
         type node = n
-        type step_data = string
         type state_key = Obj.t array
 
         let start_at time =
@@ -73,9 +72,8 @@ let combine (type e n) (criteria : (e, n) criterion list) :
 
         (** Traversée combinée : interroge chaque sous-poids. Si un seul bloque
             (None), l'arête entière est bloquée. *)
-        let traverse (a : t) (v : node) (e : edge) : (t * step_data) option =
+        let traverse (a : t) (v : node) (e : edge) : t option =
           let new_states = Array.copy a in
-          let step_str = ref "" in
           let possible = ref true in
 
           for i = 0 to n - 1 do
@@ -88,12 +86,10 @@ let combine (type e n) (criteria : (e, n) criterion list) :
                     else
                       match W.traverse va v e with
                       | None -> possible := false
-                      | Some (new_va, s_data) ->
-                          (* On ne garde la donnée d'affichage que du premier critère *)
-                          if i = 0 then step_str := W.step_data_to_string s_data;
+                      | Some new_va ->
                           new_states.(i) <- Entry (c, new_va))
           done;
-          if !possible then Some (new_states, !step_str) else None
+          if !possible then Some new_states else None
 
         (* Processus:
           - Pour chaque critère, compare les poids correspondant de a à b en utilisant son module [WEIGHT].
@@ -140,8 +136,6 @@ let combine (type e n) (criteria : (e, n) criterion list) :
                 (Array.map (fun (Entry (c, v)) -> entry_to_string c v) t)
             in
             String.concat " | " parts
-
-        let step_data_to_string (s : step_data) = s
 
         (** La clé combinée contient les clés de tous les sous-poids. *)
         let get_state_key (t : t) : state_key =
