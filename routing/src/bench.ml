@@ -31,13 +31,10 @@ let update_category_stats table category d_avg_elapsed a_avg_elapsed d_avg_w a_a
 
 (** Filtrer une liste de nœuds en fonction d'une taille maximale *)
 let filter_nodes nodes max_size =
-  let size = min (List.length nodes) max_size in
-  let split = 
-    if size < List.length nodes then
-      (List.filteri (fun i _ -> i < size) nodes)
-    else
-      nodes
-    in split
+  let n = List.length nodes in
+  let size = min n max_size in
+  if size < n then List.filteri (fun i _ -> i < size) nodes
+  else nodes
 
 (** Sélectionner une station aléatoire dans une liste de nœuds *)
 let pick_random_station nodes =

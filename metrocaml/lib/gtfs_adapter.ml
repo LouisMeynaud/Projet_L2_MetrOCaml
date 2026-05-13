@@ -281,21 +281,22 @@ let load_network_gtfs directory target_date =
 
     Csv.iter
       ~f:(fun row ->
-        let sid = try List.nth row i_tsid with _ -> "" in
+        let row = Array.of_list row in
+        let sid = try row.(i_tsid) with _ -> "" in
         if Hashtbl.mem valid_services sid then
           let line_obj, mode =
-            try Hashtbl.find route_info (List.nth row i_trid)
+            try Hashtbl.find route_info row.(i_trid)
             with Not_found ->
               ({ Network.name = "?"; color = "000000"; Network.id = "" }, Network.Bus)
           in
-          let tid = List.nth row i_tid in
+          let tid = row.(i_tid) in
           let headsign = match i_headsign_opt with
-            | Some idx -> (try String.trim (List.nth row idx) with _ -> "")
+            | Some idx -> (try String.trim row.(idx) with _ -> "")
             | None -> ""
           in
           Hashtbl.add valid_trips tid (line_obj, mode, sid, headsign);
           let block = match i_block_opt with
-            | Some idx -> (try String.trim (List.nth row idx) with _ -> "")
+            | Some idx -> (try String.trim row.(idx) with _ -> "")
             | None -> ""
           in
           let vehicle_id = if block = "" then tid else block in
@@ -323,28 +324,29 @@ let load_network_gtfs directory target_date =
     Csv.iter
       ~f:(fun row ->
         try
-          let raw_id = List.nth row i_sid in
+          let row = Array.of_list row in
+          let raw_id = row.(i_sid) in
           let parent_id =
             match i_parent_opt with
             | Some idx ->
-                let p = try String.trim (List.nth row idx) with _ -> "" in
+                let p = try String.trim row.(idx) with _ -> "" in
                 if p = "" then raw_id else p
             | None -> raw_id
           in
           (* Dictionnaire de redirection : associe l'ID d'un quai spécifique (raw_id) à l'ID de sa gare globale (parent_id) pour simplifier le graphe final. *)
           Hashtbl.replace stop_to_area raw_id parent_id;
-          let station_name = List.nth row i_sname in
+          let station_name = row.(i_sname) in
           let is_pmr =
             match i_wheelchair_opt with
-            | Some idx -> (try String.trim (List.nth row idx) = "1" with _ -> false)
+            | Some idx -> (try String.trim row.(idx) = "1" with _ -> false)
             | None -> false
           in
           let station =
             {
               Network.id = parent_id;
-              name = List.nth row i_sname;
-              latitude = float_of_string (List.nth row i_lat);
-              longitude = float_of_string (List.nth row i_lon);
+              name = row.(i_sname);
+              latitude = float_of_string row.(i_lat);
+              longitude = float_of_string row.(i_lon);
               pmr = is_pmr;
             }
           in
@@ -385,14 +387,15 @@ let load_network_gtfs directory target_date =
     let i_st_id       = get_index     st_header "stop_id" in
     let i_st_dist_opt = get_index_opt st_header "shape_dist_traveled" in
     Csv.iter ~f:(fun row ->
-      let tid = try List.nth row i_st_trip with _ -> "" in
+      let row = Array.of_list row in
+      let tid = try row.(i_st_trip) with _ -> "" in
       if Hashtbl.mem valid_trips tid then begin
-        let raw_stop_id = try List.nth row i_st_id  with _ -> "" in
+        let raw_stop_id = try row.(i_st_id) with _ -> "" in
         let area_id     = try Hashtbl.find stop_to_area raw_stop_id with Not_found -> raw_stop_id in
-        let arr_time    = time_to_seconds (try List.nth row i_st_arr with _ -> "") in
-        let dep_time    = time_to_seconds (try List.nth row i_st_dep with _ -> "") in
+        let arr_time    = time_to_seconds (try row.(i_st_arr) with _ -> "") in
+        let dep_time    = time_to_seconds (try row.(i_st_dep) with _ -> "") in
         let dist_opt    = match i_st_dist_opt with
-          | Some idx -> (try Some (float_of_string (List.nth row idx)) with _ -> None)
+          | Some idx -> (try Some (float_of_string row.(idx)) with _ -> None)
           | None -> None
         in
         let vehicle_id  = try Hashtbl.find trip_to_block tid with Not_found -> tid in
@@ -495,9 +498,10 @@ let load_network_gtfs directory target_date =
 
     Csv.iter ~f:(fun row ->
       try
-        let raw_from = List.nth row i_from in
-        let raw_to = List.nth row i_to in
-        let t_type = String.trim (List.nth row i_type) in
+        let row = Array.of_list row in
+        let raw_from = row.(i_from) in
+        let raw_to = row.(i_to) in
+        let t_type = String.trim row.(i_type) in
         let area_from = try Hashtbl.find stop_to_area raw_from with Not_found -> raw_from in
         let area_to = try Hashtbl.find stop_to_area raw_to with Not_found -> raw_to in
         if area_from <> area_to && (t_type = "0" || t_type = "2") then begin
@@ -507,7 +511,7 @@ let load_network_gtfs directory target_date =
               let hyp_walk_time = walk_dist /. Endpoint.walk_speed_m_per_s |> int_of_float in
 
               let walk_time = match i_time_opt with
-                | Some idx -> (try int_of_string (List.nth row idx) with _ -> hyp_walk_time)
+                | Some idx -> (try int_of_string row.(idx) with _ -> hyp_walk_time)
                 | None -> hyp_walk_time
               in
               

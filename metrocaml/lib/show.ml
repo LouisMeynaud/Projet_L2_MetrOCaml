@@ -69,18 +69,19 @@ module Make (P : Routing.PATH with type Node.t = station and type Edge.t = conne
   
   let build_segment (steps : step list): segment =
     let first = List.hd steps in
-    let last  = List.nth steps (List.length steps - 1) in
     let kind  = if is_walklike first.edge then WalkSeg
                 else TransitSeg { line = first.edge.line; mode = first.edge.mode }
     in
-    let distance = List.fold_left (fun acc s -> acc +. s.edge.distance) 0.0 steps in
+    let distance, hops, last =
+      List.fold_left (fun (d, n, _) s -> (d +. s.edge.distance, n + 1, s)) (0.0, 0, first) steps
+    in
     {
       kind;
       start_station = first.from;
       end_station   = last.to_node;
       depart_time   = Weight.get_weight first.weight - first.edge.duration;
       arrival_time  = Weight.get_weight last.weight;
-      hops          = List.length steps;
+      hops;
       distance;
     }
 

@@ -94,18 +94,21 @@ let run_bench_unique graph routeurs =
 (** Bench aléatoire*)
 
 (** Fonctions pour les moyennes *)
-let avg_elapsed l = 
-  if List.length l = 0 then 0.0
-  else List.fold_left (+.) 0.0 l /. float_of_int (List.length l)
+let avg_elapsed l =
+  let n = List.length l in
+  if n = 0 then 0.0
+  else List.fold_left (+.) 0.0 l /. float_of_int n
 
-let avg_weight l = 
-  if List.length l = 0 then (0.0, 0.0)
-  else let time_avg, transfers_avg = List.fold_left 
-  (fun (time_acc, transfers_acc) w -> match w with
-   |None -> time_acc, transfers_acc
-   |Some stat -> (time_acc +. (float_of_int stat.total_time), transfers_acc +. (float_of_int stat.transfers))) 
-   (0.0, 0.0) l in
-  (time_avg /. float_of_int (List.length l), transfers_avg /. float_of_int (List.length l))
+let avg_weight l =
+  let n = List.length l in
+  if n = 0 then (0.0, 0.0)
+  else
+    let time_sum, transfers_sum = List.fold_left
+      (fun (time_acc, transfers_acc) w -> match w with
+       | None -> (time_acc, transfers_acc)
+       | Some stat -> (time_acc +. float_of_int stat.total_time, transfers_acc +. float_of_int stat.transfers))
+      (0.0, 0.0) l in
+    (time_sum /. float_of_int n, transfers_sum /. float_of_int n)
 
 (** Fonctions pour exécuter les routeurs et calculer leurs bench/stats *)
 let run_routeur (name, compute) graph source destination start_time =
