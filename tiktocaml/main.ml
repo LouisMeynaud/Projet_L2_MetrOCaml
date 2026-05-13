@@ -25,7 +25,7 @@ let make_astar h =
   (module Routing.Astar.Make (Network.FriendGraph) (Weight.ForceWeight) (H) : TIKTOK_ALGO)
 
 let run_algo (module Algo : TIKTOK_ALGO) graph source destination =
-  match Algo.find_path ~start_time:0 ~graph ~source ~destination ~transfer_allowed:(fun _ -> true) with
+  match Algo.find_path ~init:(Algo.P.Weight.start_at 0) ~graph ~source ~destination ~can_change_state:(fun _ -> true) with
   | None -> Printf.printf "Aucun chemin trouvé.\n"
   | Some p ->
       List.iter (fun (s : Algo.P.step) -> Printf.printf "%s -> %s\n" s.from.name s.to_node.name) p.steps;
@@ -33,7 +33,7 @@ let run_algo (module Algo : TIKTOK_ALGO) graph source destination =
 
 let make_bench_entry (module Algo : TIKTOK_ALGO) =
   fun graph source destination start_time ->
-    match Algo.find_path ~start_time ~graph ~source ~destination ~transfer_allowed:(fun _ -> true) with
+    match Algo.find_path ~init:(Algo.P.Weight.start_at start_time) ~graph ~source ~destination ~can_change_state:(fun _ -> true) with
     | None -> ("Aucun chemin", fun () -> ())
     | Some p -> ("OK", fun () ->
         List.iter (fun (s : Algo.P.step) ->
@@ -56,7 +56,7 @@ let () =
       ("A*",       make_bench_entry astar);
       ("BFS",      make_bench_entry (module Bfs));
     ] in
-    Bench.run graph src_query dst_query 0 routeurs (fun _ choices -> List.hd choices)
+    Bench.run graph src_query dst_query ~init:0 routeurs (fun _ choices -> List.hd choices)
   end else
     match Graph.find_person src_query, Graph.find_person dst_query with
     | None, _ | _, None -> Printf.printf "Nom inconnu.\n"

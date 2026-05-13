@@ -12,17 +12,20 @@ let transfer_penalty = 180
 (** Temps de pénalité en cas de perturbations *)
 let perturbations_penalty = 600
 
-(** Liste globale des modes de transport désactivés par l'utilisateur. *)
-let excluded_modes = ref []
+(** Table des modes de transport désactivés par l'utilisateur. *)
+let excluded_modes : (string, unit) Hashtbl.t ref = ref (Hashtbl.create 1)
 
 let set_excluded_modes modes =
-  excluded_modes :=
-    List.map String.lowercase_ascii (List.map String.trim modes)
-    |> List.filter (fun m -> m <> "")
+  let tbl = Hashtbl.create 8 in
+  List.iter (fun m ->
+    let key = String.lowercase_ascii (String.trim m) in
+    if key <> "" then Hashtbl.replace tbl key ()
+  ) modes;
+  excluded_modes := tbl
 
 let is_mode_excluded mode =
-  let key = String.lowercase_ascii (string_of_mode mode) in
-  List.mem key !excluded_modes
+  let tbl = !excluded_modes in
+  Hashtbl.mem tbl (String.lowercase_ascii (string_of_mode mode))
 
 (** Outils de Formatage *)
 

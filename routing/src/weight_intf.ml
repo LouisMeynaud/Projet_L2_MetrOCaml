@@ -5,10 +5,10 @@ module type WEIGHT = sig
   type node
 
   type state_key
-  (** Clé opaque utilisée pour distinguer les états au niveau d'un même noeud (nom des lignes) *)
+  (** Clé opaque utilisée pour distinguer les états au niveau d'un même noeud (ex. nom des lignes) *)
 
   val start_at : int -> t
-  (** Initialise le poids avec une heure de départ (en secondes à partir de minuit) *)
+  (** Initialise le poids avec une valeur de départ (ex. temps en secondes) *)
 
   val infinity : t
   (** Valeur correspondant à un coût inaccessible/infini *)
@@ -31,5 +31,5 @@ module type WEIGHT = sig
 
   val get_state_key : t -> state_key
   (** Extrait la clé d'état du poids actuel afin d'empêcher Dijkstra de supprimer prématurément
-      les chemins ayant un contexte différent (par exemple, différentes lignes de métro) *)
+      les chemins ayant un contexte différent (ex. différentes lignes de métro) *)
 end

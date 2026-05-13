@@ -104,11 +104,11 @@ let choose_weight algo poids coeffs graph =
       [ ("Temps", make_dijkstra (module Weight.TimeWeight)) ]
 
 let affichage use_color start_time source destination graph_for_search routeurs pmr_transfer =
-  let transfer_allowed = if pmr_transfer then Util.is_pmr else fun _ -> true in
+  let can_change_state = if pmr_transfer then Util.is_pmr else fun _ -> true in
   List.map (fun (nom_algo, (module Routeur : ALGO)) ->
     let module ShowPath = Show.Make (Routeur.P) in
     let open Routeur.P in
-    match Routeur.find_path ~start_time ~graph:graph_for_search ~source ~destination ~transfer_allowed with
+    match Routeur.find_path ~init:(Routeur.P.Weight.start_at start_time) ~graph:graph_for_search ~source ~destination ~can_change_state with
     | Some p ->
         let edges = List.map (fun step -> (step.from.id, step.to_node.id, step.edge.line.name)) p.steps in
         (nom_algo, ShowPath.string_of_path ~start_time ~use_color p, Some edges)

@@ -1,6 +1,5 @@
-open Graph_intf
+open Graph
 open Weight_intf
-
 open Heuristic_intf
 
 (** A* Optimisé
@@ -27,7 +26,7 @@ module Make
   type path = P.t
   type graph = G.t
 
-  (** Table de hachage pour les états (nœud × clé_état).
+  (** Table de hachage pour les états (noeud × clé_état).
       Utilise G.Node.hash au lieu du hash polymorphique sur l'objet entier. *)
   module StateHash = struct
     type t = G.Node.t * W.state_key
@@ -78,17 +77,17 @@ module Make
   end
 
   (** Trouve le chemin optimal de la source à la destination.
-      @param start_time L'heure de départ (sert de poids initial).
+      @param init Le poids initial (créé par le module WEIGHT de l'appelant).
       @param graph Le graphe pré-construit du réseau.
       @param source Le noeud de départ.
       @param destination Le noeud d'arrivée.
-      @param transfer_allowed Fonction de vérification des correspondances. *)
-  let find_path ~start_time ~(graph : G.t) ~(source : G.Node.t)
-      ~(destination : G.Node.t) ~(transfer_allowed : G.Node.t -> bool) =
+      @param can_change_state Prédicat autorisant un changement d'état au noeud courant. *)
+  let find_path ~init ~(graph : G.t) ~(source : G.Node.t)
+      ~(destination : G.Node.t) ~(can_change_state : G.Node.t -> bool) =
     if not (G.has_node graph source) then None
     else if not (G.has_node graph destination) then None
     else
-      let initial_weight = W.start_at start_time in
+      let initial_weight = init in
       if G.Node.equal source destination then
         Some { P.steps = []; total_weight = initial_weight }
       else
@@ -110,9 +109,10 @@ module Make
           | None -> None
           | Some (_f_cost, g_cost, u, u_state, rest_ta) ->
               ta := rest_ta;
-              let recorded_g = Option.value ~default:W.infinity (StateTable.find_opt dist u_state) in
-              if W.(g_cost > recorded_g) then process ()
-              else if G.Node.equal u destination then begin
+              (match StateTable.find_opt dist u_state with
+              | Some recorded_g when W.(g_cost > recorded_g) -> process ()
+              | _ ->
+              if G.Node.equal u destination then begin
                 (* h(dest) = 0 pour toute heuristique admissible, donc f = g au dépilage.
                    Premier dépilage de la destination = coût global optimal. *)
                 let rec build_steps acc state =
@@ -134,13 +134,15 @@ module Make
                         let next_state_key = W.get_state_key new_g in
                         let _, current_state_key = u_state in
                         let is_line_change = current_state_key <> next_state_key in
-                        let is_transfer = is_line_change && not (G.Node.equal u source) in
+                        let is_state_change = is_line_change && not (G.Node.equal u source) in
 
-                        if (not is_transfer) || transfer_allowed u then (
+                        if (not is_state_change) || can_change_state u then (
                           let v_state = (v, next_state_key) in
-                          let old_g = Option.value ~default:W.infinity (StateTable.find_opt dist v_state) in
-
-                          if W.(new_g < old_g) then begin
+                          let should_update = match StateTable.find_opt dist v_state with
+                            | None -> true
+                            | Some old_g -> W.(new_g < old_g)
+                          in
+                          if should_update then begin
                             let new_f = g_scalar new_g +. H.estimate v destination in
                             StateTable.replace dist v_state new_g;
                             StateTable.replace prev v_state (u_state, edge, new_g);
@@ -148,7 +150,7 @@ module Make
                           end))
                   (G.neighbors graph u);
                 process ()
-              end
+              end)
         in
         process ()
 end

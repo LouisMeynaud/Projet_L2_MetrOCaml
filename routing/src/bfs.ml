@@ -1,4 +1,4 @@
-open Graph_intf
+open Graph
 open Weight_intf
 
 (** Algorithme de Parcours en Largeur (Breadth-First Search). Utile pour trouver
@@ -9,12 +9,12 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
   type path = P.t
   type graph = G.t
 
-  let find_path ~start_time ~(graph : G.t) ~(source : G.Node.t)
-      ~(destination : G.Node.t) ~(transfer_allowed : G.Node.t -> bool) =
+  let find_path ~init ~(graph : G.t) ~(source : G.Node.t)
+      ~(destination : G.Node.t) ~(can_change_state : G.Node.t -> bool) =
     if not (G.has_node graph source) then None
     else if not (G.has_node graph destination) then None
     else
-      let initial_weight = W.start_at start_time in
+      let initial_weight = init in
       if G.Node.equal source destination then
         Some { P.steps = []; total_weight = initial_weight }
       else
@@ -40,9 +40,9 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                   | Some new_weight ->
                       let next_state_key = W.get_state_key new_weight in
                       let _, current_state_key = u_state in
-                      let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in
-                      let is_transfer = is_line_change && not (G.Node.equal u source) in
-                      if (not is_transfer) || transfer_allowed u then begin
+                      let is_line_change = current_state_key <> next_state_key in
+                      let is_state_change = is_line_change && not (G.Node.equal u source) in
+                      if (not is_state_change) || can_change_state u then begin
                         let v_state = (v, next_state_key) in
                         if not (Hashtbl.mem visited v_state) then begin
                           Hashtbl.add visited v_state ();
@@ -63,13 +63,11 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                 in
                 build_steps (step :: acc) pred_state
           in
-          let steps = build_steps [] final_state in
-          let total_weight =
-            match List.rev steps with
-            | [] -> initial_weight
-            | last_step :: _ -> last_step.P.weight
+          let total_weight = match Hashtbl.find_opt prev final_state with
+            | None -> initial_weight
+            | Some (_, _, _, _, weight) -> weight
           in
-          Some { P.steps; total_weight }
+          Some { P.steps = build_steps [] final_state; total_weight }
         in
         bfs ()
 end
