@@ -1,4 +1,3 @@
-(* gui_utils.ml *)
 open Bogue
 
 let normalize s = String.lowercase_ascii (String.trim s) (* Supprime les espaces et met en minuscules pour une comparaison insensible à la casse *)

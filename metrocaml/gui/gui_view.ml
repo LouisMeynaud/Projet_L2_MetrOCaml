@@ -169,7 +169,7 @@ let build ~panel_width ~(etat_initial : etat) =
 
   let spacer = Layout.empty ~w:1 ~h:12 () in
 
-  let show_poids_init = etat_initial.algo_actif = "Dijkstra" in
+  let show_poids_init = etat_initial.algo_actif = "Dijkstra" || etat_initial.algo_actif = "A*" in
   let show_combinaison_init = show_poids_init && etat_initial.poids_actif = "Combinaison" in
   Layout.set_show weights_block show_poids_init;
   Layout.set_show sliders_box show_combinaison_init;
@@ -398,7 +398,7 @@ let build ~panel_width ~(etat_initial : etat) =
     perturbation_box_clip;
   ] in
 
-  let tab_content_settings = Layout.tower ~align:Draw.Center [
+  let tab_content_settings = Layout.tower ~align:Draw.Min [
     Layout.resident titre_panneau;
     spacer;
     block_actions;

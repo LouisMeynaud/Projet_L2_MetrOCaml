@@ -1,3 +1,5 @@
 (library
- (name bench)
- (libraries metrocaml unix))
+ (name metrobench)
+ (libraries routing metrocaml cli)
+ (modules metrobench))
+

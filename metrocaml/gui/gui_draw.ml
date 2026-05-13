@@ -1,4 +1,3 @@
-(* gui_draw.ml *)
 open Bogue
 open Gui_types
 
@@ -151,7 +150,7 @@ let clear_label_cache () =
   let charger_police () =
     if not !police_tente then begin
       police_tente := true;
-      if Tsdl_ttf.Ttf.was_init () = true then ignore (Tsdl_ttf.Ttf.init ());
+      if Tsdl_ttf.Ttf.was_init () = false then ignore (Tsdl_ttf.Ttf.init ());
   
       let chemins = ["/System/Library/Fonts/Helvetica.ttc"; 
       "/Library/Fonts/Arial.ttf"; 

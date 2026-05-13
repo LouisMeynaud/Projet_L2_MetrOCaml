@@ -44,8 +44,8 @@ let date_choose loading_mode = let date_cible =
   | "En ligne" -> today_yyyymmdd ()
   | "Local" -> "20260330"
   | _ -> failwith "Mode de chargement inconnu"
-  in Logger.black "\n=== Lancement de MetroCaml ===\n%!";
-  Logger.black "Date GTFS cible: %s\n%!" date_cible;
+  in Logger.grey "\n=== Lancement de MetroCaml ===\n%!";
+  Logger.grey "Date GTFS cible: %s\n%!" date_cible;
   (date_cible)
 
 let rt_alertes town loading_mode date_cible graph = 
@@ -55,7 +55,7 @@ let rt_alertes town loading_mode date_cible graph =
         ( "https://prim.iledefrance-mobilites.fr/marketplace/disruptions_bulk/disruptions/v2")
     | _ -> ("") 
   in
-  if (rt_url_alertes <> "" && loading_mode == "En ligne" ) then begin
+  if (rt_url_alertes <> "" && loading_mode = "En ligne" ) then begin
     Printf.printf "\n[Système] Démarrage du moteur Temps Réel en arrière-plan...\n%!";
     Gtfs_rt.start_auto_refresh date_cible graph;
   end; ()
@@ -72,7 +72,7 @@ let rt_alertes town loading_mode date_cible graph =
       List.iter (fun (nom, details, _) -> Printf.printf "%s\n%s\n%!" nom details) results
     in
       Cli.Console.run_console graphe cli_callback; ()
-    | _ -> Logger.black "\nLancement de l'interface graphique...\n%!";
+    | _ -> Logger.grey "\nLancement de l'interface graphique...\n%!";
     let gui_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer =
       Runner.search_callback src dest algo poids coeffs excluded_modes start_time pmr_transfer graphe false
     in
@@ -80,6 +80,7 @@ let rt_alertes town loading_mode date_cible graph =
 
 
 let () =
+  Dotenv.export () |> ignore;
   Printf.printf "\x1b[1;33m%s\x1b[0m" "
                    __                                  __
    ____ ___  ___  / /__________  _________ _____ ___  / /
@@ -92,7 +93,7 @@ let () =
   let date_cible = date_choose loading_mode in
   let graph = Runner.load_gtfs_data town url date_cible loading_mode in
   rt_alertes town loading_mode date_cible graph;
-  Logger.black "\nGraphe chargé avec succès !\n%!";
+  Logger.grey "\nGraphe chargé avec succès !\n%!";
   let benchmark =
     match Cli.Console.raw_select "\nVoulez-vous activer le mode benchmark ?" [ "Oui"; "Non" ]  with
     |"Oui" -> true

@@ -1,7 +1,7 @@
 (library
  (name tiktocaml)
  (libraries routing)
- (modules network weight graphe))
+ (modules network weight graph bench))
 
 (executable
  (name main)

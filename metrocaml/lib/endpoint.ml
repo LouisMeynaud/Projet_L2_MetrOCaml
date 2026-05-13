@@ -48,7 +48,7 @@ let geocode_address_lwt address =
       (fun () ->
         Lwt_unix.with_timeout 6.0 (fun () ->
             Lwt.bind (Http_client.get ~headers uri) (fun (resp, body) ->
-                Logger.black "Requête Nominatim pour '%s' : %s\n%!" address
+                Logger.grey "Requête Nominatim pour '%s' : %s\n%!" address
                   (Cohttp.Code.string_of_status (Cohttp.Response.status resp));
                 let code =
                   resp |> Cohttp.Response.status |> Cohttp.Code.code_of_status
@@ -128,19 +128,23 @@ let resolve_endpoint graphe query =
               | Some (lat, lon) -> Some (Geo (lat, lon))
               | None -> None)))
 
-let walk_speed_m_per_s = 1.0
+let walk_speed_m_per_s  = 1.4
+let walk_detour_factor  = 1.3
 
-(** Crée une connexion de liaison à pied entre deux stations
+(** Crée une connexion de liaison à pied entre deux stations.
+    La distance stockée est la distance haversine multipliée par [walk_detour_factor]
+    pour refléter la longueur réelle du trajet à pied (haversine donne la distance à vol d'oiseau).
     @param to_station La station de destination
-    @param distance La distance entre les stations
+    @param distance La distance haversine entre les deux stations (en mètres)
     @return La connexion à pied *)
 let make_walk_connection ~to_station ~distance =
+  let walk_distance = distance *. walk_detour_factor in
   {
     Network.line = { name = "Marche"; color = "AAAAAA"; id = "" };
     Network.duration =
-      max 1 (int_of_float (ceil (distance /. walk_speed_m_per_s)));
+      max 1 (int_of_float (ceil (walk_distance /. walk_speed_m_per_s)));
     Network.schedules = [];
-    Network.distance;
+    Network.distance = walk_distance;
     Network.mode = Network.Walk;
     Network.terminus = to_station;
   }

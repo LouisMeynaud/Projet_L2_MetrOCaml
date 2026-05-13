@@ -1,5 +1,3 @@
-(* gui_types.ml *)
-
 (* ------------------ Types partages GUI ------------------- *)
 
 type noeud = { id : string;nom : string;x : float;y :float; pmr : bool }
@@ -53,9 +51,9 @@ let canvas_h = ref !hauteur (* Hauteur de la zone de carte. *)
 let window_min_width = 720 (* Largeur minimale pour la fenetre. *)
 let window_min_height = 520 (* Hauteur minimale pour la fenetre. *)
 
-let panel_ratio_percent = 30 (* Ratio du panneau sur la largeur totale. *)
-let panel_min_width = 210 (* Largeur minimale du panneau gauche. *)
-let panel_max_width = 360 (* Largeur maximale du panneau gauche. *)
+let panel_ratio_percent = 40 (* Ratio du panneau sur la largeur totale. *)
+let panel_min_width = 300 (* Largeur minimale du panneau gauche. *)
+let panel_max_width = 400 (* Largeur maximale du panneau gauche. *)
 let canvas_min_width = 320 (* Largeur minimale preservee pour la carte. *)
 
 let marge = 50 (* Marge interne appliquee au rendu de la carte. *)
