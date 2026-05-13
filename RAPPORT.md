@@ -13,7 +13,7 @@
 - Trois niveaux d'abstraction :
   - **Librairie `routing/`** : noyau générique réutilisable
   - **Application `metrocaml/`** : implémentation métier
-  - **Projet satellite `tiktokcaml/`** : preuve de généricité
+  - **Projet satellite `tiktocaml/`** : preuve de généricité
 - Dépendances externes et infrastructure (Dune, OPAM)
 
 ## 2. Librairie de Routage : Fondations Génériques
@@ -58,7 +58,7 @@ Ici, la bibliothèque routing est utilisée dans deux contextes totalement diff�
 
 ### 3.1 Modèle de Données
 Pour charger des données réelles, *MétroCaml* s'appuie sur le standard **GTFS (General Transit Feed Specification)**. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant de Tisséo (Toulouse) à Île-de-France Mobilités. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers **CSV** et les modélise directement en mémoire sous la forme d'un objet **TransportGraph**.
-Le graphe statique est complété par un modele en temps réel. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités pour récupérer les flux d'informations trafic au format **JSON (GTFS-RT)**. Cette intégration s'effectue via un **thread parallèle** afin de ne pas bloquer les modules de calcul d'itinéraires.
+Le graphe statique est complété par un module temps réel. **GTFS-RT** (*General Transit Feed Specification - Realtime*) est l'extension temps réel du standard GTFS ; il encode les alertes et perturbations sous forme de flux Protocol Buffers. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités pour récupérer ces flux et les intégrer via un **thread parallèle** afin de ne pas bloquer les modules de calcul d'itinéraires.
 
 ### 3.2 Interface Utilisateur
 Deux interfaces sont disponibles au lancement de *MétroCaml* :
@@ -154,8 +154,8 @@ Arrêts (BFS)                | 2 936.131 ms  | OK — 12 étapes · 34 h 17 min 
 ## Benchmark aléatoire
 
 > * **Catégorie :** Distance haversine entre le point de départ et le point d'arrivé
-> * **Dijkstra TW :** Temps d'exécution de Dijkstra supérieur à A* 
-> * **Dijkstra WW :** Poids de Dijkstra inférieur à celui trouvé par A*
+> * **Dijkstra TW :** % des benchmarks où Dijkstra est plus rapide qu'A\* en temps d'exécution
+> * **Dijkstra WW :** % des benchmarks où Dijkstra trouve un meilleur poids qu'A\* (time + correspondances)
 > * **Dijkstra/A\* (ms) :** Moyenne du temps d'exécution de l'algorithme
 > * **Dijkstra/A\* w :** Moyenne du poids trouvé par l'algorithme 
 
@@ -175,8 +175,8 @@ Catégorie      | Bench | Dijkstra TW | Dijkstra WW| Dijkstra (ms) | A* (ms) | D
 * **Dijkstra gagnant sur le poids (temps / correspondances) :** 37 cas
 
 > **Statistique globale :**
-> A* est meilleur dans **70.00 %** des cas que Djikstra en temps d’exécution,
-> et dans **75.00 %** des cas Djikstra a de meilleurs résultats en termes de poids (*Time / Transfers*).
+> A* est meilleur dans **70.00 %** des cas que Dijkstra en temps d’exécution,
+> cependant dans **75.00 %** des cas, Dijkstra a de meilleurs résultats en termes de poids (*Time / Transfers*).
 
 ---
 
@@ -199,10 +199,10 @@ Catégorie      | Bench | Dijkstra TW | Dijkstra WW| Dijkstra (ms) | A* (ms) | D
 * **Dijkstra gagnant sur le poids (temps / correspondances) :** 3505 cas
 
 > **Statistique globale :**
-> A* est meilleur dans **62.25 %** des cas que Djikstra en temps d’exécution,
-> et dans **87.62%** des cas Djikstra a de meilleurs résultats en termes de poids (*Time / Transfers*).
+> A* est meilleur dans **62.25 %** des cas que Dijkstra en temps d’exécution,
+> et dans **87.62%** des cas Dijkstra a de meilleurs résultats en termes de poids (*Time / Transfers*).
 ---
 
 ## Conclusion Générale
-Dijkstra a souvent de meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (75.00% et 87.62% où Dijkstra a des résultats meilleurs ou semblables à A*). Néanmoins A* est quant à lui plus rapide en temps d'exécution que Dijkstra (70.00% et 62.25% où A* est plus rapide que Djikstra) surtout sur les longues distances où A* est meilleur à 80% en temps d'exécution par rapport à Dijkstra.
-A* est plus rapide que Djikstra dans la majorité des cas mais souvent Djikstra a un meilleur itinéraire selon les critères sélectionnés.
+Dijkstra a souvent de meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (75.00% et 87.62% où Dijkstra a des résultats meilleurs ou semblables à A*). Néanmoins A* est quant à lui plus rapide en temps d'exécution que Dijkstra (70.00% et 62.25% où A* est plus rapide que Dijkstra) surtout sur les longues distances où A* est meilleur à 80% en temps d'exécution par rapport à Dijkstra.
+A* est plus rapide que Dijkstra dans la majorité des cas mais souvent Dijkstra a un meilleur itinéraire selon les critères sélectionnés.
