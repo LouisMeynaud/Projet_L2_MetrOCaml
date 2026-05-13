@@ -398,7 +398,7 @@ let build ~panel_width ~(etat_initial : etat) =
     perturbation_box_clip;
   ] in
 
-  let tab_content_settings = Layout.tower ~align:Draw.Center [
+  let tab_content_settings = Layout.tower ~align:Draw.Min [
     Layout.resident titre_panneau;
     spacer;
     block_actions;
