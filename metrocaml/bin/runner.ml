@@ -50,10 +50,10 @@ let load_gtfs_data town url date_cible loading_mode =
   try
     let graphe =
       if loading_mode = "Local" then begin
-        Logger.black "Chargement local GTFS depuis %s...\n%!" local_data_dir;
+        Logger.grey "Chargement local GTFS depuis %s...\n%!" local_data_dir;
         Gtfs_adapter.load_network_gtfs local_data_dir date_cible
       end else begin
-        Logger.black "Téléchargement en cours...\n%!";
+        Logger.grey "Téléchargement en cours...\n%!";
         Gtfs_adapter.load_network_from_url url date_cible
       end
     in

@@ -126,7 +126,7 @@ let next_day_str yyyymmdd =
     @return Un [Network.TransportGraph.t].
     @raise Failure si une colonne obligatoire au standard GTFS manque dans l'un des fichiers CSV. *)
 let load_network_gtfs directory target_date =
-  Logger.black "Chargement GTFS (Fusion des Areas) depuis %s...\n%!" directory;
+  Logger.grey "Chargement GTFS (Fusion des Areas) depuis %s...\n%!" directory;
   flush stdout;
   let graph = Network.TransportGraph.create () in
   let valid_services = Hashtbl.create 50000 in
@@ -549,8 +549,8 @@ exception Invalid_GTFS_URL of string
     @param dest_dir Le répertoire cible où seront extraits les fichiers CSV.
     @raise Invalid_GTFS_URL si le téléchargement échoue. *)
 let download_and_extract_gtfs url dest_dir =
-  Logger.black "\n=== Récupération du GTFS ===\n";
-  Logger.black "URL : %s\n" url;
+  Logger.grey "\n=== Récupération du GTFS ===\n";
+  Logger.grey "URL : %s\n" url;
 
   let is_win = Sys.os_type = "Win32" || Sys.os_type = "Cygwin" in
   let zip_path = Filename.concat dest_dir "gtfs_data.zip" in
@@ -561,7 +561,7 @@ let download_and_extract_gtfs url dest_dir =
     else Printf.sprintf "mkdir -p \"%s\"" dest_dir
   in
   let _ = Sys.command cmd_mkdir in
-  Logger.black "Téléchargement en cours...\n";
+  Logger.grey "Téléchargement en cours...\n";
   flush stdout;
   let cmd_curl =
     if is_win then
@@ -579,7 +579,7 @@ let download_and_extract_gtfs url dest_dir =
       (Invalid_GTFS_URL "Lien introuvable ou erreur de serveur (Code 404/500)")
   end;
 
-  Logger.black "Extraction des fichiers...\n";
+  Logger.grey "Extraction des fichiers...\n";
   flush stdout;
   let cmd_unzip =
     if is_win then
@@ -599,7 +599,7 @@ let download_and_extract_gtfs url dest_dir =
   in
   let _ = Sys.command cmd_rm in
 
-  Logger.black "Données prêtes dans le dossier : %s\n\n" dest_dir
+  Logger.grey "Données prêtes dans le dossier : %s\n\n" dest_dir
 
 (** [load_network_from_url url target_date] est la fonction principale.
     Elle crée un dossier temporaire sur la machine, y télécharge et extrait les données via 
@@ -621,7 +621,7 @@ let load_network_from_url url target_date =
       else Printf.sprintf "rm -rf \"%s\"" temp_dir
     in
     let _ = Sys.command cmd_cleanup in
-    Logger.black "Jeu de données supprimé avec succès, graphe persistant\n";
+    Logger.grey "Jeu de données supprimé avec succès, graphe persistant\n";
     graph
   with
   | Invalid_GTFS_URL msg ->

@@ -48,7 +48,7 @@ let geocode_address_lwt address =
       (fun () ->
         Lwt_unix.with_timeout 6.0 (fun () ->
             Lwt.bind (Http_client.get ~headers uri) (fun (resp, body) ->
-                Logger.black "Requête Nominatim pour '%s' : %s\n%!" address
+                Logger.grey "Requête Nominatim pour '%s' : %s\n%!" address
                   (Cohttp.Code.string_of_status (Cohttp.Response.status resp));
                 let code =
                   resp |> Cohttp.Response.status |> Cohttp.Code.code_of_status

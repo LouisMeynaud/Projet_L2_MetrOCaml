@@ -18,7 +18,7 @@ let rec raw_select prompt options =
   @param graphe Le graphe de transport à utiliser pour la recherche
   @param search_callback La fonction à appeler avec les paramètres de recherche une fois que l'utilisateur les a fournis **)
 let rec run_console graphe search_callback =
-  Logger.black "\n=== Mode Ligne de Commande ===\n%!";
+  Logger.grey "\n=== Mode Ligne de Commande ===\n%!";
 
   Printf.printf "\nEntrez la station source (nom/ID), les coordonnées (lat,lon) ou une adresse : %!";
   let source_query = String.trim (read_line ()) in
