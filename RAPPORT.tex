@@ -109,7 +109,7 @@ MétroCaml est un moteur de recherche d'itinéraires pour les transports. Il pro
 
 \subsection{Modèle de Données}
 
-Pour charger des données réelles, MétroCaml s'appuie sur le standard \textbf{GTFS (General Transit Feed Specification)}. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant de Tisséo (Toulouse) à Île-de-France Mobilités. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers \textbf{CSV} et les modélise directement en mémoire sous la forme d'un objet \textbf{TransportGraph}.
+Pour charger des données réelles, MétroCaml s'appuie sur le standard \textbf{GTFS (General Transit Feed Specification)}. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant d'Île-de-France Mobilités à Corsica Ferries en passant par le réseau ferroviaire SNCF. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers \textbf{CSV} et les modélise directement en mémoire sous la forme d'un objet \textbf{TransportGraph}.
 
 Pour offrir des itinéraires fiables et ancrés dans la réalité, le graphe statique est complété par un moteur d'ingestion de données en temps réel. \textbf{GTFS-RT} (\textit{General Transit Feed Specification -- Realtime}) est l'extension temps réel du standard GTFS ; il encode les alertes et perturbations sous forme de flux Protocol Buffers. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités pour récupérer ces flux et les intégrer via un \textbf{thread parallèle} afin de ne pas bloquer les modules de calcul d'itinéraires.
 
@@ -198,7 +198,7 @@ Nous voulions initialement publier automatiquement le rapport de couverture et l
 \end{itemize}
 
 % ─────────────────────────────────────────────
-\section*{Statistiques -- Benchmarks}
+\section{Statistiques -- Benchmarks}
 
 % ── Île-de-France ────────────────────────────
 \subsection*{Île-de-France}
@@ -210,8 +210,7 @@ Nous voulions initialement publier automatiquement le rapport de couverture et l
 \end{center}
 
 \noindent\resizebox{\linewidth}{!}{%
-\small
-\begin{tabular}{lrp{7.8cm}}
+\begin{tabular}{lrl}
 \toprule
 \textbf{Algorithme / Preset} & \textbf{Temps} & \textbf{Résultat} \\
 \midrule
@@ -220,13 +219,13 @@ A* --- Preset \textit{Rapide}        & 22\,444 ms & OK --- 41 étapes $\cdot$ 2h
 Dijkstra --- Preset \textit{Confort} & 31\,223 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
 A* --- Preset \textit{Confort}       & 25\,363 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
 Dijkstra --- Temps           & 16\,653 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
-Dijkstra --- Distance        & 62\,793 ms & OK --- 64 étapes $\cdot$ 45h13 $\cdot$ Arrivée 19:11 $\cdot$ 32 correspondances \\
-Dijkstra --- Arrêts          &  3\,453 ms & OK --- 12 étapes $\cdot$ 31h21 $\cdot$ Arrivée 05:19 $\cdot$ 7 correspondances \\
-Dijkstra --- Correspondances & 38\,377 ms & OK --- 345 étapes $\cdot$ 35h44 $\cdot$ Arrivée 09:42 $\cdot$ 2 correspondances \\
 A* --- Temps                 & 16\,278 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
-A* --- Distance              & 53\,289 ms & OK --- 71 étapes $\cdot$ 3h13 $\cdot$ Arrivée 01:11 $\cdot$ 9 correspondances \\
-A* --- Arrêts                & 23\,883 ms & OK --- 37 étapes $\cdot$ 2h49 $\cdot$ Arrivée 00:47 $\cdot$ 9 correspondances \\
+Dijkstra --- Correspondances & 38\,377 ms & OK --- 345 étapes $\cdot$ 35h44 $\cdot$ Arrivée 09:42 $\cdot$ 2 correspondances \\
 A* --- Correspondances       & 15\,763 ms & OK --- 79 étapes $\cdot$ 2h41 $\cdot$ Arrivée 00:39 $\cdot$ 4 correspondances \\
+Dijkstra --- Distance        & 62\,793 ms & OK --- 64 étapes $\cdot$ 45h13 $\cdot$ Arrivée 19:11 $\cdot$ 32 correspondances \\
+A* --- Distance              & 53\,289 ms & OK --- 71 étapes $\cdot$ 3h13 $\cdot$ Arrivée 01:11 $\cdot$ 9 correspondances \\
+Dijkstra --- Arrêts          &  3\,453 ms & OK --- 12 étapes $\cdot$ 31h21 $\cdot$ Arrivée 05:19 $\cdot$ 7 correspondances \\
+A* --- Arrêts                & 23\,883 ms & OK --- 37 étapes $\cdot$ 2h49 $\cdot$ Arrivée 00:47 $\cdot$ 9 correspondances \\
 Arrêts (BFS)                 &  2\,936 ms & OK --- 12 étapes $\cdot$ 34h17 $\cdot$ Arrivée 08:15 $\cdot$ 7 correspondances \\
 \bottomrule
 \end{tabular}}
