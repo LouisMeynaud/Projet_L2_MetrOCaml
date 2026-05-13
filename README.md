@@ -16,8 +16,8 @@ Téléchargez le fichier binaire publié dans la dernière [release](https://mou
 et utilisez la ligne de commande suivante :
 
 ```bash
-./metrocaml-0.0.0-test #pour metrocaml
-./tiktocaml-0.0.0-test #pour tiktocaml
+./metrocaml-1.0.0 #pour metrocaml
+./tiktocaml-1.0.0 #pour tiktocaml
 ```
 
 ### Compiler le Programme soi-même depuis le code source :
