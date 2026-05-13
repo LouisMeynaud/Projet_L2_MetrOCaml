@@ -12,7 +12,9 @@ Notre projet s'articule autour de trois composantes principales :
 * **L'application TiktoCaml :** Un mini-projet annexe utilisant la même bibliothèque de graphes pour démontrer son potentiel et sa généricité. TiktoCaml est un moteur d'analyse de graphes fondé sur la modélisation de liens d'amitié au sein d'un réseau social.
 
 ### Lancer le programme depuis l'exécutable :
-Téléchargez le fichier binaire publié dans la dernière [release](https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml/-/releases)
+Téléchargez les exécutables binaires publiés dans la dernière [release](https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml/-/releases)
+
+donnez-vous les droits d'exécution sur le fichier téléchargé (ex: `chmod u+x metrocaml-1.0.0`)
 et utilisez la ligne de commande suivante :
 
 ```bash
