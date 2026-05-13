@@ -2,17 +2,15 @@
     et foncteurs pour être utilisés par les applications. Importez seulement ce module pour accéder à la
     bibliothèque de routage. *)
 
-module type NODE = Graph_intf.NODE
-module type EDGE = Graph_intf.EDGE
-module type GRAPH = Graph_intf.GRAPH
-
-module Graph = Graph
-
-module type PATH = Path_intf.PATH
+module type NODE = Graph.NODE
+module type EDGE = Graph.EDGE
+module type GRAPH = Graph.GRAPH
+module type PATH = Path.PATH
 module type WEIGHT = Weight_intf.WEIGHT
 module type ALGO = Algo_intf.ALGO
 module type HEURISTIC = Heuristic_intf.HEURISTIC
 
+module Graph = Graph
 module Path = Path
 module Combinator = Combinator
 module Bench = Bench

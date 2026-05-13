@@ -4,11 +4,9 @@
  (libraries unix)
  (modules
   routing
-  graph_intf
   graph
   weight_intf
   combinator
-  path_intf
   path
   algo_intf
   heuristic_intf

@@ -202,9 +202,8 @@ let recupere_alertes () =
   if code = 200 then (
     Cohttp_lwt.Body.to_string body_stream >>= fun body_str ->
     (* --- ÉCRITURE DANS LE FICHIER --- *)
-    let oc = open_out filename in
-    output_string oc body_str;
-    close_out oc;
+    (let oc = open_out filename in
+    Fun.protect ~finally:(fun () -> close_out oc) (fun () -> output_string oc body_str));
     Lwt.return_unit)
   else
     Cohttp_lwt.Body.drain_body body_stream >>= fun () ->
@@ -440,6 +439,7 @@ let severite_to_string = function
 let exporter_index_debug () =
 let filename = "data/rt/debug_dijkstra.txt" in
 let oc = open_out filename in
+Fun.protect ~finally:(fun () -> close_out oc) @@ fun () ->
 
 Printf.fprintf oc "=== DUMP DE L'INDEX DIJKSTRA (TEMPS RÉEL) ===\n\n";
 
@@ -477,7 +477,6 @@ else begin
   ) !index_alertes_dijkstra
 end;
 
-close_out oc;
 Printf.printf "[Debug] Fichier %s généré avec succès ! Allez le lire pour vérifier vos données.\n%!" filename
       
 
@@ -489,15 +488,17 @@ Printf.printf "[Debug] Fichier %s généré avec succès ! Allez le lire pour v�
     l'application. *)
 let start_auto_refresh date graph =
   let rec loop () =
-    actualiser_fichier_alertes ();
-    charger_alertes_en_memoire date;
-    let nouv_index = compiler_alertes_pour_dijkstra graph in
-    Mutex.protect mutex (fun () -> index_alertes_dijkstra := nouv_index);
-    (**DEBUG
-    exporter_index_debug();**)
+    (try
+      actualiser_fichier_alertes ();
+      charger_alertes_en_memoire date;
+      let nouv_index = compiler_alertes_pour_dijkstra graph in
+      Mutex.protect mutex (fun () -> index_alertes_dijkstra := nouv_index)
+      (**DEBUG
+      ; exporter_index_debug ()*)
+    with exn ->
+      Logger.red "[GTFS-RT] Erreur lors du rafraîchissement : %s\n%!" (Printexc.to_string exn));
     Unix.sleep 60;
     loop ()
   in
-  (* Création d'un thread fantôme *)
   ignore (Thread.create loop ())
 
