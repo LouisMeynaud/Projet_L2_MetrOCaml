@@ -1,0 +1,303 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{babel}
+\babelprovide[import, main]{french}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{graphicx}
+
+\geometry{margin=2.5cm}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+}
+
+\title{\textbf{Rapport -- Projet OCaml}
+
+\large \href{https://moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml}{\texttt{moule.informatique.univ-paris-diderot.fr/3lmtb/metrocaml}}}
+
+\author{
+    LORIOT Baptiste (\href{mailto:baptiste.loriot@etu.u-paris.fr}{\texttt{baptiste.loriot@etu.u-paris.fr}}) \\
+    MONA Matthys (\href{mailto:matthys.mona@etu.u-paris.fr}{\texttt{matthys.mona@etu.u-paris.fr}}) \\
+    BRUNO Thomas (\href{mailto:thomas.bruno@etu.u-paris.fr}{\texttt{thomas.bruno@etu.u-paris.fr}}) \\
+    DENQUIN Léo (\href{mailto:leo.denquin-mathelot@etu.u-paris.fr}{\texttt{leo.denquin-mathelot@etu.u-paris.fr}}) \\
+    MOSCARDI Lorenzo (\href{mailto:lorenzo.moscardi@etu.u-paris.fr}{\texttt{lorenzo.moscardi@etu.u-paris.fr}}) \\
+    MEYNAUD Louis (\href{mailto:louis.meynaud@etu.u-paris.fr}{\texttt{louis.meynaud@etu.u-paris.fr}})
+}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+% ─────────────────────────────────────────────
+\section{Architecture Générale}
+
+\begin{itemize}
+    \item Organisation du projet : structure modulaire
+    \item Trois niveaux d'abstraction :
+    \begin{itemize}
+        \item \textbf{Librairie \texttt{routing/}} : noyau générique réutilisable
+        \item \textbf{Application \texttt{metrocaml/}} : implémentation métier
+        \item \textbf{Projet satellite \texttt{tiktocaml/}} : preuve de généricité
+    \end{itemize}
+    \item Dépendances externes et infrastructure (Dune, OPAM)
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{Librairie de Routage : Fondations Génériques}
+
+\subsection{Abstractions et Interfaces}
+
+La bibliothèque \texttt{routing/} est conçue pour être \textbf{totalement générique}, et utilisable dans n'importe quel contexte de graphe. Elle utilise des abstractions de haut niveau pour représenter les éléments fondamentaux d'un graphe, indépendamment de leur signification. Ainsi, elle manipule une architecture modulaire basée sur des interfaces telles que \texttt{GRAPH}, \texttt{NODE} et \texttt{EDGE}, plutôt que des types précis.
+
+Ces modules sont définis par le projet utilisant la bibliothèque. Par exemple, \textit{MétroCaml} définit les NODEs comme des stations, les EDGEs comme des liaisons de transport\ldots{} tandis que \textit{TiktoCaml} les définit respectivement comme des utilisateurs et des relations. La bibliothèque ne connaît pas ces détails, elle se contente de manipuler des éléments génériques.
+\newpage
+\subsection{Algorithmes}
+
+Routing fournit plusieurs algorithmes de parcours du graphe :
+\begin{itemize}
+    \item \textbf{BFS} (parcours basique en largeur)
+    \item \textbf{Dijkstra} (coût minimal)
+    \item \textbf{A*} (Dijkstra avec biais heuristique)
+\end{itemize}
+
+\subsection{Système de Pondération}
+
+Les algorithmes Dijkstra et A* nécessitent un système de pondération pour évaluer les coûts des chemins. La bibliothèque définit une interface \texttt{WEIGHT} qui permet de représenter une \textbf{métrique de coût}. Les projets utilisant la bibliothèque peuvent implémenter cette interface pour définir leurs propres critères de recherche. Ces modules peuvent alors utiliser les types spécifiques du projet. Par exemple, MétroCaml implémente des poids basés sur le temps de trajet, la distance, le nombre d'arrêts, ou les correspondances. TiktoCaml pourrait implémenter des poids basés sur la force de la relation, la fréquence d'interaction, etc.
+
+Routing fournit aussi un système de \textbf{combinaison de poids}, \texttt{Combinator}, permettant de créer des métriques composites à partir de plusieurs critères. Par exemple, un utilisateur pourrait vouloir minimiser à la fois le temps de trajet et le nombre de correspondances, en pondérant ces deux critères selon ses préférences.
+
+\subsection{Résultats et Itinéraires}
+
+Les algorithmes de recherche retournent des résultats sous forme de \texttt{PATH}, une interface définie par la bibliothèque et paramétrée par les types \texttt{NODE} et \texttt{EDGE} du projet, qui contient la liste des arêtes parcourues.
+
+\subsection{Benchmarking et Performance}
+
+La bibliothèque inclut des outils de \textbf{benchmarking} pour évaluer la performance des différents algorithmes, soit sur un itinéraire spécifique, soit sur un nombre de cas de tests aléatoires. Ces outils permettent de mesurer le temps de calcul et la qualité des itinéraires proposés (en fonction des critères de pondération).
+\newpage
+\subsection{Démonstration de la généricité}
+
+La bibliothèque \texttt{routing} est ici utilisée dans deux contextes totalement différents : les \textbf{transports} (\textit{MétroCaml}, le projet principal) et les \textbf{réseaux sociaux} (\textit{TiktoCaml}, un mini-projet annexe). Cela prouve que la conception générique de la bibliothèque permet de l'adapter facilement à différents domaines, sans modifications structurelles majeures.
+
+\subsubsection*{A \textbar{} MetroCaml : Transports}
+\begin{itemize}
+    \item N\oe{}uds = stations/arrêts
+    \item Arêtes = trajets (bus, métro, marche, transfert\ldots)
+    \item Poids  = critères (temps, distance, correspondances, nombre d'arrêts)
+\end{itemize}
+
+\subsubsection*{B \textbar{} TiktoCaml : Réseaux Sociaux}
+\begin{itemize}
+    \item N\oe{}uds = personnes
+    \item Arêtes = relations d'amitié
+    \item Poids  = critères de parcours
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{Application MétroCaml}
+
+MétroCaml est un moteur de recherche d'itinéraires pour les transports. Il propose une interface complète pour trouver des trajets entre deux points d'un réseau en fonction de différents critères de recherche.
+
+\subsection{Modèle de Données}
+
+Pour charger des données réelles, MétroCaml s'appuie sur le standard \textbf{GTFS (General Transit Feed Specification)}. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant d'Île-de-France Mobilités à Corsica Ferries en passant par le réseau ferroviaire SNCF. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers \textbf{CSV} et les modélise directement en mémoire sous la forme d'un objet \textbf{TransportGraph}.
+
+Pour offrir des itinéraires fiables et ancrés dans la réalité, le graphe statique est complété par un moteur d'ingestion de données en temps réel. \textbf{GTFS-RT} (\textit{General Transit Feed Specification -- Realtime}) est l'extension temps réel du standard GTFS ; il encode les alertes et perturbations sous forme de flux Protocol Buffers. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités pour récupérer ces flux et les intégrer via un \textbf{thread parallèle} afin de ne pas bloquer les modules de calcul d'itinéraires.
+
+\newpage
+\subsection{Interface Utilisateur}
+
+Deux interfaces sont disponibles au lancement de MétroCaml :
+\begin{itemize}
+    \item une \textbf{interface console} (CLI) pour un affichage textuel
+    \item une \textbf{interface graphique} (GUI) pour un affichage visuel interactif et l'intégration des alertes et perturbations en temps réel.
+\end{itemize}
+
+Les données peuvent être chargées en local ou en ligne.
+
+\subsection{Critères de Recherche et Profils}
+
+L'utilisateur a la possibilité de personnaliser sa recherche avec plusieurs critères sous forme de poids. Voici une liste exhaustive des différents critères :
+\begin{itemize}
+    \item \textbf{Temps} : minimise l'heure d'arrivée
+    \item \textbf{Distance} : privilégie la trajectoire géographique
+    \item \textbf{Arrêts} : minimise le nombre de stations parcourues
+    \item \textbf{Correspondances} : réduit le nombre de changements de lignes
+\end{itemize}
+
+L'utilisateur peut également utiliser des profils combinés prédéfinis comme \textbf{Rapide} et \textbf{Confort}, ou bien définir manuellement la pondération de chaque critère pour une recherche personnalisée.
+
+\subsection{Modes de Fonctionnement}
+
+\begin{itemize}
+    \item \textbf{Mode Local} : données pré-chargées, pas de connexion requise
+    \item \textbf{Mode En Ligne} : données temps réel, APIs externes
+    \item Réseaux disponibles : Île-de-France, Toulouse, Montpellier, Marseille, SNCF, Corsica
+    \item Perturbations temps réel (notamment IDF) et accessibilité PMR
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{Processus de Développement}
+
+\subsubsection*{Répartition du travail au sein de l'équipe}
+\begin{itemize}
+    \item \textbf{Léo} : 18\%
+    \item \textbf{Baptiste} : 17\%
+    \item \textbf{Louis} : 17\%
+    \item \textbf{Thomas} : 17\%
+    \item \textbf{Matthys} : 16\%
+    \item \textbf{Lorenzo} : 15\%
+\end{itemize}
+
+\subsection{Gestion de Projet et Git}
+
+Le projet a suivi le workflow Git Flow :
+\begin{itemize}
+    \item Branches \texttt{feature/[feature]} ou \texttt{[package]/[feature]} pour chaque développement, \texttt{fix/[fix]} pour les corrections de bug.
+    \item Merge Requests (MR) dans \texttt{dev} obligatoires avec revue de code par au moins trois autres membres.
+    \item Branche \texttt{dev} pour les sprints.
+    \item Branche \texttt{main} uniquement pour les releases stables (MR unique \texttt{dev} $\to$ \texttt{main}).
+\end{itemize}
+
+Méthodologie agile avec des sprints et des releases, et un suivi des tâches via les tickets GitLab.
+
+\subsection{Intégration Continue (CI/CD)}
+
+Une pipeline GitLab CI a été mise en place pour le projet (\texttt{.gitlab-ci.yml}) :
+\begin{itemize}
+    \item \texttt{setup} : Installation des dépendances via OPAM.
+    \item \texttt{lint} : Analyse statique du code avec OCamlFormat pour garantir un code conforme.
+    \item \texttt{test} : Exécution des tests avec Alcotest. Utilisation de Bisect\_ppx pour mesurer la couverture de code, avec un seuil minimal imposé (à 70\%). La pipeline délivre un artéfact contenant un fichier HTML avec le rapport de couverture, ainsi que le rapport XML pour l'intégration dans GitLab.
+    \item \texttt{release} : Création automatique d'une release GitLab quand un tag est pushé.
+    \item \texttt{docs} : Génération de la documentation avec OCamlDoc.
+\end{itemize}
+
+Nous voulions initialement publier automatiquement le rapport de couverture et la documentation sur GitLab Pages, mais cette fonctionnalité est désactivée sur le serveur Moule.
+
+\subsection{Tests et Qualité}
+
+\begin{itemize}
+    \item Suite de \textbf{tests unitaires} (avec \textit{alcotest})
+    \item Benchmarking : comparaison des performances d'algorithmes / \textbf{tests de performance}
+    \item Une fois un bug corrigé, un \textbf{test de régression} est ajouté.
+    \item Couverture de code (avec \textit{bisect\_ppx}) : seuil minimal de 70\% pour valider les MR.
+    \item \textbf{Tests de compatibilité} :
+    \begin{itemize}
+        \item Exécution du projet sur différents systèmes (Linux, Windows, MacOS)
+        \item Exécution de MétroCaml sur différents réseaux (IDF, Toulouse, etc.) pour vérifier la robustesse du parseur GTFS.
+    \end{itemize}
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{Statistiques -- Benchmarks}
+
+% ── Île-de-France ────────────────────────────
+\subsection*{Île-de-France}
+
+\subsubsection*{Benchmark unique}
+
+\begin{center}
+\textit{MétroCaml --- de Moulin de Grais à Pépinière}
+\end{center}
+
+\noindent\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrl}
+\toprule
+\textbf{Algorithme / Preset} & \textbf{Temps} & \textbf{Résultat} \\
+\midrule
+Dijkstra --- Preset \textit{Rapide}  & 26\,786 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
+A* --- Preset \textit{Rapide}        & 22\,444 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
+Dijkstra --- Preset \textit{Confort} & 31\,223 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
+A* --- Preset \textit{Confort}       & 25\,363 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
+Dijkstra --- Temps           & 16\,653 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
+A* --- Temps                 & 16\,278 ms & OK --- 41 étapes $\cdot$ 2h15 $\cdot$ Arrivée 00:13 $\cdot$ 3 correspondances \\
+Dijkstra --- Correspondances & 38\,377 ms & OK --- 345 étapes $\cdot$ 35h44 $\cdot$ Arrivée 09:42 $\cdot$ 2 correspondances \\
+A* --- Correspondances       & 15\,763 ms & OK --- 79 étapes $\cdot$ 2h41 $\cdot$ Arrivée 00:39 $\cdot$ 4 correspondances \\
+Dijkstra --- Distance        & 62\,793 ms & OK --- 64 étapes $\cdot$ 45h13 $\cdot$ Arrivée 19:11 $\cdot$ 32 correspondances \\
+A* --- Distance              & 53\,289 ms & OK --- 71 étapes $\cdot$ 3h13 $\cdot$ Arrivée 01:11 $\cdot$ 9 correspondances \\
+Dijkstra --- Arrêts          &  3\,453 ms & OK --- 12 étapes $\cdot$ 31h21 $\cdot$ Arrivée 05:19 $\cdot$ 7 correspondances \\
+A* --- Arrêts                & 23\,883 ms & OK --- 37 étapes $\cdot$ 2h49 $\cdot$ Arrivée 00:47 $\cdot$ 9 correspondances \\
+Arrêts (BFS)                 &  2\,936 ms & OK --- 12 étapes $\cdot$ 34h17 $\cdot$ Arrivée 08:15 $\cdot$ 7 correspondances \\
+\bottomrule
+\end{tabular}}
+
+\subsubsection*{Benchmark aléatoire}
+
+\begin{itemize}
+    \item \textbf{Catégorie :} Distance haversine entre le départ et l'arrivée
+    \item \textbf{Dijkstra TW :} \% des benchmarks où Dijkstra est plus rapide qu'A* en temps d'exécution
+    \item \textbf{Dijkstra WW :} \% des benchmarks où Dijkstra trouve un meilleur poids qu'A*
+    \item \textbf{Dijkstra/A* (ms) :} Moyenne du temps d'exécution
+    \item \textbf{Dijkstra/A* w :} Moyenne du poids trouvé
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+\textbf{Catégorie} & \textbf{Bench} & \textbf{Dijk. TW} & \textbf{Dijk. WW} & \textbf{Dijk. (ms)} & \textbf{A* (ms)} & \textbf{Dijk. w} & \textbf{A* w} \\
+\midrule
+$< 8000$             &  2 & 50,0\,\% & 75,0\,\% &  0,6511 &  0,6809 & 0,5000 & 1,2500 \\
+{[8000, 15000]}      &  5 & 20,0\,\% & 70,0\,\% &  3,3885 &  2,3598 & 1,7000 & 1,9000 \\
+{[15000, 25000]}     & 10 & 30,0\,\% & 85,0\,\% &  8,0189 &  8,2559 & 2,3000 & 2,4000 \\
+{[25000, 35000]}     & 10 & 40,0\,\% & 65,0\,\% & 19,0318 & 16,8218 & 2,4500 & 2,9000 \\
+$\geq 35000$         & 23 & 26,1\,\% & 76,1\,\% & 41,2837 & 37,1742 & 2,9783 & 3,1522 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Résumé global}
+\begin{itemize}
+    \item \textbf{Total des benchmarks :} 50
+    \item \textbf{A* gagnant sur le temps d'exécution :} 35 cas
+    \item \textbf{Dijkstra gagnant sur le poids :} 37 cas
+\end{itemize}
+
+A* est meilleur dans \textbf{70,00\,\%} des cas que Dijkstra en temps d'exécution, et dans \textbf{75,00\,\%} des cas Dijkstra a de meilleurs résultats en termes de poids (\textit{Time / Transfers}).
+
+% ── Toulouse ─────────────────────────────────
+\subsection*{Toulouse}
+
+\subsubsection*{Benchmark aléatoire}
+
+\begin{center}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+\textbf{Catégorie} & \textbf{Bench} & \textbf{Dijk. TW} & \textbf{Dijk. WW} & \textbf{Dijk. (ms)} & \textbf{A* (ms)} & \textbf{Dijk. w} & \textbf{A* w} \\
+\midrule
+$< 3000$             & 111 & 38,7\,\% & 88,3\,\% & 0,0406 & 0,0343 & 0,1892 & 0,3333 \\
+{[3000, 8000]}       & 463 & 37,1\,\% & 85,5\,\% & 0,1231 & 0,1082 & 1,0961 & 1,3164 \\
+{[8000, 13000]}      & 581 & 36,5\,\% & 86,4\,\% & 0,2338 & 0,2054 & 1,7797 & 1,9707 \\
+{[13000, 20000]}     & 592 & 41,4\,\% & 88,7\,\% & 0,2919 & 0,2696 & 2,3454 & 2,4865 \\
+$\geq 20000$         & 253 & 40,7\,\% & 91,3\,\% & 0,3539 & 0,3237 & 3,1364 & 3,2411 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Résumé global}
+\begin{itemize}
+    \item \textbf{Total des benchmarks :} 2000
+    \item \textbf{A* gagnant sur le temps d'exécution :} 1225 cas
+    \item \textbf{Dijkstra gagnant sur le poids :} 3505 cas (plusieurs presets testés par benchmark)
+\end{itemize}
+
+A* est meilleur dans \textbf{62,25\,\%} des cas que Dijkstra en temps d'exécution, et dans \textbf{87,62\,\%} des cas Dijkstra a de meilleurs résultats en termes de poids (\textit{Time / Transfers}).
+
+% ── Conclusion ───────────────────────────────
+\subsection*{Conclusion Générale}
+
+Dijkstra obtient souvent de meilleurs résultats qu'A* en qualité d'itinéraire : il trouve un meilleur poids dans 75,00\,\% des cas sur IDF et 87,62\,\% des cas sur Toulouse. En revanche, A* est systématiquement plus rapide en temps de calcul (70,00\,\% et 62,25\,\% des cas), avantage particulièrement marqué sur les longues distances.
+
+En résumé : \textbf{A* calcule plus vite, Dijkstra trouve plus souvent le meilleur itinéraire} selon les critères sélectionnés.
+
+\end{document}
