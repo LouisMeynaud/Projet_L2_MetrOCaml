@@ -157,9 +157,7 @@ module Make (P : Routing.PATH with type Node.t = station and type Edge.t = conne
   let compute_summary ~start_time (path : t) =
     let segs = group_into_segments path.steps in
     let arrival_time =
-      match List.rev segs with
-      | []        -> start_time
-      | last :: _ -> last.arrival_time
+      List.fold_left (fun _ (seg : segment) -> seg.arrival_time) start_time segs
     in
     let total_time = arrival_time - start_time in
     let (onboard_time, walking_time, transit_count, total_distance) =

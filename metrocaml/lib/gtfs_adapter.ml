@@ -375,7 +375,7 @@ let load_network_gtfs directory target_date =
 
   (* E+F. Terminus + Stop Times *)
   let vehicle_terminus  = Hashtbl.create 5000 in
-  let stop_time_entries = ref [] in
+  let stop_time_entries = Queue.create () in
   let st_path = Filename.concat directory "stop_times.txt" in
   if Sys.file_exists st_path then begin
     let st_ic = open_in st_path in
@@ -403,14 +403,14 @@ let load_network_gtfs directory target_date =
         let current_max = try fst (Hashtbl.find vehicle_terminus vehicle_id) with Not_found -> -1 in
         if arr_time > current_max then
           Hashtbl.replace vehicle_terminus vehicle_id (arr_time, area_id);
-        stop_time_entries := (tid, area_id, arr_time, dep_time, dist_opt) :: !stop_time_entries
+        Queue.push (tid, area_id, arr_time, dep_time, dist_opt) stop_time_entries
       end) st_csv)
   end;
 
   (* Construction des arêtes *)
   let edges_acc = Hashtbl.create 10000 in
   let last_trip_state = ref None in
-  List.iter (fun (tid, area_id, arr_time, dep_time, current_dist_opt) ->
+  Queue.iter (fun (tid, area_id, arr_time, dep_time, current_dist_opt) ->
     let line_obj, m, sid, headsign = Hashtbl.find valid_trips tid in
     let vehicle_id = try Hashtbl.find trip_to_block tid with Not_found -> tid in
     let term_area_id = try snd (Hashtbl.find vehicle_terminus vehicle_id) with Not_found -> area_id in
@@ -459,7 +459,7 @@ let load_network_gtfs directory target_date =
         end;
         last_trip_state := Some (tid, area_id, dep_time, current_dist_opt)
     | _ -> last_trip_state := Some (tid, area_id, dep_time, current_dist_opt));
-  ) (List.rev !stop_time_entries);
+  ) stop_time_entries;
 
   (* G. Construction finale des arêtes avec listes triées *)
   Hashtbl.iter

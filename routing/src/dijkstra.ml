@@ -113,9 +113,10 @@ module Make
           | None -> None (* Le tas est vide, la destination est inatteignable *)
           | Some (g_cost, u, u_state, rest_ta) ->
               ta := rest_ta;
-              let recorded_g = Option.value ~default:W.infinity (StateTable.find_opt dist u_state) in
-              if W.(g_cost > recorded_g) then process ()
-              else if G.Node.equal u destination then begin
+              (match StateTable.find_opt dist u_state with
+              | Some recorded_g when W.(g_cost > recorded_g) -> process ()
+              | _ ->
+              if G.Node.equal u destination then begin
                 (* Premier dépilage de la destination = coût global optimal (invariant du tas).
                    On remonte l'historique dans 'prev' pour créer la liste des étapes. *)
                 let rec build_steps acc state =
@@ -143,14 +144,11 @@ module Make
 
                         if (not is_state_change) || can_change_state u then (
                           let v_state = (v, next_state_key) in
-                          let old_g = Option.value ~default:W.infinity (StateTable.find_opt dist v_state) in
-
-                          (* Si le passage par cette arête nous offre un meilleur score que notre
-                             précédent record pour cet état, on :
-                             1. met à jour le record officiel dans 'dist'.
-                             2. lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
-                             3. propulse ce nouvel état prometteur dans le tas 'ta'. *)
-                          if W.(new_g < old_g) then begin
+                          let should_update = match StateTable.find_opt dist v_state with
+                            | None -> true
+                            | Some old_g -> W.(new_g < old_g)
+                          in
+                          if should_update then begin
                             StateTable.replace dist v_state new_g;
                             StateTable.replace prev v_state (u_state, edge, new_g);
                             ta := TA.push ~g_cost:new_g v v_state !ta
@@ -159,7 +157,7 @@ module Make
 
                 (* Boucle récursive : on passe au noeud suivant dans le tas *)
                 process ()
-              end
+              end)
         in
         process ()
 end

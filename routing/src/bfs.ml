@@ -40,7 +40,7 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                   | Some new_weight ->
                       let next_state_key = W.get_state_key new_weight in
                       let _, current_state_key = u_state in
-                      let is_line_change = Stdlib.compare current_state_key next_state_key <> 0 in
+                      let is_line_change = current_state_key <> next_state_key in
                       let is_state_change = is_line_change && not (G.Node.equal u source) in
                       if (not is_state_change) || can_change_state u then begin
                         let v_state = (v, next_state_key) in
@@ -63,13 +63,11 @@ module Make (G : GRAPH) (W : WEIGHT with type edge = G.Edge.t and type node = G.
                 in
                 build_steps (step :: acc) pred_state
           in
-          let steps = build_steps [] final_state in
-          let total_weight =
-            match List.rev steps with
-            | [] -> initial_weight
-            | last_step :: _ -> last_step.P.weight
+          let total_weight = match Hashtbl.find_opt prev final_state with
+            | None -> initial_weight
+            | Some (_, _, _, _, weight) -> weight
           in
-          Some { P.steps; total_weight }
+          Some { P.steps = build_steps [] final_state; total_weight }
         in
         bfs ()
 end

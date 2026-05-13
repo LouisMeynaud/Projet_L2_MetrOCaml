@@ -12,10 +12,9 @@ let find_station graphe id =
     @param name Le nom de la station
     @return La station correspondante, ou None si non trouvée *)
 let find_station_by_name graphe name =
+  let norm = String.lowercase_ascii (String.trim name) in
   List.find_opt
-    (fun (s : station) ->
-      String.lowercase_ascii (String.trim s.name)
-      = String.lowercase_ascii (String.trim name))
+    (fun (s : station) -> String.lowercase_ascii (String.trim s.name) = norm)
     (TransportGraph.nodes graphe)
 
 (** Clone un graphe de transport

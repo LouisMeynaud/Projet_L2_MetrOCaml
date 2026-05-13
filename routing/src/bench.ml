@@ -38,9 +38,11 @@ let filter_nodes nodes max_size =
 
 (** Sélectionner une station aléatoire dans une liste de nœuds *)
 let pick_random_station nodes =
-  if nodes = [] then None
-  else
-    Some (List.nth nodes (Random.int (List.length nodes)))
+  match nodes with
+  | [] -> None
+  | _ ->
+    let n = List.length nodes in
+    Some (List.nth nodes (Random.int n))
 let pick_random_pair nodes_filtered =
   match (pick_random_station nodes_filtered, pick_random_station nodes_filtered) with
   | Some src, Some dst when src <> dst -> Some (src, dst)

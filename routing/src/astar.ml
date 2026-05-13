@@ -109,9 +109,10 @@ module Make
           | None -> None
           | Some (_f_cost, g_cost, u, u_state, rest_ta) ->
               ta := rest_ta;
-              let recorded_g = Option.value ~default:W.infinity (StateTable.find_opt dist u_state) in
-              if W.(g_cost > recorded_g) then process ()
-              else if G.Node.equal u destination then begin
+              (match StateTable.find_opt dist u_state with
+              | Some recorded_g when W.(g_cost > recorded_g) -> process ()
+              | _ ->
+              if G.Node.equal u destination then begin
                 (* h(dest) = 0 pour toute heuristique admissible, donc f = g au dépilage.
                    Premier dépilage de la destination = coût global optimal. *)
                 let rec build_steps acc state =
@@ -137,9 +138,11 @@ module Make
 
                         if (not is_state_change) || can_change_state u then (
                           let v_state = (v, next_state_key) in
-                          let old_g = Option.value ~default:W.infinity (StateTable.find_opt dist v_state) in
-
-                          if W.(new_g < old_g) then begin
+                          let should_update = match StateTable.find_opt dist v_state with
+                            | None -> true
+                            | Some old_g -> W.(new_g < old_g)
+                          in
+                          if should_update then begin
                             let new_f = g_scalar new_g +. H.estimate v destination in
                             StateTable.replace dist v_state new_g;
                             StateTable.replace prev v_state (u_state, edge, new_g);
@@ -147,7 +150,7 @@ module Make
                           end))
                   (G.neighbors graph u);
                 process ()
-              end
+              end)
         in
         process ()
 end
