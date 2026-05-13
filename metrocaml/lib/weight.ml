@@ -13,17 +13,19 @@ let transfer_penalty = 180
 let perturbations_penalty = 600
 
 (** Table des modes de transport désactivés par l'utilisateur. *)
-let excluded_modes : (string, unit) Hashtbl.t = Hashtbl.create 8
+let excluded_modes : (string, unit) Hashtbl.t ref = ref (Hashtbl.create 1)
 
 let set_excluded_modes modes =
-  Hashtbl.reset excluded_modes;
+  let tbl = Hashtbl.create 8 in
   List.iter (fun m ->
     let key = String.lowercase_ascii (String.trim m) in
-    if key <> "" then Hashtbl.replace excluded_modes key ()
-  ) modes
+    if key <> "" then Hashtbl.replace tbl key ()
+  ) modes;
+  excluded_modes := tbl
 
 let is_mode_excluded mode =
-  Hashtbl.mem excluded_modes (String.lowercase_ascii (string_of_mode mode))
+  let tbl = !excluded_modes in
+  Hashtbl.mem tbl (String.lowercase_ascii (string_of_mode mode))
 
 (** Outils de Formatage *)
 
