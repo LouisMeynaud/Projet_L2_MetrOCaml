@@ -1,9 +1,9 @@
 # Décisions importantes de conception du projet
 
-Ce document décrit les décisions de conception clés prises lors du développement de ce 
-projet. Il vise à fournir un contexte et une justification pour les choix techniques et 
-architecturaux effectués.
+Ce document décrit les décisions de conception clés prises lors du développement de ce projet. Il vise à fournir un contexte et une justification pour les choix techniques et architecturaux effectués.
 
+
+> Pour une description détaillée de l'architecture, se réferer à la section "Architecture du projet" du RAPPORT.md. Ci-dessous des détails supplémentaires sur la conception de l'interface graphique et sur l'implémentation spécifique des algorithmes de routage.
 
 
 ## 1. Architecture Modèle-Vue-Contrôleur (MVC)
