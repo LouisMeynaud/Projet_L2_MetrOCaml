@@ -154,9 +154,9 @@ Arrêts (BFS)                | 2 936.131 ms  | OK — 12 étapes · 34 h 17 min 
 ## Benchmark aléatoire
 
 > * **Catégorie :** Distance haversine entre le point de départ et le point d'arrivé
-> * **Dijkstra TW :** Temps d'éxécution de Dijkstra supérieur à A* 
+> * **Dijkstra TW :** Temps d'exécution de Dijkstra supérieur à A* 
 > * **Dijkstra WW :** Poids de Dijkstra inférieur à celui trouvé par A*
-> * **Dijkstra/A\* (ms) :** Moyenne du temps d'éxécution de l'algorithme
+> * **Dijkstra/A\* (ms) :** Moyenne du temps d'exécution de l'algorithme
 > * **Dijkstra/A\* w :** Moyenne du poids trouvé par l'algorithme 
 
 
@@ -171,7 +171,7 @@ Catégorie      | Bench | Dijkstra TW | Dijkstra WW| Dijkstra (ms) | A* (ms) | D
 ### Résumé global
 
 * **Total des benchmarks :** 50
-* **A\* gagnant sur le temps d'éxécution :** 35 cas
+* **A\* gagnant sur le temps d'exécution :** 35 cas
 * **Dijkstra gagnant sur le poids (temps / correspondances) :** 37 cas
 
 > **Statistique globale :**
@@ -195,7 +195,7 @@ Catégorie      | Bench | Dijkstra TW | Dijkstra WW| Dijkstra (ms) | A* (ms) | D
 ### Résumé global
 
 * **Total des benchmarks :** 2000
-* **A\* gagnant sur le temps d'éxécution :** 1225 cas
+* **A\* gagnant sur le temps d'exécution :** 1225 cas
 * **Dijkstra gagnant sur le poids (temps / correspondances) :** 3505 cas
 
 > **Statistique globale :**
@@ -204,5 +204,5 @@ Catégorie      | Bench | Dijkstra TW | Dijkstra WW| Dijkstra (ms) | A* (ms) | D
 ---
 
 ## Conclusion Générale
-Dijkstra a souvent de meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (75.00% et 87.62% où Dijkstra a des résultats meilleurs ou semblables à A*). Néanmoins A* est quant à lui plus rapide en temps d'éxécution que Dijkstra (70.00% et 62.25% où A* est plus rapide que Djikstra) surtout sur les longues distances où A* est meilleur à 80% en temps d'éxécution par rapport à Dijkstra.
+Dijkstra a souvent de meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (75.00% et 87.62% où Dijkstra a des résultats meilleurs ou semblables à A*). Néanmoins A* est quant à lui plus rapide en temps d'exécution que Dijkstra (70.00% et 62.25% où A* est plus rapide que Djikstra) surtout sur les longues distances où A* est meilleur à 80% en temps d'exécution par rapport à Dijkstra.
 A* est plus rapide que Djikstra dans la majorité des cas mais souvent Djikstra a un meilleur itinéraire selon les critères sélectionnés.
