@@ -23,7 +23,7 @@ module Make
   type path = P.t
   type graph = G.t
 
-  (** Table de hachage pour les états (nœud × clé_état).
+  (** Table de hachage pour les états (noeud × clé_état).
       Utilise G.Node.hash au lieu du hash polymorphique sur l'objet entier. *)
   module StateHash = struct
     type t = G.Node.t * W.state_key
@@ -87,7 +87,7 @@ module Make
       @param graph Le graphe pré-construit du réseau.
       @param source Le noeud de départ.
       @param destination Le noeud d'arrivée.
-      @param can_change_state Prédicat autorisant un changement d'état au nœud courant. *)
+      @param can_change_state Prédicat autorisant un changement d'état au noeud courant. *)
   let find_path ~init ~(graph : G.t) ~(source : G.Node.t)
       ~(destination : G.Node.t) ~(can_change_state : G.Node.t -> bool) =
     if not (G.has_node graph source) then None
@@ -148,6 +148,11 @@ module Make
                             | None -> true
                             | Some old_g -> W.(new_g < old_g)
                           in
+                            (* Si le passage par cette arête nous offre un meilleur score que notre
+                             précédent record pour cet état, on :
+                             1. met à jour le record officiel dans 'dist'.
+                             2. lie ce nouvel état à l'ancien dans 'prev' (avec son step_data).
+                             3. propulse ce nouvel état prometteur dans le tas 'ta'. *)
                           if should_update then begin
                             StateTable.replace dist v_state new_g;
                             StateTable.replace prev v_state (u_state, edge, new_g);

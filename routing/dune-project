@@ -17,7 +17,7 @@
 (package
  (name routing)
  (synopsis "Bibliothèque de routage de graphe.")
- (description "Flexible et basée sur des foncteurs, supportant des types de graphes, de nœuds et de métriques de routage arbitraires. Inclut les algorithmes de Dijkstra et BFS.")
+ (description "Flexible et basée sur des foncteurs, supportant des types de graphes, de noeuds et de métriques de routage arbitraires. Inclut les algorithmes de Dijkstra, A* et BFS.")
  (depends ocaml dune)
 )
 
