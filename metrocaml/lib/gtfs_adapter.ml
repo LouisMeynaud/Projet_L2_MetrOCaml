@@ -271,6 +271,7 @@ let load_network_gtfs directory target_date =
   let t_path = Filename.concat directory "trips.txt" in
   if Sys.file_exists t_path then begin
     let t_ic = open_in t_path in
+    Fun.protect ~finally:(fun () -> close_in t_ic) (fun () ->
     let t_csv = Csv.of_channel t_ic in
     let t_header = Csv.next t_csv in
     let i_tid = get_index t_header "trip_id" in
@@ -301,8 +302,7 @@ let load_network_gtfs directory target_date =
           in
           let vehicle_id = if block = "" then tid else block in
           Hashtbl.add trip_to_block tid vehicle_id)
-      t_csv;
-    close_in t_ic
+      t_csv)
   end;
 
   (* D. Stops *)
@@ -312,6 +312,7 @@ let load_network_gtfs directory target_date =
   let s_path = Filename.concat directory "stops.txt" in
   if Sys.file_exists s_path then begin
     let s_ic = open_in s_path in
+    Fun.protect ~finally:(fun () -> close_in s_ic) (fun () ->
     let s_csv = Csv.of_channel s_ic in
     let s_header = Csv.next s_csv in
     let i_sid = get_index s_header "stop_id" in
@@ -368,8 +369,7 @@ let load_network_gtfs directory target_date =
             Hashtbl.replace area_nodes parent_id { existing_parent with pmr = true }
           end
         with _ -> ())
-      s_csv;
-    close_in s_ic
+      s_csv)
   end;
   Hashtbl.iter (fun _ st -> Network.TransportGraph.add_node graph st) area_nodes;
 
@@ -379,6 +379,7 @@ let load_network_gtfs directory target_date =
   let st_path = Filename.concat directory "stop_times.txt" in
   if Sys.file_exists st_path then begin
     let st_ic = open_in st_path in
+    Fun.protect ~finally:(fun () -> close_in st_ic) (fun () ->
     let st_csv = Csv.of_channel st_ic in
     let st_header = Csv.next st_csv in
     let i_st_trip     = get_index     st_header "trip_id" in
@@ -403,8 +404,7 @@ let load_network_gtfs directory target_date =
         if arr_time > current_max then
           Hashtbl.replace vehicle_terminus vehicle_id (arr_time, area_id);
         stop_time_entries := (tid, area_id, arr_time, dep_time, dist_opt) :: !stop_time_entries
-      end) st_csv;
-    close_in st_ic
+      end) st_csv)
   end;
 
   (* Construction des arêtes *)
@@ -488,6 +488,7 @@ let load_network_gtfs directory target_date =
   let tr_path = Filename.concat directory "transfers.txt" in
   if Sys.file_exists tr_path then begin
     let tr_ic = open_in tr_path in
+    Fun.protect ~finally:(fun () -> close_in tr_ic) (fun () ->
     let tr_csv = Csv.of_channel tr_ic in
     let tr_header = Csv.next tr_csv in
     
@@ -528,9 +529,8 @@ let load_network_gtfs directory target_date =
           | _ -> ()
         end
       with _ -> ()
-    ) tr_csv;
-    close_in tr_ic
-  end; 
+    ) tr_csv)
+  end;
   graph
 
 (* ================================================== *)
