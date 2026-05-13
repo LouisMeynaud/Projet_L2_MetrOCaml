@@ -114,7 +114,7 @@ let combine (type e n) (criteria : (e, n) criterion list) :
 
         let ( < ) a b = Float.compare (compare a b) 0.0 < 0
         let ( > ) a b = Float.compare (compare a b) 0.0 > 0
-        let ( = ) a b = Float.equal (compare a b) 0.0
+        let ( = ) a b = Stdlib.(<) (Float.abs (compare a b)) 1e-9
 
         let get_weight (t : t) : int =
           match t.(0) with
