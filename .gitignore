@@ -36,6 +36,7 @@ _coverage/
 
 # Data
 data/[a-q]*
+data/rt/
 
 # Env
 .env
