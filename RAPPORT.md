@@ -29,7 +29,7 @@ Routing fournit plusieurs algorithmes de parcours du graphe :
   - **A\*** (dijkstra avec biais heuristique)
 
 ### 2.3 Système de Pondération
-Les algorithmes Dijkstra et A* nécessitent un système de pondération pour évaluer les coûts des chemins. La bibliothèque définit une interface `WEIGHT` qui permet de représenter une **métrique de coût**. Les projets utilisant la bibliothèque peuvent implémenter cette interface pour définir leurs propres critères de recherche. Ces modules peuvent alors utiliser les types spécifiques du projet. Par exemple, MétroCaml implémente des poids basés sur le temps de trajet, la distance, le nombre d'arrêts, ou les correspondances. TiktoCaml pourrait implémenter des poids basés sur la force de la relation, la fréquence d'interaction, etc.
+Les algorithmes Dijkstra et A* nécessitent un système de pondération pour évaluer les coûts des chemins. La bibliothèque définit une interface `WEIGHT` qui permet de représenter une **métrique de coût**. Les projets utilisant la bibliothèque peuvent implémenter cette interface pour définir leurs propres critères de recherche. Ces modules peuvent alors utiliser les types spécifiques du projet. Par exemple, *MétroCaml* implémente des poids basés sur le temps de trajet, la distance, le nombre d'arrêts, ou les correspondances. *TiktoCaml* pourrait implémenter des poids basés sur la force de la relation, la fréquence d'interaction, etc.
 
 Routing fournit aussi un système de **combinaison de poids**, `Combinator`, permettant de créer des métriques composites à partir de plusieurs critères. Par exemple, un utilisateur pourrait vouloir minimiser à la fois le temps de trajet et le nombre de correspondances, en pondérant ces deux critères selon ses préférences.
 
@@ -47,21 +47,21 @@ Ici, la bibliothèque routing est utilisée dans deux contextes totalement diff�
 - Arêtes = trajets (bus, métro, marche, transfert...)
 - Poids  = critères (temps, distance, correspondances, nombre d'arrêts)
 
-#### B | TiktoCaml : Réseaux Sociaux
+#### B | *TiktoCaml* : Réseaux Sociaux
 - Noeuds = personnes
 - Arêtes = relations d'amitié
 - Poids  = critères de parcours
 
 
-## 3. Application MétroCaml
-MétroCaml est un moteur de recherche d'itinéraires pour les transports. Il propose une interface complète pour trouver des trajets entre deux points d'un réseau en fonction de différents critères de recherche.
+## 3. Application *MétroCaml*
+*MétroCaml* est un moteur de recherche d'itinéraires pour les transports. Il propose une interface complète pour trouver des trajets entre deux points d'un réseau en fonction de différents critères de recherche.
 
 ### 3.1 Modèle de Données
-Pour charger des données réelles, MétroCaml s'appuie sur le standard **GTFS (General Transit Feed Specification)**. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant de Tisséo (Toulouse) à Île-de-France Mobilités. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers **CSV** et les modélise directement en mémoire sous la forme d'un objet **TransportGraph**.
+Pour charger des données réelles, *MétroCaml* s'appuie sur le standard **GTFS (General Transit Feed Specification)**. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant de Tisséo (Toulouse) à Île-de-France Mobilités. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers **CSV** et les modélise directement en mémoire sous la forme d'un objet **TransportGraph**.
 Le graphe statique est complété par un modele en temps réel. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités pour récupérer les flux d'informations trafic au format **JSON (GTFS-RT)**. Cette intégration s'effectue via un **thread parallèle** afin de ne pas bloquer les modules de calcul d'itinéraires.
 
 ### 3.2 Interface Utilisateur
-Deux interfaces sont disponibles au lancement de MétroCaml :
+Deux interfaces sont disponibles au lancement de *MétroCaml* :
 - une **interface console** (CLI) pour un affichage textuel
 - une **interface graphique** (GUI) pour un affichage visuel interactif et l'intégration des alertes et perturbations en temps réel.
 
@@ -123,7 +123,7 @@ Nous voulions initialement publier automatiquement le rapport de couverture et l
 - Couverture de code (avec *bisect_ppx*) : seuil minimal de 70% pour valider les MR.
 - **Tests de compatibilité** :
     - exécution du projet sur différents systèmes (Linux, Windows, MacOS)
-    - exécution de MétroCaml sur différents réseaux (IDF, Toulouse, etc.) pour vérifier la robustesse du parseur GTFS.
+    - exécution de *MétroCaml* sur différents réseaux (IDF, Toulouse, etc.) pour vérifier la robustesse du parseur GTFS.
 
 
 # STATISTIQUES - BENCHMARKS
@@ -204,5 +204,5 @@ Catégorie      | Bench | Dijkstra TW | Dijkstra WW| Dijkstra (ms) | A* (ms) | D
 ---
 
 ## Conclusion Générale
-Dijkstra a souvent des meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (75.00% et 87.62% où Dijkstra a des meilleurs résultats ou égaux). Néanmoins A* est quant à lui plus rapide en temps d'éxécution que Dijkstra  (70.00% et 62.25% où A* est plus rapide que Djikstra) surtout sur les longues distances où A* est meilleur à 80% en temps d'éxécution par rapport à Dijkstra. 
-A* est plus rapide que Djikstra dans la majorité des cas mais souvent Djikstra a un meilleur itinéraire selon les critères sélectionnés. 
+Dijkstra a souvent de meilleurs résultats que A*, on le voit bien avec les deux derniers benchs (75.00% et 87.62% où Dijkstra a des résultats meilleurs ou semblables à A*). Néanmoins A* est quant à lui plus rapide en temps d'éxécution que Dijkstra (70.00% et 62.25% où A* est plus rapide que Djikstra) surtout sur les longues distances où A* est meilleur à 80% en temps d'éxécution par rapport à Dijkstra.
+A* est plus rapide que Djikstra dans la majorité des cas mais souvent Djikstra a un meilleur itinéraire selon les critères sélectionnés.
