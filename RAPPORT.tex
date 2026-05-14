@@ -233,7 +233,7 @@ Arrêts (BFS)                 &  2\,936 ms & OK --- 12 étapes $\cdot$ 34h17 $\c
 \subsubsection*{Benchmark aléatoire}
 
 \begin{itemize}
-    \item \textbf{Catégorie :} Distance haversine entre le départ et l'arrivée
+    \item \textbf{Catégorie :} Distance à vol d'oiseau entre le départ et l'arrivée
     \item \textbf{Dijkstra TW :} \% des benchmarks où Dijkstra est plus rapide qu'A* en temps d'exécution
     \item \textbf{Dijkstra WW :} \% des benchmarks où Dijkstra trouve un meilleur poids qu'A*
     \item \textbf{Dijkstra/A* (ms) :} Moyenne du temps d'exécution
@@ -244,7 +244,7 @@ Arrêts (BFS)                 &  2\,936 ms & OK --- 12 étapes $\cdot$ 34h17 $\c
 \small
 \begin{tabular}{lrrrrrrr}
 \toprule
-\textbf{Catégorie} & \textbf{Bench} & \textbf{Dijk. TW} & \textbf{Dijk. WW} & \textbf{Dijk. (ms)} & \textbf{A* (ms)} & \textbf{Dijk. w} & \textbf{A* w} \\
+\textbf{Catégorie} & \textbf{Bench} & \textbf{Dijk. TW} & \textbf{Dijk. WW} & \textbf{Dijk. (s)} & \textbf{A* (s)} & \textbf{Dijk. w} & \textbf{A* w} \\
 \midrule
 $< 8000$             &  2 & 50,0\,\% & 75,0\,\% &  0,6511 &  0,6809 & 0,5000 & 1,2500 \\
 {[8000, 15000]}      &  5 & 20,0\,\% & 70,0\,\% &  3,3885 &  2,3598 & 1,7000 & 1,9000 \\
@@ -273,7 +273,7 @@ A* est meilleur dans \textbf{70,00\,\%} des cas que Dijkstra en temps d'exécuti
 \small
 \begin{tabular}{lrrrrrrr}
 \toprule
-\textbf{Catégorie} & \textbf{Bench} & \textbf{Dijk. TW} & \textbf{Dijk. WW} & \textbf{Dijk. (ms)} & \textbf{A* (ms)} & \textbf{Dijk. w} & \textbf{A* w} \\
+\textbf{Catégorie} & \textbf{Bench} & \textbf{Dijk. TW} & \textbf{Dijk. WW} & \textbf{Dijk. (s)} & \textbf{A* (s)} & \textbf{Dijk. w} & \textbf{A* w} \\
 \midrule
 $< 3000$             & 111 & 38,7\,\% & 88,3\,\% & 0,0406 & 0,0343 & 0,1892 & 0,3333 \\
 {[3000, 8000]}       & 463 & 37,1\,\% & 85,5\,\% & 0,1231 & 0,1082 & 1,0961 & 1,3164 \\
@@ -299,5 +299,7 @@ A* est meilleur dans \textbf{62,25\,\%} des cas que Dijkstra en temps d'exécuti
 Dijkstra obtient souvent de meilleurs résultats qu'A* en qualité d'itinéraire : il trouve un meilleur poids dans 75,00\,\% des cas sur IDF et 87,62\,\% des cas sur Toulouse. En revanche, A* est systématiquement plus rapide en temps de calcul (70,00\,\% et 62,25\,\% des cas), avantage particulièrement marqué sur les longues distances.
 
 En résumé : \textbf{A* calcule plus vite, Dijkstra trouve plus souvent le meilleur itinéraire} selon les critères sélectionnés.
+
+N.B. : Ces mesures ont été réalisées sur les graphes complets, sans exclusion de modes de transport, ce qui explique les temps de calcul relativement élevés, notamment sur IDFM (exploration de toutes les lignes de bus). En limitant le graphe, par exemple aux Métros/RER, on a des temps de calcul presque toujours inférieurs à 1 seconde.
 
 \end{document}
