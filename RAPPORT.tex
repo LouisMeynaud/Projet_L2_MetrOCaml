@@ -66,9 +66,11 @@ Ces modules sont définis par le projet utilisant la bibliothèque. Par exemple,
 Routing fournit plusieurs algorithmes de parcours du graphe :
 \begin{itemize}
     \item \textbf{BFS} (parcours basique en largeur)
-    \item \textbf{Dijkstra} (coût minimal)
-    \item \textbf{A*} (Dijkstra avec biais heuristique)
+    \item \textbf{Dijkstra} (coût minimal)~\cite{dijkstra}
+    \item \textbf{A*} (Dijkstra avec biais heuristique)~\cite{astar}
 \end{itemize}
+
+Les algorithmes utilisent le principe du \textbf{state-space search}~\cite{abbeel} : ils explorent un espace d'états défini par les n\oe{}uds du graphe, en utilisant une file de priorité pour gérer les n\oe{}uds à explorer.
 
 \subsection{Système de Pondération}
 
@@ -109,9 +111,9 @@ MétroCaml est un moteur de recherche d'itinéraires pour les transports. Il pro
 
 \subsection{Modèle de Données}
 
-Pour charger des données réelles, MétroCaml s'appuie sur le standard \textbf{GTFS (General Transit Feed Specification)}. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant d'Île-de-France Mobilités à Corsica Ferries en passant par le réseau ferroviaire SNCF. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers \textbf{CSV} et les modélise directement en mémoire sous la forme d'un objet \textbf{TransportGraph}.
+Pour charger des données réelles, MétroCaml s'appuie sur le standard \textbf{GTFS (General Transit Feed Specification)}~\cite{gtfs}. Il s'agit d'un format universel de représentation des réseaux de transport, structuré sous la forme d'archives contenant des fichiers textes CSV. Nous avons choisi ce format car c'est le standard officiel en Europe et à l'international. Cette standardisation nous offre une grande flexibilité et permet à notre moteur de calculer des itinéraires sur des réseaux très variés, allant d'Île-de-France Mobilités à Corsica Ferries en passant par le réseau ferroviaire SNCF. Concrètement, une fois les données téléchargées, notre parseur lit ces fichiers \textbf{CSV} et les modélise directement en mémoire sous la forme d'un objet \textbf{TransportGraph}.
 
-Pour offrir des itinéraires fiables et ancrés dans la réalité, le graphe statique est complété par un moteur d'ingestion de données en temps réel. \textbf{GTFS-RT} (\textit{General Transit Feed Specification -- Realtime}) est l'extension temps réel du standard GTFS ; il encode les alertes et perturbations sous forme de flux Protocol Buffers. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités pour récupérer ces flux et les intégrer via un \textbf{thread parallèle} afin de ne pas bloquer les modules de calcul d'itinéraires.
+Pour offrir des itinéraires fiables et ancrés dans la réalité, le graphe statique est complété par un moteur d'ingestion de données en temps réel. \textbf{GTFS-RT} (\textit{General Transit Feed Specification -- Realtime})~\cite{gtfsrt} est l'extension temps réel du standard GTFS ; il encode les alertes et perturbations sous forme de flux Protocol Buffers. Ce module s'interface avec l'API PRIM d'Île-de-France Mobilités~\cite{prim} pour récupérer ces flux et les intégrer via un \textbf{thread parallèle} afin de ne pas bloquer les modules de calcul d'itinéraires.
 
 \newpage
 \subsection{Interface Utilisateur}
@@ -301,5 +303,41 @@ Dijkstra obtient souvent de meilleurs résultats qu'A* en qualité d'itinéraire
 En résumé : \textbf{A* calcule plus vite, Dijkstra trouve plus souvent le meilleur itinéraire} selon les critères sélectionnés.
 
 N.B. : Ces mesures ont été réalisées sur les graphes complets, sans exclusion de modes de transport, ce qui explique les temps de calcul relativement élevés, notamment sur IDFM (exploration de toutes les lignes de bus). En limitant le graphe, par exemple aux Métros/RER, on a des temps de calcul presque toujours inférieurs à 1 seconde.
+
+% ─────────────────────────────────────────────
+\begin{thebibliography}{9}
+
+\bibitem{dijkstra}
+Wang, Liang.
+\textit{Dijkstra Algorithm},
+Algorithm Blog, 22 nov. 2023,
+\url{https://blog.ocaml.xyz/algorithm/2023/11/23/dijkstra-algorithm.html}.
+
+\bibitem{astar}
+\textit{L'algorithme A* en OCaml},
+\url{http://decapode314.free.fr/dev/gen/a-star.html}.
+
+\bibitem{abbeel}
+Abbeel, Pieter.
+\textit{Queue-Based Search},
+UC Berkeley CS287, 16 nov. 2011,
+\url{https://people.eecs.berkeley.edu/~pabbeel/cs287-fa11/slides/search.pdf}.
+
+\bibitem{gtfs}
+MobilityData,
+\textit{GTFS Schedule Reference -- General Transit Feed Specification},
+\url{https://gtfs.org/documentation/schedule/reference/}, consulté en 2025.
+
+\bibitem{gtfsrt}
+MobilityData,
+\textit{GTFS Realtime Reference},
+\url{https://gtfs.org/documentation/realtime/reference/}, consulté en 2025.
+
+\bibitem{prim}
+Île-de-France Mobilités,
+\textit{API PRIM -- Plateforme Régionale d'Information Multimodale},
+\url{https://prim.iledefrance-mobilites.fr/}, consulté en 2025.
+
+\end{thebibliography}
 
 \end{document}
