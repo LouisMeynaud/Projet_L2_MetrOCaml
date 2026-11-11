@@ -32,15 +32,21 @@ Ce projet démontre une maîtrise avancée du paradigme fonctionnel et de l'arch
 
 ### Lancer via l'exécutable
 
-Vous pouvez télécharger l'archive depuis la section [Releases](https://github.com/LouisMeynaud/Projet_L2_MetrOCaml/releases)
-
-Accordez les droits d'exécution et lancez le programme :
-
-```
+Vous pouvez télécharger l'archive `.zip` précompilée depuis la section [Releases](https://github.com/LouisMeynaud/Projet_L2_MetrOCaml/releases).
+Extrayez l'archive, accordez les droits d'exécution et lancez le programme depuis le dossier extrait :
+* pour MetroCaml :
+```bash
+unzip metrocaml-1.0.0.zip
+cd metrocaml-1.0.0
 chmod u+x metrocaml-1.0.0
-./metrocaml-1.0.0 # Interface des transports
-./tiktocaml-1.0.0 # Interface du réseau social
-
+./metrocaml-1.0.0
+```
+* pour TiktokCaml :
+```bash
+unzip tiktokcaml-1.0.0.zip
+cd tiktokcaml-1.0.0
+chmod u+x tiktokcaml-1.0.0
+./tiktokcaml-1.0.0
 ```
 
 ### Compiler depuis le code source
