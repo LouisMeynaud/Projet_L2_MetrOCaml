@@ -37,14 +37,12 @@ Extrayez l'archive, accordez les droits d'exécution et lancez le programme depu
 * pour MetroCaml :
 ```bash
 unzip metrocaml-1.0.0.zip
-cd metrocaml-1.0.0
 chmod u+x metrocaml-1.0.0
 ./metrocaml-1.0.0
 ```
 * pour TiktokCaml :
 ```bash
 unzip tiktokcaml-1.0.0.zip
-cd tiktokcaml-1.0.0
 chmod u+x tiktokcaml-1.0.0
 ./tiktokcaml-1.0.0
 ```
