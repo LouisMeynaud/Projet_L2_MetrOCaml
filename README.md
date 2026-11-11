@@ -32,9 +32,7 @@ Ce projet démontre une maîtrise avancée du paradigme fonctionnel et de l'arch
 
 ### Lancer via l'exécutable
 
-Vous pouvez télécharger les exécutables précompilés : 
-* [MetroCaml](https://github.com/LouisMeynaud/Projet_L2_MetrOCaml/releases/download/v1.0.0/metrocaml-1.0.0)
-* [TiktokCaml](https://github.com/LouisMeynaud/Projet_L2_MetrOCaml/releases/download/v1.0.0/tiktokcaml-1.0.0)
+Vous pouvez télécharger l'archive depuis la section [Releases](https://github.com/LouisMeynaud/Projet_L2_MetrOCaml/releases)
 
 Accordez les droits d'exécution et lancez le programme :
 
